@@ -1,881 +1,686 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Laland Express - Your Daily Needs</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-        /* Custom scrollbar hiding for smooth app experience */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        .active-tab {
-            color: #059669; /* emerald-600 */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Laland Express - Your daily needs</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v9) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged,
+      updateProfile
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      doc, 
+      setDoc, 
+      getDoc 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      updateProfile,
+      doc,
+      setDoc,
+      getDoc
+    };
+  </script>
+
+  <style>
+    /* App View Container Fixes */
+    body {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen flex justify-center text-slate-800">
+<body class="bg-gray-50 text-gray-800 pb-20 select-none">
 
-    <!-- App Shell Container (Simulates Mobile Device / Fluid Desktop Max-Width) -->
-    <div id="app-shell" class="w-full max-w-md bg-white min-h-screen flex flex-col shadow-2xl relative overflow-hidden pb-20">
-
-        <!-- HEADER TOP BAR -->
-        <header class="bg-emerald-600 text-white p-4 sticky top-0 z-30 shadow-md">
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center space-x-2">
-                    <div class="bg-white text-emerald-600 p-2 rounded-xl font-black text-xl tracking-tighter shadow-sm flex items-center justify-center w-10 h-10">
-                        LX
-                    </div>
-                    <div>
-                        <h1 class="text-lg font-bold leading-tight tracking-tight">Laland Express</h1>
-                        <p class="text-xs text-emerald-100 flex items-center">
-                            <i class="fa-solid fa-location-dot text-amber-300 mr-1 text-[10px]"></i>
-                            <span id="header-address" class="truncate max-w-[180px]">Select location...</span>
-                        </p>
-                    </div>
-                </div>
-                <button id="auth-header-btn" onclick="openAuthModal()" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center space-x-1 transition">
-                    <i class="fa-regular fa-user"></i>
-                    <span id="header-user-status">Login</span>
-                </button>
-            </div>
-
-            <!-- SEARCH BAR -->
-            <div class="relative">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input type="text" id="search-input" oninput="renderProducts()" placeholder="Search fresh veggies, milk, snacks..." 
-                       class="w-full pl-9 pr-4 py-2 bg-white text-slate-800 text-sm rounded-xl outline-none shadow-inner placeholder-slate-400">
-            </div>
-        </header>
-
-        <!-- MAIN VIEW CONTENT AREA -->
-        <main id="main-content" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-5">
-            
-            <!-- HOME TAB CONTENT -->
-            <div id="tab-home" class="tab-view space-y-5">
-                <!-- Promo Banner Carousel -->
-                <div class="bg-gradient-to-r from-emerald-500 to-teal-700 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden">
-                    <div class="relative z-10 w-2/3">
-                        <span class="bg-amber-400 text-slate-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Limited Offer</span>
-                        <h2 class="text-xl font-extrabold mt-1 leading-tight">50% OFF Your First Order</h2>
-                        <p class="text-xs text-emerald-100 mt-1">Use code <span class="font-bold underline text-amber-300">LALAND50</span> at checkout</p>
-                    </div>
-                    <i class="fa-solid fa-basket-shopping absolute -right-3 -bottom-3 text-7xl text-white/20 transform -rotate-12"></i>
-                </div>
-
-                <!-- Categories Horizontal Scroll -->
-                <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-bold text-slate-800 text-sm">Categories</h3>
-                    </div>
-                    <div id="categories-list" class="flex space-x-3 overflow-x-auto no-scrollbar py-1">
-                        <!-- Rendered by JS -->
-                    </div>
-                </div>
-
-                <!-- Product Grid Title -->
-                <div class="flex justify-between items-center pt-2">
-                    <h3 id="section-title" class="font-bold text-slate-800 text-base">Popular Essentials</h3>
-                    <span id="product-count" class="text-xs text-slate-500 font-medium">Loading...</span>
-                </div>
-
-                <!-- Product Grid -->
-                <div id="product-grid" class="grid grid-cols-2 gap-3">
-                    <!-- Rendered by JS -->
-                </div>
-            </div>
-
-            <!-- CATEGORIES TAB CONTENT -->
-            <div id="tab-categories" class="tab-view hidden space-y-4">
-                <h2 class="text-lg font-bold text-slate-800 mb-2">All Categories</h2>
-                <div id="full-categories-list" class="grid grid-cols-2 gap-3">
-                    <!-- Rendered by JS -->
-                </div>
-            </div>
-
-            <!-- CART TAB CONTENT -->
-            <div id="tab-cart" class="tab-view hidden space-y-4">
-                <h2 class="text-lg font-bold text-slate-800">Your Basket</h2>
-                <div id="cart-items-container" class="space-y-3">
-                    <!-- Rendered by JS -->
-                </div>
-
-                <!-- Promo & Summary Box -->
-                <div id="cart-summary-section" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 hidden">
-                    <!-- Promo Code Input -->
-                    <div class="flex gap-2">
-                        <input type="text" id="promo-code-input" uppercase placeholder="Promo Code (e.g. LALAND50)" class="flex-1 px-3 py-2 border rounded-xl text-sm uppercase outline-none focus:border-emerald-500">
-                        <button onclick="applyPromoCode()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition">Apply</button>
-                    </div>
-                    <div id="promo-msg" class="text-xs hidden font-medium"></div>
-
-                    <!-- Price Breakups -->
-                    <div class="space-y-1.5 text-xs text-slate-600 border-t pt-3">
-                        <div class="flex justify-between"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
-                        <div class="flex justify-between"><span>Delivery Fee</span><span id="cart-delivery">$2.00</span></div>
-                        <div id="discount-row" class="flex justify-between text-emerald-600 font-medium hidden"><span>Discount</span><span id="cart-discount">-$0.00</span></div>
-                        <div class="flex justify-between font-bold text-sm text-slate-800 border-t pt-2"><span>Total Amount</span><span id="cart-total" class="text-emerald-600">$0.00</span></div>
-                    </div>
-
-                    <button onclick="processCheckout()" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 transition flex items-center justify-center space-x-2">
-                        <span>Place Order</span>
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- PROFILE TAB CONTENT -->
-            <div id="tab-profile" class="tab-view hidden space-y-4">
-                <div id="profile-logged-in" class="hidden space-y-4">
-                    <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center space-x-3">
-                        <div class="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xl">
-                            <i class="fa-solid fa-user"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h3 id="user-display-name" class="font-bold text-slate-800">User Name</h3>
-                            <p id="user-display-email" class="text-xs text-slate-500">user@example.com</p>
-                            <p id="user-display-phone" class="text-xs text-slate-500 font-medium mt-0.5"></p>
-                        </div>
-                    </div>
-
-                    <!-- Address Section -->
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200 space-y-2 shadow-sm">
-                        <div class="flex justify-between items-center">
-                            <h4 class="font-bold text-sm text-slate-800"><i class="fa-solid fa-location-dot text-emerald-600 mr-2"></i>Saved Delivery Address</h4>
-                            <button onclick="editAddressModal()" class="text-xs text-emerald-600 font-semibold">Edit</button>
-                        </div>
-                        <p id="user-display-address" class="text-xs text-slate-600 leading-relaxed">No address saved yet.</p>
-                    </div>
-
-                    <!-- Orders Section -->
-                    <div class="space-y-2">
-                        <h4 class="font-bold text-sm text-slate-800"><i class="fa-solid fa-clock-rotate-left text-emerald-600 mr-2"></i>Recent Orders</h4>
-                        <div id="orders-history-container" class="space-y-2">
-                            <p class="text-xs text-slate-400">Loading order history...</p>
-                        </div>
-                    </div>
-
-                    <button onclick="handleLogout()" class="w-full border border-red-200 bg-red-50 text-red-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-100 transition">
-                        <i class="fa-solid fa-right-from-bracket mr-2"></i>Log Out
-                    </button>
-                </div>
-
-                <div id="profile-logged-out" class="text-center py-10 space-y-3">
-                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl">
-                        <i class="fa-solid fa-user-lock"></i>
-                    </div>
-                    <h3 class="font-bold text-slate-800 text-lg">Account Login</h3>
-                    <p class="text-xs text-slate-500 max-w-xs mx-auto">Login or create an account to view saved orders, address details, and sync your cart across devices.</p>
-                    <button onclick="openAuthModal()" class="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-emerald-700 transition">
-                        Sign In / Register
-                    </button>
-                </div>
-            </div>
-
-        </main>
-
-        <!-- FLOATING BOTTOM BAR (Cart quick action) -->
-        <div id="floating-cart-bar" class="hidden absolute bottom-16 left-4 right-4 bg-emerald-600 text-white p-3 rounded-2xl shadow-xl flex justify-between items-center z-20 cursor-pointer transform transition-all duration-300" onclick="switchTab('cart')">
-            <div class="flex items-center space-x-3">
-                <div id="floating-cart-count" class="bg-amber-400 text-slate-900 font-black text-xs w-7 h-7 rounded-full flex items-center justify-center">0</div>
-                <div>
-                    <p class="text-xs text-emerald-100 uppercase tracking-wider font-semibold">View Basket</p>
-                    <p id="floating-cart-total" class="font-bold text-sm">$0.00</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-1 text-sm font-bold">
-                <span>Checkout</span>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-            </div>
+  <!-- App Sticky Top Header -->
+  <header class="sticky top-0 z-40 bg-emerald-600 text-white shadow-md">
+    <div class="px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-emerald-600 font-extrabold text-xl shadow">
+          L
         </div>
-
-        <!-- BOTTOM TAB NAVIGATION -->
-        <nav class="fixed bottom-0 max-w-md w-full bg-white border-t border-slate-200 flex justify-around py-2 z-30">
-            <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center text-emerald-600 transition">
-                <i class="fa-solid fa-house text-lg"></i>
-                <span class="text-[10px] font-semibold mt-0.5">Home</span>
-            </button>
-            <button onclick="switchTab('categories')" id="nav-categories" class="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition">
-                <i class="fa-solid fa-border-all text-lg"></i>
-                <span class="text-[10px] font-semibold mt-0.5">Categories</span>
-            </button>
-            <button onclick="switchTab('cart')" id="nav-cart" class="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition relative">
-                <i class="fa-solid fa-basket-shopping text-lg"></i>
-                <span id="nav-cart-badge" class="absolute -top-1 right-2 bg-amber-500 text-slate-900 font-extrabold text-[9px] w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
-                <span class="text-[10px] font-semibold mt-0.5">Cart</span>
-            </button>
-            <button onclick="switchTab('profile')" id="nav-profile" class="flex flex-col items-center text-slate-400 hover:text-emerald-600 transition">
-                <i class="fa-solid fa-user text-lg"></i>
-                <span class="text-[10px] font-semibold mt-0.5">Profile</span>
-            </button>
-        </nav>
-
-        <!-- AUTH MODAL -->
-        <div id="auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center hidden">
-            <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto relative animate-slide-up">
-                <button onclick="closeAuthModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-
-                <div class="text-center">
-                    <h2 id="auth-modal-title" class="text-xl font-bold text-slate-800">Welcome to Laland Express</h2>
-                    <p class="text-xs text-slate-500">Sign in or register for seamless daily ordering</p>
-                </div>
-
-                <!-- Form Tabs Switcher -->
-                <div class="flex bg-slate-100 p-1 rounded-xl">
-                    <button id="auth-tab-login" onclick="setAuthMode('login')" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800">Login</button>
-                    <button id="auth-tab-register" onclick="setAuthMode('register')" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500">Register</button>
-                </div>
-
-                <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-3">
-                    <div id="auth-extra-fields" class="space-y-3 hidden">
-                        <div>
-                            <label class="text-xs font-semibold text-slate-600 block mb-1">Full Name</label>
-                            <input type="text" id="auth-name" placeholder="John Doe" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-600 block mb-1">Phone Number</label>
-                            <input type="tel" id="auth-phone" placeholder="+1 234 567 890" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:border-emerald-500">
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-600 block mb-1">Delivery Address</label>
-                            <textarea id="auth-address" placeholder="Flat No, Street, City..." class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:border-emerald-500 rows=2"></textarea>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="text-xs font-semibold text-slate-600 block mb-1">Email Address</label>
-                        <input type="email" id="auth-email" required placeholder="name@domain.com" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:border-emerald-500">
-                    </div>
-                    <div>
-                        <label class="text-xs font-semibold text-slate-600 block mb-1">Password</label>
-                        <input type="password" id="auth-password" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm outline-none focus:border-emerald-500">
-                    </div>
-
-                    <div id="auth-error-msg" class="text-xs text-red-500 font-medium hidden"></div>
-
-                    <button type="submit" id="auth-submit-btn" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition">
-                        Sign In
-                    </button>
-                </form>
-            </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Laland Express</h1>
+          <p class="text-xs text-emerald-100 font-light">Your daily needs</p>
         </div>
-
-        <!-- NOTIFICATION TOAST -->
-        <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-medium shadow-2xl z-50 hidden transition-all duration-300">
-            Toast message
-        </div>
-
+      </div>
+      <div class="flex items-center space-x-3">
+        <button id="openCartBtn" class="relative p-2 rounded-full hover:bg-emerald-700 transition">
+          <i class="fa-solid fa-cart-shopping text-xl"></i>
+          <span id="cartBadge" class="absolute -top-1 -right-1 bg-amber-400 text-emerald-950 font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center hidden">
+            0
+          </span>
+        </button>
+      </div>
     </div>
+    <!-- Search Bar -->
+    <div class="px-4 pb-3">
+      <div class="relative">
+        <input type="text" id="searchInput" placeholder="খুঁজুন (যেমন: চাল, দুধ, সাবান...)" class="w-full pl-10 pr-4 py-2 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 shadow-inner">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400"></i>
+      </div>
+    </div>
+  </header>
 
-    <!-- Firebase Modular SDK Imports -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { 
-            getAuth, 
-            createUserWithEmailAndPassword, 
-            signInWithEmailAndPassword, 
-            signOut, 
-            onAuthStateChanged 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            setDoc, 
-            getDoc, 
-            collection, 
-            addDoc, 
-            query, 
-            where, 
-            getDocs 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  <!-- Main Scrollable App Content -->
+  <main class="max-w-md mx-auto">
+    <!-- Tab 1: Home Screen -->
+    <section id="homeTab" class="p-4 space-y-4">
+      
+      <!-- Promo Banner -->
+      <div class="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-lg relative overflow-hidden">
+        <div class="relative z-10 space-y-1">
+          <span class="bg-amber-400 text-emerald-950 text-xs font-bold px-2 py-0.5 rounded-full uppercase">স্পেশাল অফার</span>
+          <h2 class="text-xl font-extrabold">দৈনন্দিন বাজারে ছাড়!</h2>
+          <p class="text-xs text-emerald-100">LALAND50 কোডে পাচ্ছেন ৫০ টাকা ছাড়</p>
+        </div>
+        <i class="fa-solid fa-basket-shopping absolute -right-3 -bottom-3 text-7xl opacity-20 transform -rotate-12"></i>
+      </div>
 
-        // EMBEDDED FIREBASE CONFIGURATION (Provided by user)
-        const firebaseConfig = {
-            apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
-            authDomain: "laland-express.firebaseapp.com",
-            projectId: "laland-express",
-            storageBucket: "laland-express.firebasestorage.app",
-            messagingSenderId: "315462688826",
-            appId: "1:315462688826:web:a6b033e1ce664071201503",
-            measurementId: "G-J4S4EL5LE4"
-        };
+      <!-- Category Filter Pills -->
+      <div>
+        <h3 class="text-sm font-bold text-gray-700 mb-2">ক্যাটাগরি</h3>
+        <div id="categoryContainer" class="flex space-x-2 overflow-x-auto hide-scrollbar py-1">
+          <!-- Populated by JS -->
+        </div>
+      </div>
 
-        // Initialize Firebase Services
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+      <!-- Product List Grid -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-gray-700" id="catalogTitle">সকল পণ্য</h3>
+          <span class="text-xs text-gray-500" id="productCount">০ টি আইটেম</span>
+        </div>
+        <div id="productGrid" class="grid grid-cols-2 gap-3">
+          <!-- Products Populated by JS -->
+        </div>
+      </div>
 
-        // EXPOSE TO GLOBAL SCOPE FOR INLINE HTML EVENT HANDLERS
-        window.auth = auth;
-        window.db = db;
-        window.fbSDK = {
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
-            signOut,
-            onAuthStateChanged,
-            doc,
-            setDoc,
-            getDoc,
-            collection,
-            addDoc,
-            query,
-            where,
-            getDocs
-        };
+    </section>
 
-        // Attach Auth State Listener
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                window.currentUser = user;
-                document.getElementById('header-user-status').innerText = 'Profile';
-                document.getElementById('profile-logged-in').classList.remove('hidden');
-                document.getElementById('profile-logged-out').classList.add('hidden');
-                
-                // Fetch User Details & Cart from Firestore
-                await loadUserProfile(user.uid);
-                await syncCartFromFirestore(user.uid);
-                await loadOrderHistory(user.uid);
-            } else {
-                window.currentUser = null;
-                window.userData = null;
-                document.getElementById('header-user-status').innerText = 'Login';
-                document.getElementById('header-address').innerText = 'Select location...';
-                document.getElementById('profile-logged-in').classList.add('hidden');
-                document.getElementById('profile-logged-out').classList.remove('hidden');
-                
-                // Load local storage cart fallback
-                loadLocalCart();
-            }
-            window.renderCart();
+    <!-- Tab 2: Categories Screen -->
+    <section id="categoriesTab" class="p-4 hidden space-y-3">
+      <h2 class="text-base font-bold text-gray-800 mb-2">ক্যাটাগরি সিলেক্ট করুন</h2>
+      <div id="categoryGrid" class="grid grid-cols-2 gap-3">
+        <!-- Categories populated by JS -->
+      </div>
+    </section>
+
+    <!-- Tab 3: Cart / Orders Screen -->
+    <section id="cartTab" class="p-4 hidden space-y-4">
+      <h2 class="text-base font-bold text-gray-800">আপনার শপিং কার্ট</h2>
+      <div id="tabCartContainer" class="space-y-3">
+        <!-- Cart items rendered here -->
+      </div>
+    </section>
+
+    <!-- Tab 4: Account Screen -->
+    <section id="accountTab" class="p-4 hidden space-y-4">
+      <!-- Unauthenticated State -->
+      <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+        
+        <!-- Toggle Tabs -->
+        <div class="flex border-b border-gray-200 text-center font-bold text-sm">
+          <button id="showLoginBtn" class="flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600">লগইন</button>
+          <button id="showSignupBtn" class="flex-1 py-2 text-gray-400">রেজিস্ট্রেশন</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ইমেইল</label>
+            <input type="email" id="loginEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+            <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+            লগইন করুন
+          </button>
+        </form>
+
+        <!-- Sign Up Form -->
+        <form id="signupForm" class="space-y-3 hidden">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">আপনার নাম</label>
+            <input type="text" id="signupName" required placeholder="MD. AL HELAL" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর</label>
+            <input type="tel" id="signupPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ইমেইল</label>
+            <input type="email" id="signupEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+            <input type="password" id="signupPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ডেলিভারি ঠিকানা</label>
+            <textarea id="signupAddress" required placeholder="বাসা নম্বর, রোড, কামারপাড়া, রংপুর..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 rows=2"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+            অ্যাকাউন্ট তৈরি করুন
+          </button>
+        </form>
+
+      </div>
+
+      <!-- Authenticated Profile View -->
+      <div id="profileView" class="hidden space-y-4">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <div>
+              <h3 id="userName" class="font-bold text-gray-800">ইউজার নেম</h3>
+              <p id="userPhone" class="text-xs text-gray-500">017XXXXXXXX</p>
+              <p id="userEmail" class="text-xs text-gray-400">email@example.com</p>
+            </div>
+          </div>
+          <button id="logoutBtn" class="text-red-500 p-2 hover:bg-red-50 rounded-full transition">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-2">
+          <h4 class="text-xs font-bold text-gray-400 uppercase">ডিফল্ট ডেলিভারি ঠিকানা</h4>
+          <p id="userAddress" class="text-sm text-gray-700">ঠিকানা লোড হচ্ছে...</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 max-w-md mx-auto">
+    <div class="grid grid-cols-4 text-center py-2">
+      <button data-tab="homeTab" class="nav-btn text-emerald-600 flex flex-col items-center">
+        <i class="fa-solid fa-house text-lg"></i>
+        <span class="text-[10px] font-medium mt-0.5">হোম</span>
+      </button>
+      <button data-tab="categoriesTab" class="nav-btn text-gray-400 flex flex-col items-center">
+        <i class="fa-solid fa-grid-2 text-lg"></i>
+        <span class="text-[10px] font-medium mt-0.5">ক্যাটাগরি</span>
+      </button>
+      <button data-tab="cartTab" class="nav-btn text-gray-400 flex flex-col items-center relative">
+        <i class="fa-solid fa-bag-shopping text-lg"></i>
+        <span class="text-[10px] font-medium mt-0.5">কার্ট</span>
+        <span id="navCartBadge" class="absolute top-0 right-5 bg-amber-400 text-emerald-950 font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+      </button>
+      <button data-tab="accountTab" class="nav-btn text-gray-400 flex flex-col items-center">
+        <i class="fa-solid fa-user text-lg"></i>
+        <span class="text-[10px] font-medium mt-0.5">অ্যাকাউন্ট</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Sliding Cart Drawer / Modal -->
+  <div id="cartModal" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-end">
+    <div class="w-full max-w-sm bg-white h-full flex flex-col shadow-2xl">
+      <!-- Drawer Header -->
+      <div class="p-4 bg-emerald-600 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-cart-shopping"></i>
+          <h3 class="font-bold text-base">আপনার কার্ট</h3>
+        </div>
+        <button id="closeCartBtn" class="p-1 hover:bg-emerald-700 rounded-full">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Drawer Content -->
+      <div id="drawerCartItems" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <!-- Cart Items Populated dynamically -->
+      </div>
+
+      <!-- Drawer Footer -->
+      <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between text-gray-600">
+            <span>পণ্য সাবটোটাল:</span>
+            <span id="subtotalPrice">৳ 0</span>
+          </div>
+          <div class="flex justify-between text-gray-600">
+            <span>ডেলিভারি চার্জ:</span>
+            <span id="deliveryCharge">৳ 30</span>
+          </div>
+          <div class="flex justify-between font-bold text-base text-gray-800 pt-2 border-t">
+            <span>মোট খরচ:</span>
+            <span id="totalPrice" class="text-emerald-600">৳ 30</span>
+          </div>
+        </div>
+
+        <button id="checkoutBtn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 transition text-sm flex items-center justify-center space-x-2">
+          <span>অর্ডার সম্পন্ন করুন</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic JS -->
+  <script>
+    // Product Data Source
+    const products = [
+      { id: 1, name: "মিনিকেট চাল (৫ কেজি)", price: 360, oldPrice: 380, category: "groceries", image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80" },
+      { id: 2, name: "সয়াবিন তেল (২ লিটার)", price: 330, oldPrice: 350, category: "groceries", image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=300&q=80" },
+      { id: 3, name: "তরল দুধ (১ লিটার)", price: 90, oldPrice: 95, category: "groceries", image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=300&q=80" },
+      { id: 4, name: "ডাবর ভাটিকা শ্যাম্পু (২০০ml)", price: 220, oldPrice: 240, category: "personal", image: "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&w=300&q=80" },
+      { id: 5, name: "কডুমো বেবি শ্যাম্পু (২০০ml)", price: 310, oldPrice: 330, category: "baby", image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80" },
+      { id: 6, name: "নিভিয়া সফট ক্রিম (১০০ml)", price: 280, oldPrice: 300, category: "personal", image: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=300&q=80" },
+      { id: 7, name: "ফগ বডি স্প্রে (১২০ml)", price: 350, oldPrice: 380, category: "personal", image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=300&q=80" },
+      { id: 8, name: "নুটেলা হ্যাজেলনাট স্প্রেড (২০০g)", price: 420, oldPrice: 450, category: "snacks", image: "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=300&q=80" }
+    ];
+
+    const categories = [
+      { id: 'all', name: 'সকল আইটেম', icon: 'fa-layer-group' },
+      { id: 'groceries', name: 'মুদি বাজার', icon: 'fa-basket-shopping' },
+      { id: 'personal', name: 'পার্সোনাল কেয়ার', icon: 'fa-pump-soap' },
+      { id: 'baby', name: 'বেবি কেয়ার', icon: 'fa-baby' },
+      { id: 'snacks', name: 'স্ন্যাক্স ও পানীয়', icon: 'fa-cookie' }
+    ];
+
+    // State Management
+    let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
+    let selectedCategory = 'all';
+    let currentUser = null;
+
+    // TextBee Gateway Credentials
+    const TEXTBEE_API_KEY = "Txb_M4fQV5SzMwVroFcDRX5iUBJqlTJbnITH";
+    const TEXTBEE_DEVICE_ID = "6adfbd74a4996b8ebfc583fb";
+
+    // TextBee SMS Sender
+    async function sendTextBeeWelcomeSMS(phone, name) {
+      if(!phone) return;
+      let formattedPhone = phone.trim();
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+88' + formattedPhone;
+      } else if (!formattedPhone.startsWith('+880')) {
+        formattedPhone = '+880' + formattedPhone;
+      }
+
+      const msg = `প্রিয় ${name}, Laland Express-এ আপনাকে স্বাগতম! আপনার নিত্যপ্রয়োজনীয় কেনাকাটার জন্য আমরা সবসময় আপনার পাশে আছি।`;
+
+      try {
+        const response = await fetch(`https://api.textbee.dev/api/v1/gateway/devices/${TEXTBEE_DEVICE_ID}/sendSMS`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': TEXTBEE_API_KEY
+          },
+          body: JSON.stringify({
+            recipients: [formattedPhone],
+            message: msg
+          })
         });
-    </script>
+        const data = await response.json();
+        console.log("TextBee SMS Sent:", data);
+      } catch (err) {
+        console.error("TextBee SMS Failed:", err);
+      }
+    }
 
-    <!-- MAIN APP SCRIPT -->
-    <script>
-        // APP PRODUCT CATALOG
-        const PRODUCTS = [
-            { id: 'p1', name: 'Fresh Farm Whole Milk 1L', category: 'Daily Groceries', price: 2.49, originalPrice: 2.99, image: '🥛', discount: '16% OFF' },
-            { id: 'p2', name: 'Organic Bananas (1 Bunch)', category: 'Daily Groceries', price: 1.89, originalPrice: 2.20, image: '🍌', discount: '14% OFF' },
-            { id: 'p3', name: 'Whole Grain Bread 500g', category: 'Daily Groceries', price: 2.10, originalPrice: 2.50, image: '🍞', discount: '16% OFF' },
-            { id: 'p4', name: 'Fresh Farm Eggs (12 pcs)', category: 'Daily Groceries', price: 3.49, originalPrice: 3.99, image: '🥚', discount: '12% OFF' },
-            { id: 'p5', name: 'Hydrating Body Wash 250ml', category: 'Personal Care', price: 4.99, originalPrice: 6.50, image: '🧴', discount: '23% OFF' },
-            { id: 'p6', name: 'Herbal Shampoo 400ml', category: 'Personal Care', price: 5.80, originalPrice: 7.00, image: '🧼', discount: '17% OFF' },
-            { id: 'p7', name: 'Gentle Baby Wipes (80 pack)', category: 'Baby Care', price: 3.20, originalPrice: 4.00, image: '👶', discount: '20% OFF' },
-            { id: 'p8', name: 'Baby Care Lotion 200ml', category: 'Baby Care', price: 6.49, originalPrice: 7.99, image: '🍼', discount: '18% OFF' },
-            { id: 'p9', name: 'Sparkling Orange Soda 1.5L', category: 'Beverages', price: 1.99, originalPrice: 2.49, image: '🥤', discount: '20% OFF' },
-            { id: 'p10', name: 'Cold Brew Iced Coffee 330ml', category: 'Beverages', price: 2.99, originalPrice: 3.50, image: '🧃', discount: '15% OFF' }
-        ];
+    // DOM Ready Initialization
+    document.addEventListener("DOMContentLoaded", () => {
+      renderCategoryPills();
+      renderCategoryGrid();
+      renderProducts();
+      updateCartUI();
 
-        const CATEGORIES = ['All', 'Daily Groceries', 'Personal Care', 'Baby Care', 'Beverages'];
-
-        // STATE VARIABLES
-        let currentCategory = 'All';
-        let cart = {}; // { productId: quantity }
-        let activePromo = null; // 'LALAND50'
-        let authMode = 'login'; // 'login' | 'register'
-
-        // INITIALIZATION
-        window.addEventListener('DOMContentLoaded', () => {
-            renderCategories();
-            renderProducts();
-            loadLocalCart();
-            renderCart();
+      // Navigation Logic
+      const navButtons = document.querySelectorAll('.nav-btn');
+      navButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetTab = btn.getAttribute('data-tab');
+          showTab(targetTab);
+          
+          navButtons.forEach(b => b.classList.replace('text-emerald-600', 'text-gray-400'));
+          btn.classList.replace('text-gray-400', 'text-emerald-600');
         });
+      });
 
-        // TOAST NOTIFICATION
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.innerText = msg;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 2500);
-        }
+      // Cart Drawer Toggle
+      document.getElementById('openCartBtn').addEventListener('click', toggleCartModal);
+      document.getElementById('closeCartBtn').addEventListener('click', toggleCartModal);
 
-        // TAB NAVIGATION
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      // Search Handler
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        renderProducts(query);
+      });
 
-            // Nav active states
-            const navIds = ['home', 'categories', 'cart', 'profile'];
-            navIds.forEach(id => {
-                const btn = document.getElementById(`nav-${id}`);
-                if (id === tabName) {
-                    btn.className = "flex flex-col items-center text-emerald-600 transition font-bold";
-                } else {
-                    btn.className = "flex flex-col items-center text-slate-400 hover:text-emerald-600 transition font-normal";
-                }
-            });
-        }
+      // Auth Forms Toggle
+      document.getElementById('showLoginBtn').addEventListener('click', () => {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('signupForm').classList.add('hidden');
+        document.getElementById('showLoginBtn').className = "flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600";
+        document.getElementById('showSignupBtn').className = "flex-1 py-2 text-gray-400";
+      });
 
-        // RENDER CATEGORIES
-        function renderCategories() {
-            const container = document.getElementById('categories-list');
-            const fullContainer = document.getElementById('full-categories-list');
-            
-            container.innerHTML = CATEGORIES.map(cat => `
-                <button onclick="selectCategory('${cat}')" 
-                        class="px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition shadow-sm ${currentCategory === cat ? 'bg-emerald-600 text-white' : 'bg-white border text-slate-600 hover:bg-slate-50'}">
-                    ${cat}
+      document.getElementById('showSignupBtn').addEventListener('click', () => {
+        document.getElementById('signupForm').classList.remove('hidden');
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('showSignupBtn').className = "flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600";
+        document.getElementById('showLoginBtn').className = "flex-1 py-2 text-gray-400";
+      });
+
+      // Firebase Observer Init
+      setTimeout(initFirebaseEvents, 500);
+    });
+
+    function showTab(tabId) {
+      const tabs = ['homeTab', 'categoriesTab', 'cartTab', 'accountTab'];
+      tabs.forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(tabId).classList.remove('hidden');
+    }
+
+    function renderCategoryPills() {
+      const container = document.getElementById('categoryContainer');
+      container.innerHTML = categories.map(cat => `
+        <button onclick="filterCategory('${cat.id}')" 
+          class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center space-x-1.5 ${selectedCategory === cat.id ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200'}">
+          <i class="fa-solid ${cat.icon}"></i>
+          <span>${cat.name}</span>
+        </button>
+      `).join('');
+    }
+
+    function renderCategoryGrid() {
+      const container = document.getElementById('categoryGrid');
+      container.innerHTML = categories.filter(c => c.id !== 'all').map(cat => `
+        <div onclick="filterCategory('${cat.id}'); showTab('homeTab');" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center space-y-2 cursor-pointer hover:border-emerald-300">
+          <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+            <i class="fa-solid ${cat.icon}"></i>
+          </div>
+          <span class="text-xs font-bold text-gray-700">${cat.name}</span>
+        </div>
+      `).join('');
+    }
+
+    window.filterCategory = function(catId) {
+      selectedCategory = catId;
+      renderCategoryPills();
+      renderProducts();
+    };
+
+    function renderProducts(searchQuery = '') {
+      const grid = document.getElementById('productGrid');
+      let filtered = products;
+
+      if (selectedCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === selectedCategory);
+      }
+
+      if (searchQuery.trim() !== '') {
+        filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery));
+      }
+
+      document.getElementById('productCount').innerText = `${filtered.length} টি আইটেম`;
+
+      grid.innerHTML = filtered.map(prod => {
+        const cartItem = cart.find(item => item.id === prod.id);
+        const qty = cartItem ? cartItem.qty : 0;
+
+        return `
+          <div class="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="h-28 rounded-xl overflow-hidden mb-2 bg-gray-100 relative">
+                <img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-cover">
+                <span class="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">ছাড়</span>
+              </div>
+              <h4 class="text-xs font-bold text-gray-800 line-clamp-2">${prod.name}</h4>
+              <div class="flex items-baseline space-x-1 mt-1">
+                <span class="text-sm font-extrabold text-emerald-600">৳ ${prod.price}</span>
+                <span class="text-[10px] text-gray-400 line-through">৳ ${prod.oldPrice}</span>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              ${qty === 0 ? `
+                <button onclick="addToCart(${prod.id})" class="w-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center space-x-1 hover:bg-emerald-600 hover:text-white transition">
+                  <i class="fa-solid fa-plus text-[10px]"></i>
+                  <span>যোগ করুন</span>
                 </button>
-            `).join('');
-
-            fullContainer.innerHTML = CATEGORIES.filter(c => c !== 'All').map(cat => `
-                <div onclick="selectCategory('${cat}'); switchTab('home');" class="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-4 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition text-center space-y-2">
-                    <div class="text-3xl">${getCategoryIcon(cat)}</div>
-                    <span class="font-bold text-xs text-slate-800">${cat}</span>
+              ` : `
+                <div class="flex items-center justify-between bg-emerald-600 text-white rounded-xl p-1">
+                  <button onclick="updateQty(${prod.id}, -1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
+                    <i class="fa-solid fa-minus text-[10px]"></i>
+                  </button>
+                  <span class="text-xs font-bold">${qty}</span>
+                  <button onclick="updateQty(${prod.id}, 1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
+                    <i class="fa-solid fa-plus text-[10px]"></i>
+                  </button>
                 </div>
-            `).join('');
-        }
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
-        function getCategoryIcon(cat) {
-            switch(cat) {
-                case 'Daily Groceries': return '🥬';
-                case 'Personal Care': return '🧴';
-                case 'Baby Care': return '👶';
-                case 'Beverages': return '🥤';
-                default: return '🛍️';
+    window.addToCart = function(id) {
+      const prod = products.find(p => p.id === id);
+      cart.push({ ...prod, qty: 1 });
+      saveCart();
+    };
+
+    window.updateQty = function(id, change) {
+      const index = cart.findIndex(item => item.id === id);
+      if (index !== -1) {
+        cart[index].qty += change;
+        if (cart[index].qty <= 0) {
+          cart.splice(index, 1);
+        }
+      }
+      saveCart();
+    };
+
+    function saveCart() {
+      localStorage.setItem('laland_cart', JSON.stringify(cart));
+      updateCartUI();
+      renderProducts();
+    }
+
+    function updateCartUI() {
+      const totalCount = cart.reduce((sum, item) => sum + item.qty, 0);
+      const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+      // Update Badges
+      const cartBadge = document.getElementById('cartBadge');
+      const navCartBadge = document.getElementById('navCartBadge');
+      
+      if (totalCount > 0) {
+        cartBadge.innerText = totalCount;
+        cartBadge.classList.remove('hidden');
+        navCartBadge.innerText = totalCount;
+        navCartBadge.classList.remove('hidden');
+      } else {
+        cartBadge.classList.add('hidden');
+        navCartBadge.classList.add('hidden');
+      }
+
+      // Update Drawer Items
+      const drawerItems = document.getElementById('drawerCartItems');
+      const tabCartContainer = document.getElementById('tabCartContainer');
+
+      if (cart.length === 0) {
+        const emptyHTML = `
+          <div class="text-center py-10 space-y-2">
+            <i class="fa-solid fa-basket-shopping text-4xl text-gray-300"></i>
+            <p class="text-xs text-gray-500">আপনার কার্ট খালি রয়েছে!</p>
+          </div>
+        `;
+        drawerItems.innerHTML = emptyHTML;
+        tabCartContainer.innerHTML = emptyHTML;
+      } else {
+        const cartListHTML = cart.map(item => `
+          <div class="flex items-center justify-between border-b pb-2">
+            <div class="flex items-center space-x-2">
+              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
+              <div>
+                <h5 class="text-xs font-bold text-gray-800">${item.name}</h5>
+                <p class="text-[10px] text-gray-500">৳ ${item.price} × ${item.qty}</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-emerald-600">৳ ${item.price * item.qty}</span>
+              <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
+                <button onclick="updateQty(${item.id}, -1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">-</button>
+                <span class="text-xs font-bold px-1.5">${item.qty}</span>
+                <button onclick="updateQty(${item.id}, 1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">+</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+
+        drawerItems.innerHTML = cartListHTML;
+        tabCartContainer.innerHTML = cartListHTML;
+      }
+
+      document.getElementById('subtotalPrice').innerText = `৳ ${subtotal}`;
+      document.getElementById('totalPrice').innerText = `৳ ${subtotal > 0 ? subtotal + 30 : 0}`;
+    }
+
+    function toggleCartModal() {
+      const modal = document.getElementById('cartModal');
+      modal.classList.toggle('hidden');
+    }
+
+    // Firebase Event Handlers
+    function initFirebaseEvents() {
+      const auth = window.firebaseAuth;
+      const db = window.firebaseDb;
+      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
+
+      // Auth State Listener
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          currentUser = user;
+          document.getElementById('authForms').classList.add('hidden');
+          document.getElementById('profileView').classList.remove('hidden');
+
+          // Fetch User Profile from Firestore
+          try {
+            const docRef = doc(db, "users", user.uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              document.getElementById('userName').innerText = data.name || "গ্রাহক";
+              document.getElementById('userPhone').innerText = data.phone || "";
+              document.getElementById('userEmail').innerText = data.email || user.email;
+              document.getElementById('userAddress').innerText = data.address || "কোনো ঠিকানা দেয়া হয়নি";
             }
+          } catch (e) {
+            console.error("Firestore read error:", e);
+          }
+        } else {
+          currentUser = null;
+          document.getElementById('authForms').classList.remove('hidden');
+          document.getElementById('profileView').classList.add('hidden');
         }
+      });
 
-        function selectCategory(cat) {
-            currentCategory = cat;
-            renderCategories();
-            renderProducts();
+      // Handle Sign-Up
+      document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('signupName').value;
+        const phone = document.getElementById('signupPhone').value;
+        const email = document.getElementById('signupEmail').value;
+        const password = document.getElementById('signupPassword').value;
+        const address = document.getElementById('signupAddress').value;
+
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+
+          // Save to Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            name,
+            phone,
+            email,
+            address,
+            createdAt: new Date().toISOString()
+          });
+
+          // Send Welcome SMS via TextBee
+          await sendTextBeeWelcomeSMS(phone, name);
+
+          alert("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
+        } catch (err) {
+          alert("Error: " + err.message);
         }
+      });
 
-        // RENDER PRODUCT CATALOG
-        function renderProducts() {
-            const searchVal = document.getElementById('search-input').value.toLowerCase();
-            const grid = document.getElementById('product-grid');
-            
-            const filtered = PRODUCTS.filter(p => {
-                const matchesCat = currentCategory === 'All' || p.category === currentCategory;
-                const matchesSearch = p.name.toLowerCase().includes(searchVal);
-                return matchesCat && matchesSearch;
-            });
+      // Handle Login
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
 
-            document.getElementById('product-count').innerText = `${filtered.length} Items`;
-
-            if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-2 py-8 text-center text-slate-400 text-xs">No items found</div>`;
-                return;
-            }
-
-            grid.innerHTML = filtered.map(p => {
-                const qty = cart[p.id] || 0;
-                return `
-                <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm flex flex-col justify-between space-y-2 hover:shadow-md transition relative">
-                    <span class="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-md">${p.discount}</span>
-                    <div class="text-4xl text-center py-2 bg-slate-50 rounded-xl">${p.image}</div>
-                    <div>
-                        <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-wide">${p.category}</span>
-                        <h4 class="font-bold text-xs text-slate-800 line-clamp-2 h-8 leading-snug mt-0.5">${p.name}</h4>
-                    </div>
-                    <div class="flex items-center justify-between pt-1 border-t border-slate-50">
-                        <div>
-                            <span class="font-black text-sm text-slate-800">$${p.price.toFixed(2)}</span>
-                            <span class="text-[10px] text-slate-400 line-through ml-1">$${p.originalPrice.toFixed(2)}</span>
-                        </div>
-                        
-                        ${qty === 0 ? `
-                            <button onclick="updateCart('${p.id}', 1)" class="bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-200 transition">
-                                Add +
-                            </button>
-                        ` : `
-                            <div class="flex items-center bg-emerald-600 text-white rounded-xl text-xs font-bold px-1.5 py-1 space-x-2">
-                                <button onclick="updateCart('${p.id}', -1)" class="w-5 h-5 flex items-center justify-center rounded-lg hover:bg-emerald-700">-</button>
-                                <span>${qty}</span>
-                                <button onclick="updateCart('${p.id}', 1)" class="w-5 h-5 flex items-center justify-center rounded-lg hover:bg-emerald-700">+</button>
-                            </div>
-                        `}
-                    </div>
-                </div>
-                `;
-            }).join('');
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          alert("লগইন সফল হয়েছে!");
+        } catch (err) {
+          alert("লগইন ব্যর্থ হয়েছে: " + err.message);
         }
+      });
 
-        // CART STATE MODIFIERS
-        async function updateCart(productId, change) {
-            const currentQty = cart[productId] || 0;
-            const newQty = Math.max(0, currentQty + change);
-            
-            if (newQty === 0) {
-                delete cart[productId];
-            } else {
-                cart[productId] = newQty;
-            }
-
-            renderProducts();
-            renderCart();
-
-            // Persist State
-            saveLocalCart();
-            if (window.currentUser) {
-                await syncCartToFirestore(window.currentUser.uid);
-            }
-        }
-
-        function saveLocalCart() {
-            localStorage.setItem('laland_cart', JSON.stringify(cart));
-        }
-
-        function loadLocalCart() {
-            const saved = localStorage.getItem('laland_cart');
-            if (saved) {
-                try { cart = JSON.parse(saved); } catch(e) { cart = {}; }
-            }
-        }
-
-        // FIRESTORE CART SYNC
-        async function syncCartToFirestore(uid) {
-            try {
-                const userRef = window.fbSDK.doc(window.db, 'users', uid);
-                await window.fbSDK.setDoc(userRef, { cart: cart }, { merge: true });
-            } catch (err) {
-                console.error("Cart Firestore sync failed:", err);
-            }
-        }
-
-        async function syncCartFromFirestore(uid) {
-            try {
-                const userRef = window.fbSDK.doc(window.db, 'users', uid);
-                const snap = await window.fbSDK.getDoc(userRef);
-                if (snap.exists() && snap.data().cart) {
-                    cart = snap.data().cart;
-                    saveLocalCart();
-                }
-            } catch (err) {
-                console.error("Cart Firestore load failed:", err);
-            }
-        }
-
-        // CART UI RENDERER
-        function renderCart() {
-            const container = document.getElementById('cart-items-container');
-            const summarySec = document.getElementById('cart-summary-section');
-            const floatingBar = document.getElementById('floating-cart-bar');
-            const badge = document.getElementById('nav-cart-badge');
-
-            const itemIds = Object.keys(cart);
-            let subtotal = 0;
-            let totalItemsCount = 0;
-
-            if (itemIds.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 space-y-3">
-                        <i class="fa-solid fa-basket-shopping text-5xl text-slate-200"></i>
-                        <p class="text-xs font-semibold text-slate-400">Your basket is empty</p>
-                        <button onclick="switchTab('home')" class="bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl">Shop Daily Essentials</button>
-                    </div>`;
-                summarySec.classList.add('hidden');
-                floatingBar.classList.add('hidden');
-                badge.classList.add('hidden');
-                return;
-            }
-
-            container.innerHTML = itemIds.map(id => {
-                const prod = PRODUCTS.find(p => p.id === id);
-                if (!prod) return '';
-                const qty = cart[id];
-                const itemTotal = prod.price * qty;
-                subtotal += itemTotal;
-                totalItemsCount += qty;
-
-                return `
-                <div class="bg-white p-3 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
-                    <div class="flex items-center space-x-3">
-                        <div class="text-2xl p-2 bg-slate-50 rounded-xl">${prod.image}</div>
-                        <div>
-                            <h4 class="font-bold text-xs text-slate-800">${prod.name}</h4>
-                            <p class="text-[11px] text-slate-400">$${prod.price.toFixed(2)} / unit</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <span class="font-extrabold text-xs text-slate-800">$${itemTotal.toFixed(2)}</span>
-                        <div class="flex items-center bg-slate-100 rounded-xl text-xs font-bold px-1.5 py-1 space-x-2">
-                            <button onclick="updateCart('${prod.id}', -1)" class="w-5 h-5 flex items-center justify-center hover:bg-slate-200 rounded">-</button>
-                            <span>${qty}</span>
-                            <button onclick="updateCart('${prod.id}', 1)" class="w-5 h-5 flex items-center justify-center hover:bg-slate-200 rounded">+</button>
-                        </div>
-                    </div>
-                </div>
-                `;
-            }).join('');
-
-            // Calculate totals & discounts
-            const deliveryFee = subtotal > 20 ? 0 : 2.00; // Free delivery over $20
-            let discount = 0;
-            if (activePromo === 'LALAND50') {
-                discount = subtotal * 0.50; // 50% off promo
-            }
-
-            const total = Math.max(0, subtotal + deliveryFee - discount);
-
-            document.getElementById('cart-subtotal').innerText = `$${subtotal.toFixed(2)}`;
-            document.getElementById('cart-delivery').innerText = deliveryFee === 0 ? 'FREE' : `$${deliveryFee.toFixed(2)}`;
-            
-            if (discount > 0) {
-                document.getElementById('discount-row').classList.remove('hidden');
-                document.getElementById('cart-discount').innerText = `-$${discount.toFixed(2)}`;
-            } else {
-                document.getElementById('discount-row').classList.add('hidden');
-            }
-            
-            document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
-            summarySec.classList.remove('hidden');
-
-            // Floating Bottom Bar update
-            document.getElementById('floating-cart-count').innerText = totalItemsCount;
-            document.getElementById('floating-cart-total').innerText = `$${total.toFixed(2)}`;
-            floatingBar.classList.remove('hidden');
-
-            // Badge count
-            badge.innerText = totalItemsCount;
-            badge.classList.remove('hidden');
-        }
-
-        // PROMO CODE LOGIC
-        function applyPromoCode() {
-            const val = document.getElementById('promo-code-input').value.trim().toUpperCase();
-            const msg = document.getElementById('promo-msg');
-            msg.classList.remove('hidden');
-
-            if (val === 'LALAND50') {
-                activePromo = 'LALAND50';
-                msg.className = "text-xs font-semibold text-emerald-600";
-                msg.innerText = "50% Discount applied successfully!";
-                showToast("Promo applied: 50% OFF");
-            } else {
-                activePromo = null;
-                msg.className = "text-xs font-semibold text-red-500";
-                msg.innerText = "Invalid Promo Code. Try LALAND50";
-            }
-            renderCart();
-        }
-
-        // AUTH MODAL CONTROLE
-        function openAuthModal() {
-            document.getElementById('auth-modal').classList.remove('hidden');
-        }
-
-        function closeAuthModal() {
-            document.getElementById('auth-modal').classList.add('hidden');
-            document.getElementById('auth-error-msg').classList.add('hidden');
-        }
-
-        function setAuthMode(mode) {
-            authMode = mode;
-            const extraFields = document.getElementById('auth-extra-fields');
-            const submitBtn = document.getElementById('auth-submit-btn');
-            const tabLogin = document.getElementById('auth-tab-login');
-            const tabReg = document.getElementById('auth-tab-register');
-
-            if (mode === 'register') {
-                extraFields.classList.remove('hidden');
-                submitBtn.innerText = "Register & Create Account";
-                tabReg.className = "flex-1 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800";
-                tabLogin.className = "flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500";
-            } else {
-                extraFields.classList.add('hidden');
-                submitBtn.innerText = "Sign In";
-                tabLogin.className = "flex-1 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm text-slate-800";
-                tabReg.className = "flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500";
-            }
-        }
-
-        // FIREBASE AUTH SUBMIT
-        async function handleAuthSubmit(e) {
-            e.preventDefault();
-            const email = document.getElementById('auth-email').value;
-            const password = document.getElementById('auth-password').value;
-            const errorMsg = document.getElementById('auth-error-msg');
-            errorMsg.classList.add('hidden');
-
-            try {
-                if (authMode === 'register') {
-                    const name = document.getElementById('auth-name').value;
-                    const phone = document.getElementById('auth-phone').value;
-                    const address = document.getElementById('auth-address').value;
-
-                    const res = await window.fbSDK.createUserWithEmailAndPassword(window.auth, email, password);
-                    // Save user profile into Firestore
-                    await window.fbSDK.setDoc(window.fbSDK.doc(window.db, 'users', res.user.uid), {
-                        name, phone, address, email,
-                        createdAt: new Date().toISOString()
-                    });
-                    showToast("Account created successfully!");
-                } else {
-                    await window.fbSDK.signInWithEmailAndPassword(window.auth, email, password);
-                    showToast("Welcome back!");
-                }
-                closeAuthModal();
-            } catch (err) {
-                errorMsg.innerText = err.message.replace('Firebase: ', '');
-                errorMsg.classList.remove('hidden');
-            }
-        }
-
-        // LOGOUT
-        async function handleLogout() {
-            await window.fbSDK.signOut(window.auth);
-            cart = {};
-            saveLocalCart();
-            renderCart();
-            renderProducts();
-            showToast("Logged out");
-        }
-
-        // LOAD USER PROFILE DATA
-        async function loadUserProfile(uid) {
-            try {
-                const userDoc = await window.fbSDK.getDoc(window.fbSDK.doc(window.db, 'users', uid));
-                if (userDoc.exists()) {
-                    window.userData = userDoc.data();
-                    document.getElementById('user-display-name').innerText = window.userData.name || 'Express User';
-                    document.getElementById('user-display-email').innerText = window.userData.email;
-                    document.getElementById('user-display-phone').innerText = window.userData.phone || '';
-                    document.getElementById('user-display-address').innerText = window.userData.address || 'No address set';
-                    document.getElementById('header-address').innerText = window.userData.address || 'Set delivery address';
-                }
-            } catch (err) {
-                console.error("Error loading user profile:", err);
-            }
-        }
-
-        // EDIT ADDRESS QUICK ACTION
-        async function editAddressModal() {
-            const newAddr = prompt("Enter your delivery address:", window.userData?.address || "");
-            if (newAddr && window.currentUser) {
-                await window.fbSDK.setDoc(window.fbSDK.doc(window.db, 'users', window.currentUser.uid), {
-                    address: newAddr
-                }, { merge: true });
-                await loadUserProfile(window.currentUser.uid);
-                showToast("Address updated!");
-            }
-        }
-
-        // CHECKOUT & PLACE ORDER TO FIRESTORE
-        async function processCheckout() {
-            if (!window.currentUser) {
-                showToast("Please login to complete your order");
-                openAuthModal();
-                return;
-            }
-
-            if (!window.userData?.address) {
-                await editAddressModal();
-                if (!window.userData?.address) {
-                    showToast("Delivery address is required!");
-                    return;
-                }
-            }
-
-            try {
-                // Construct Order items
-                const orderItems = Object.keys(cart).map(id => {
-                    const p = PRODUCTS.find(item => item.id === id);
-                    return { id: p.id, name: p.name, price: p.price, qty: cart[id] };
-                });
-
-                const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-                const deliveryFee = subtotal > 20 ? 0 : 2.00;
-                const discount = activePromo === 'LALAND50' ? subtotal * 0.50 : 0;
-                const grandTotal = Math.max(0, subtotal + deliveryFee - discount);
-
-                const orderData = {
-                    userId: window.currentUser.uid,
-                    userName: window.userData.name || 'Express Customer',
-                    userEmail: window.userData.email,
-                    userPhone: window.userData.phone || '',
-                    deliveryAddress: window.userData.address,
-                    items: orderItems,
-                    subtotal,
-                    deliveryFee,
-                    discount,
-                    grandTotal,
-                    status: 'Pending',
-                    createdAt: new Date().toISOString()
-                };
-
-                // Save into Firestore orders collection
-                await window.fbSDK.addDoc(window.fbSDK.collection(window.db, 'orders'), orderData);
-
-                // Clear Cart
-                cart = {};
-                saveLocalCart();
-                if (window.currentUser) {
-                    await syncCartToFirestore(window.currentUser.uid);
-                }
-
-                renderProducts();
-                renderCart();
-                showToast("Order placed successfully! 🎉");
-                await loadOrderHistory(window.currentUser.uid);
-                switchTab('profile');
-
-            } catch (err) {
-                console.error("Order submission failed:", err);
-                showToast("Order processing failed. Try again.");
-            }
-        }
-
-        // FETCH USER ORDER HISTORY
-        async function loadOrderHistory(uid) {
-            const container = document.getElementById('orders-history-container');
-            try {
-                const q = window.fbSDK.query(
-                    window.fbSDK.collection(window.db, 'orders'), 
-                    window.fbSDK.where('userId', '==', uid)
-                );
-                const snap = await window.fbSDK.getDocs(q);
-
-                if (snap.empty) {
-                    container.innerHTML = `<p class="text-xs text-slate-400 py-2">No previous orders found.</p>`;
-                    return;
-                }
-
-                const orders = [];
-                snap.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
-                
-                // Sort latest first
-                orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                container.innerHTML = orders.map(ord => `
-                    <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm space-y-1.5 text-xs">
-                        <div class="flex justify-between items-center font-bold">
-                            <span class="text-slate-800">Order #${ord.id.substring(0,6)}</span>
-                            <span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full uppercase">${ord.status}</span>
-                        </div>
-                        <p class="text-[10px] text-slate-400">${new Date(ord.createdAt).toLocaleString()}</p>
-                        <div class="text-slate-600 truncate">${ord.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</div>
-                        <div class="flex justify-between items-center border-t pt-1.5 font-bold">
-                            <span class="text-slate-500">Total Paid</span>
-                            <span class="text-emerald-600 text-sm">$${ord.grandTotal.toFixed(2)}</span>
-                        </div>
-                    </div>
-                `).join('');
-
-            } catch (err) {
-                console.error("Error loading orders:", err);
-                container.innerHTML = `<p class="text-xs text-red-400">Failed to load orders history</p>`;
-            }
-        }
-    </script>
+      // Handle Logout
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await signOut(auth);
+        alert("সাইন আউট করা হয়েছে।");
+      });
+    }
+  </script>
 </body>
 </html>
