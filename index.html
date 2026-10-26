@@ -19,7 +19,9 @@
       signInWithEmailAndPassword, 
       signOut, 
       onAuthStateChanged,
-      updateProfile
+      updateProfile,
+      setPersistence,
+      browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, 
@@ -42,6 +44,12 @@
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    
+    // Set Persistence to Keep Session Active On Reload
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error("Auth persistence error:", error);
+    });
+
     const db = getFirestore(app);
 
     window.firebaseAuth = auth;
