@@ -1,0 +1,790 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Laland Express - Your daily needs</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Hide scrollbars for app-like clean horizontal scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Mobile tap highlight reset */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Prevent bounce scrolling outside viewport */
+        body {
+            overscroll-behavior-y: none;
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased font-sans select-none pb-20 pt-28">
+
+    <!-- APP SHELL CONTAINER -->
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-slate-50 relative shadow-2xl flex flex-col">
+
+        <!-- STICKY TOP APP BAR -->
+        <header class="fixed top-0 left-0 right-0 max-w-md mx-auto bg-gradient-to-r from-brand-600 to-brand-700 text-white z-40 shadow-md rounded-b-2xl">
+            <!-- Brand & Cart Header -->
+            <div class="px-4 pt-3 pb-2 flex items-center justify-between">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-[#ffffff] fa-bolt text-yellow-300 text-xl animate-pulse"></i>
+                        <h1 class="text-xl font-extrabold tracking-tight">Laland Express</h1>
+                    </div>
+                    <p class="text-xs text-brand-100 font-medium">Your daily needs • 15 min delivery</p>
+                </div>
+                <!-- Top Cart Quick Trigger Button -->
+                <button onclick="openCartModal()" class="relative p-2.5 bg-brand-800/40 rounded-full hover:bg-brand-800/60 transition active:scale-95">
+                    <i class="fa-solid fa-cart-shopping text-lg"></i>
+                    <span id="headerCartBadge" class="hidden absolute -top-1 -right-1 bg-amber-400 text-slate-900 font-extrabold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-brand-700 shadow-sm">0</span>
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="px-4 pb-3">
+                <div class="relative">
+                    <i class="fa-solid fa-[#94a3b8] fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search milk, bread, snacks..." class="w-full pl-10 pr-9 py-2 bg-white text-slate-900 placeholder-slate-400 text-sm rounded-xl border-0 focus:outline-none focus:ring-2 focus:ring-amber-400 shadow-inner">
+                    <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN BODY CONTENT -->
+        <main class="flex-1 px-3 py-2 overflow-y-auto">
+
+            <!-- VIEW: HOME / SHOP -->
+            <div id="viewHome" class="space-y-4">
+                
+                <!-- Category Horizontal Scroll Pills -->
+                <section>
+                    <div class="flex items-center justify-between px-1 mb-2">
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Categories</h2>
+                        <span class="text-xs font-semibold text-brand-600 cursor-pointer" onclick="filterCategory('All')">Reset</span>
+                    </div>
+                    <div id="categoryContainer" class="flex space-x-2 overflow-x-auto no-scrollbar py-1">
+                        <!-- Dynamically generated categories -->
+                    </div>
+                </section>
+
+                <!-- Promotional Banner Carousel -->
+                <section class="rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-900 p-4 shadow-sm relative overflow-hidden">
+                    <div class="relative z-10 w-2/3">
+                        <span class="bg-slate-900 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Flash Sale</span>
+                        <h3 class="text-lg font-black mt-1 leading-tight">Fresh Vegetables & Fruits</h3>
+                        <p class="text-xs font-medium text-slate-800 mt-1">Up to 30% OFF today!</p>
+                        <button onclick="filterCategory('Daily Groceries')" class="mt-2 bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg active:scale-95 transition">Shop Now</button>
+                    </div>
+                    <i class="fa-solid fa-basket-shopping text-7xl absolute -right-2 -bottom-2 text-slate-900/10 transform -rotate-12"></i>
+                </section>
+
+                <!-- Free Shipping Progress Widget -->
+                <div id="freeShippingBanner" class="bg-white rounded-xl p-3 shadow-sm border border-slate-100 space-y-1.5">
+                    <div class="flex justify-between items-center text-xs">
+                        <span id="freeShippingText" class="font-medium text-slate-600">Add <span class="font-bold text-brand-600">৳200</span> more for FREE delivery</span>
+                        <i class="fa-solid fa-truck-fast text-brand-600"></i>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div id="freeShippingBar" class="bg-brand-500 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- Product Grid -->
+                <section>
+                    <div class="flex items-center justify-between px-1 mb-3">
+                        <h2 id="sectionTitle" class="text-base font-bold text-slate-800">Popular Essentials</h2>
+                        <span id="productCount" class="text-xs font-medium text-slate-500">0 Items</span>
+                    </div>
+                    <div id="productGrid" class="grid grid-cols-2 gap-3">
+                        <!-- Dynamically populated products -->
+                    </div>
+                </section>
+            </div>
+
+            <!-- VIEW: CATEGORIES GRID (Tab 2) -->
+            <div id="viewCategories" class="hidden space-y-3">
+                <h2 class="text-lg font-bold text-slate-800 px-1">All Departments</h2>
+                <div id="allCategoriesGrid" class="grid grid-cols-2 gap-3">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- VIEW: OFFERS / DEALS (Tab 3) -->
+            <div id="viewOffers" class="hidden space-y-3">
+                <h2 class="text-lg font-bold text-slate-800 px-1">Exclusive Offers & Deals</h2>
+                <div id="offersList" class="space-y-3">
+                    <!-- Offer items loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- VIEW: PROFILE / ORDERS (Tab 5) -->
+            <div id="viewProfile" class="hidden space-y-4">
+                <div class="bg-white p-4 rounded-2xl shadow-sm text-center border border-slate-100">
+                    <div class="w-20 h-20 bg-brand-100 text-brand-600 rounded-full mx-auto flex items-center justify-center text-3xl font-bold mb-2">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800 text-lg">Valued Customer</h3>
+                    <p class="text-xs text-slate-500">+880 1700 000000</p>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <h4 class="font-bold text-slate-800 text-sm">Recent Orders</h4>
+                        <span class="text-xs text-brand-600 font-semibold cursor-pointer" onclick="clearOrderHistory()">Clear History</span>
+                    </div>
+                    <div id="orderHistoryList" class="divide-y divide-slate-100">
+                        <div class="p-4 text-center text-xs text-slate-400">No previous orders found.</div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- APP-STYLE BOTTOM NAVIGATION MENU -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1.5 flex justify-around items-center">
+            <button onclick="switchTab('home')" id="tab-home" class="tab-btn active flex flex-col items-center py-1 px-3 text-brand-600 font-semibold text-[11px] transition-all">
+                <i class="fa-solid fa-house text-lg mb-0.5"></i>
+                <span>Home</span>
+            </button>
+            <button onclick="switchTab('categories')" id="tab-categories" class="tab-btn flex flex-col items-center py-1 px-3 text-slate-400 font-medium text-[11px] transition-all">
+                <i class="fa-solid fa-border-all text-lg mb-0.5"></i>
+                <span>Categories</span>
+            </button>
+            <button onclick="switchTab('offers')" id="tab-offers" class="tab-btn flex flex-col items-center py-1 px-3 text-slate-400 font-medium text-[11px] transition-all relative">
+                <i class="fa-solid fa-tags text-lg mb-0.5"></i>
+                <span>Offers</span>
+                <span class="absolute top-1 right-2 flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+            </button>
+            <button onclick="openCartModal()" id="tab-cart" class="tab-btn flex flex-col items-center py-1 px-3 text-slate-400 font-medium text-[11px] transition-all relative">
+                <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+                <span>Cart</span>
+                <span id="bottomCartBadge" class="hidden absolute top-0.5 right-2 bg-amber-400 text-slate-900 font-extrabold text-[10px] min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border border-white shadow-xs">0</span>
+            </button>
+            <button onclick="switchTab('profile')" id="tab-profile" class="tab-btn flex flex-col items-center py-1 px-3 text-slate-400 font-medium text-[11px] transition-all">
+                <i class="fa-solid fa-user-gear text-lg mb-0.5"></i>
+                <span>Account</span>
+            </button>
+        </nav>
+
+        <!-- CART BOTTOM SHEET MODAL -->
+        <div id="cartModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex flex-col justify-end transition-opacity duration-300">
+            <!-- Modal Backdrop Click Area -->
+            <div class="flex-1" onclick="closeCartModal()"></div>
+            <!-- Slide Up Panel -->
+            <div class="bg-white rounded-t-3xl max-w-md w-full mx-auto max-h-[85vh] flex flex-col shadow-2xl transform transition-transform duration-300">
+                <!-- Modal Handle & Header -->
+                <div class="px-5 pt-3 pb-3 border-b border-slate-100 relative text-center">
+                    <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-2 cursor-pointer" onclick="closeCartModal()"></div>
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <h3 class="text-base font-bold text-slate-800">Your Basket</h3>
+                            <span id="cartItemCountTag" class="text-xs bg-brand-100 text-brand-700 font-bold px-2 py-0.5 rounded-full">0 items</span>
+                        </div>
+                        <button onclick="closeCartModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cart Items List Container -->
+                <div id="cartItemsContainer" class="flex-1 overflow-y-auto p-4 space-y-3 divide-y divide-slate-100">
+                    <!-- Populated via Javascript -->
+                </div>
+
+                <!-- Cart Summary & Checkout Bar -->
+                <div class="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
+                    <div class="space-y-1.5 text-xs text-slate-600">
+                        <div class="flex justify-between">
+                            <span>Subtotal</span>
+                            <span id="cartSubtotal" class="font-semibold text-slate-800">৳0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Delivery Fee</span>
+                            <span id="cartDeliveryFee" class="font-semibold text-slate-800">৳30</span>
+                        </div>
+                        <div class="flex justify-between text-sm font-bold text-slate-900 pt-1 border-t border-slate-200">
+                            <span>Total Amount</span>
+                            <span id="cartGrandTotal" class="text-brand-700">৳0</span>
+                        </div>
+                    </div>
+
+                    <button id="checkoutBtn" onclick="openCheckoutModal()" class="w-full bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand-600/30 hover:bg-brand-700 active:scale-98 transition flex items-center justify-center space-x-2">
+                        <span>Proceed to Checkout</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHECKOUT MODAL -->
+        <div id="checkoutModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex flex-col justify-end">
+            <div class="flex-1" onclick="closeCheckoutModal()"></div>
+            <div class="bg-white rounded-t-3xl max-w-md w-full mx-auto max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-base font-bold text-slate-800">Delivery Details</h3>
+                    <button onclick="closeCheckoutModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 overflow-y-auto space-y-4">
+                    <form id="checkoutForm" onsubmit="handlePlaceOrder(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
+                            <input type="text" id="customerName" required placeholder="e.g. Rahim Uddin" class="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Mobile Phone Number</label>
+                            <input type="tel" id="customerPhone" required placeholder="017XXXXXXXX" class="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Delivery Address</label>
+                            <textarea id="customerAddress" required rows="2" placeholder="House/Flat, Road, Area name..." class="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Payment Method</label>
+                            <div class="p-3 border-2 border-brand-500 bg-brand-50/50 rounded-xl flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-money-bill-wave text-brand-600 text-lg"></i>
+                                    <span class="text-xs font-bold text-slate-800">Cash on Delivery (COD)</span>
+                                </div>
+                                <i class="fa-solid fa-circle-check text-brand-600"></i>
+                            </div>
+                        </div>
+
+                        <!-- Order Summary Card -->
+                        <div class="bg-slate-50 p-3 rounded-xl space-y-1 text-xs text-slate-600 border border-slate-100 mt-2">
+                            <div class="flex justify-between">
+                                <span>Payable Amount:</span>
+                                <span id="checkoutPayableTotal" class="font-bold text-slate-900">৳0</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-brand-700 active:scale-98 transition mt-3">
+                            Confirm Order
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ORDER SUCCESS TOAST / MODAL -->
+        <div id="orderSuccessModal" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 text-center max-w-sm w-full space-y-4 shadow-2xl animate-bounce-in">
+                <div class="w-16 h-16 bg-emerald-100 text-brand-600 rounded-full mx-auto flex items-center justify-center text-3xl">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">Order Placed Successfully!</h3>
+                    <p class="text-xs text-slate-500 mt-1">Thank you for ordering with Laland Express. Our rider will reach you shortly!</p>
+                </div>
+                <div id="orderDetailsCard" class="bg-slate-50 p-3 rounded-xl text-xs text-left text-slate-600 space-y-1">
+                    <!-- Populated dynamically -->
+                </div>
+                <button onclick="closeSuccessModal()" class="w-full bg-brand-600 text-white text-xs font-bold py-3 rounded-xl shadow hover:bg-brand-700">
+                    Back to Home
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        // --- DATA STORE ---
+        const CATEGORIES = [
+            { id: 'All', name: 'All', icon: 'fa-border-all' },
+            { id: 'Groceries', name: 'Daily Groceries', icon: 'fa-apple-whole' },
+            { id: 'Personal Care', name: 'Personal Care', icon: 'fa-pump-soap' },
+            { id: 'Baby Care', name: 'Baby Care', icon: 'fa-baby' },
+            { id: 'Snacks', name: 'Snacks & Drinks', icon: 'fa-cookie-bite' },
+            { id: 'Household', name: 'Household', icon: 'fa-house-chimney-window' }
+        ];
+
+        const PRODUCTS = [
+            { id: 'p1', name: 'Fresh Farm Egg (Layer)', category: 'Groceries', price: 135, originalPrice: 150, unit: '12 pcs', rating: 4.8, reviews: 120, image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=300&q=80', badge: '10% OFF' },
+            { id: 'p2', name: 'Full Cream Milk', category: 'Groceries', price: 90, originalPrice: 95, unit: '1 Litre', rating: 4.9, reviews: 210, image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=300&q=80', badge: 'Fresh' },
+            { id: 'p3', name: 'Aromatic Minikit Rice', category: 'Groceries', price: 340, originalPrice: 370, unit: '5 kg', rating: 4.7, reviews: 85, image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80', badge: 'Best Price' },
+            { id: 'p4', name: 'Potato (Red Premium)', category: 'Groceries', price: 45, originalPrice: 50, unit: '1 kg', rating: 4.6, reviews: 94, image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=300&q=80', badge: '' },
+            { id: 'p5', name: 'Antibacterial Handwash', category: 'Personal Care', price: 180, originalPrice: 210, unit: '250 ml', rating: 4.8, reviews: 65, image: 'https://images.unsplash.com/photo-1607006482709-a10d9e96e54a?auto=format&fit=crop&w=300&q=80', badge: '14% OFF' },
+            { id: 'p6', name: 'Moisturizing Bath Soap Bar', category: 'Personal Care', price: 65, originalPrice: 75, unit: '125 g', rating: 4.5, reviews: 40, image: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?auto=format&fit=crop&w=300&q=80', badge: '' },
+            { id: 'p7', name: 'Baby Wipes Sensitive', category: 'Baby Care', price: 220, originalPrice: 260, unit: '80 wipes', rating: 4.9, reviews: 150, image: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?auto=format&fit=crop&w=300&q=80', badge: 'Top Rated' },
+            { id: 'p8', name: 'Crispy Potato Chips', category: 'Snacks', price: 40, originalPrice: 40, unit: '60 g', rating: 4.4, reviews: 180, image: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=300&q=80', badge: 'Hot' },
+            { id: 'p9', name: 'Fresh Orange Juice 100%', category: 'Snacks', price: 160, originalPrice: 190, unit: '1 Litre', rating: 4.7, reviews: 77, image: 'https://images.unsplash.com/photo-1613478223719-2ab802602423?auto=format&fit=crop&w=300&q=80', badge: 'Cold' },
+            { id: 'p10', name: 'Dishwashing Liquid Soap', category: 'Household', price: 130, originalPrice: 150, unit: '500 ml', rating: 4.8, reviews: 112, image: 'https://images.unsplash.com/photo-1585830812416-a6c86bb14576?auto=format&fit=crop&w=300&q=80', badge: '' }
+        ];
+
+        // --- STATE MANAGEMENT ---
+        let currentCategory = 'All';
+        let searchQuery = '';
+        let cart = {}; // { productId: quantity }
+        let orderHistory = [];
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            loadCartFromStorage();
+            loadOrderHistoryFromStorage();
+            renderCategoryPills();
+            renderProducts();
+            renderAllCategoriesGrid();
+            renderOffers();
+            updateCartBadges();
+        };
+
+        // Local Storage Helpers
+        function saveCartToStorage() {
+            localStorage.setItem('laland_express_cart', JSON.stringify(cart));
+        }
+
+        function loadCartFromStorage() {
+            const saved = localStorage.getItem('laland_express_cart');
+            if (saved) {
+                try { cart = JSON.parse(saved); } catch(e) { cart = {}; }
+            }
+        }
+
+        function saveOrderHistoryToStorage() {
+            localStorage.setItem('laland_express_orders', JSON.stringify(orderHistory));
+        }
+
+        function loadOrderHistoryFromStorage() {
+            const saved = localStorage.getItem('laland_express_orders');
+            if (saved) {
+                try { orderHistory = JSON.parse(saved); } catch(e) { orderHistory = []; }
+            }
+        }
+
+        // --- RENDER FUNCTIONS ---
+        function renderCategoryPills() {
+            const container = document.getElementById('categoryContainer');
+            container.innerHTML = CATEGORIES.map(cat => {
+                const isActive = currentCategory === cat.id;
+                const activeClasses = isActive 
+                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20' 
+                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200';
+                return `
+                    <button onclick="filterCategory('${cat.id}')" class="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${activeClasses}">
+                        <i class="fa-solid ${cat.icon}"></i>
+                        <span>${cat.name}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('productGrid');
+            const titleEl = document.getElementById('sectionTitle');
+            const countEl = document.getElementById('productCount');
+
+            // Filter Products
+            let items = PRODUCTS.filter(p => {
+                const matchesCat = currentCategory === 'All' || p.category === currentCategory;
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesCat && matchesSearch;
+            });
+
+            titleEl.textContent = currentCategory === 'All' ? 'Popular Essentials' : currentCategory;
+            countEl.textContent = `${items.length} Items`;
+
+            if (items.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-2 py-10 text-center text-slate-400 space-y-2">
+                        <i class="fa-solid fa-box-open text-4xl"></i>
+                        <p class="text-xs font-medium">No items found matching your criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = items.map(product => {
+                const qty = cart[product.id] || 0;
+                return `
+                    <div class="bg-white rounded-2xl p-2.5 shadow-sm border border-slate-100 flex flex-col justify-between relative group hover:shadow-md transition">
+                        ${product.badge ? `<span class="absolute top-3 left-3 bg-amber-400 text-slate-900 text-[9px] font-black px-1.5 py-0.5 rounded-md z-10 uppercase tracking-wider shadow-xs">${product.badge}</span>` : ''}
+                        
+                        <div>
+                            <div class="w-full h-28 rounded-xl overflow-hidden bg-slate-50 mb-2 relative">
+                                <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" onerror="this.src='https://placehold.co/300x300/e2e8f0/475569?text=Product'">
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">${product.category}</div>
+                            <h3 class="text-xs font-bold text-slate-800 line-clamp-2 leading-tight min-h-[2rem]">${product.name}</h3>
+                            <div class="text-[11px] text-slate-400 mt-0.5">${product.unit}</div>
+                        </div>
+
+                        <div class="mt-2 pt-2 border-t border-slate-50 flex items-center justify-between">
+                            <div>
+                                <div class="text-xs font-extrabold text-brand-700">৳${product.price}</div>
+                                ${product.originalPrice > product.price ? `<div class="text-[10px] text-slate-400 line-through">৳${product.originalPrice}</div>` : ''}
+                            </div>
+
+                            <!-- QUANTITY ACTION BUTTONS -->
+                            <div class="flex items-center">
+                                ${qty === 0 ? `
+                                    <button onclick="updateCartQuantity('${product.id}', 1)" class="bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 text-xs font-bold px-3 py-1.5 rounded-xl active:scale-95 transition flex items-center space-x-1">
+                                        <i class="fa-solid fa-plus text-[10px]"></i>
+                                        <span>Add</span>
+                                    </button>
+                                ` : `
+                                    <div class="flex items-center bg-brand-600 text-white rounded-xl shadow-sm overflow-hidden text-xs">
+                                        <button onclick="updateCartQuantity('${product.id}', ${qty - 1})" class="px-2 py-1 hover:bg-brand-700 active:bg-brand-800">
+                                            <i class="fa-solid fa-minus text-[10px]"></i>
+                                        </button>
+                                        <span class="px-2 font-bold">${qty}</span>
+                                        <button onclick="updateCartQuantity('${product.id}', ${qty + 1})" class="px-2 py-1 hover:bg-brand-700 active:bg-brand-800">
+                                            <i class="fa-solid fa-plus text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAllCategoriesGrid() {
+            const container = document.getElementById('allCategoriesGrid');
+            container.innerHTML = CATEGORIES.filter(c => c.id !== 'All').map(cat => `
+                <div onclick="filterCategory('${cat.id}'); switchTab('home');" class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center space-y-2 cursor-pointer active:scale-95 transition">
+                    <div class="w-12 h-12 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center text-xl">
+                        <i class="fa-solid ${cat.icon}"></i>
+                    </div>
+                    <span class="text-xs font-bold text-slate-800">${cat.name}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderOffers() {
+            const container = document.getElementById('offersList');
+            container.innerHTML = `
+                <div class="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-4 text-white shadow-sm space-y-2">
+                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">CODE: LALAND50</span>
+                    <h3 class="text-base font-bold">Flat ৳50 Off on Groceries</h3>
+                    <p class="text-xs text-emerald-100">Applicable on orders over ৳500. Valid till end of month.</p>
+                </div>
+                <div class="bg-gradient-to-r from-amber-500 to-rose-500 rounded-2xl p-4 text-white shadow-sm space-y-2">
+                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Free Shipping</span>
+                    <h3 class="text-base font-bold">Free Express Delivery</h3>
+                    <p class="text-xs text-amber-100">Spend ৳200 or more to enjoy zero delivery fees!</p>
+                </div>
+            `;
+        }
+
+        function renderCartModalItems() {
+            const container = document.getElementById('cartItemsContainer');
+            const cartKeys = Object.keys(cart).filter(id => cart[id] > 0);
+
+            document.getElementById('cartItemCountTag').textContent = `${cartKeys.length} items`;
+
+            if (cartKeys.length === 0) {
+                container.innerHTML = `
+                    <div class="py-12 text-center text-slate-400 space-y-3">
+                        <i class="fa-solid fa-basket-shopping text-5xl text-slate-200"></i>
+                        <p class="text-sm font-semibold text-slate-600">Your basket is empty</p>
+                        <p class="text-xs text-slate-400">Add items from the home page to start shopping.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = cartKeys.map(id => {
+                const product = PRODUCTS.find(p => p.id === id);
+                if (!product) return '';
+                const qty = cart[id];
+                const itemTotal = product.price * qty;
+
+                return `
+                    <div class="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                        <div class="flex items-center space-x-3">
+                            <img src="${product.image}" alt="${product.name}" class="w-12 h-12 object-cover rounded-xl bg-slate-50 border border-slate-100">
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-800 line-clamp-1">${product.name}</h4>
+                                <div class="text-[11px] text-slate-400">৳${product.price} x ${qty}</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-extrabold text-slate-800">৳${itemTotal}</span>
+                            <div class="flex items-center bg-slate-100 rounded-xl text-slate-700 text-xs">
+                                <button onclick="updateCartQuantity('${product.id}', ${qty - 1})" class="px-2 py-1 hover:bg-slate-200 rounded-l-xl">
+                                    <i class="fa-solid fa-minus text-[10px]"></i>
+                                </button>
+                                <span class="px-2 font-bold">${qty}</span>
+                                <button onclick="updateCartQuantity('${product.id}', ${qty + 1})" class="px-2 py-1 hover:bg-slate-200 rounded-r-xl">
+                                    <i class="fa-solid fa-plus text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderOrderHistory() {
+            const container = document.getElementById('orderHistoryList');
+            if (orderHistory.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">No previous orders found.</div>`;
+                return;
+            }
+
+            container.innerHTML = orderHistory.map(order => `
+                <div class="p-4 space-y-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-800">Order #${order.id}</span>
+                        <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${order.status}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500">${order.date} • ${order.itemsCount} Items</div>
+                    <div class="text-xs font-extrabold text-brand-700">Total: ৳${order.total}</div>
+                </div>
+            `).join('');
+        }
+
+        // --- CART ACTIONS & CALCULATIONS ---
+        function updateCartQuantity(productId, newQty) {
+            if (newQty <= 0) {
+                delete cart[productId];
+            } else {
+                cart[productId] = newQty;
+            }
+            saveCartToStorage();
+            renderProducts();
+            renderCartModalItems();
+            updateCartBadges();
+        }
+
+        function calculateCartTotals() {
+            let subtotal = 0;
+            let itemCount = 0;
+
+            Object.keys(cart).forEach(id => {
+                const qty = cart[id];
+                const product = PRODUCTS.find(p => p.id === id);
+                if (product) {
+                    subtotal += product.price * qty;
+                    itemCount += qty;
+                }
+            });
+
+            const deliveryFee = subtotal >= 200 || subtotal === 0 ? 0 : 30;
+            const grandTotal = subtotal + deliveryFee;
+
+            return { subtotal, deliveryFee, grandTotal, itemCount };
+        }
+
+        function updateCartBadges() {
+            const { subtotal, itemCount } = calculateCartTotals();
+            
+            // Header Badge
+            const headerBadge = document.getElementById('headerCartBadge');
+            const bottomBadge = document.getElementById('bottomCartBadge');
+            
+            if (itemCount > 0) {
+                headerBadge.textContent = itemCount;
+                headerBadge.classList.remove('hidden');
+                bottomBadge.textContent = itemCount;
+                bottomBadge.classList.remove('hidden');
+            } else {
+                headerBadge.classList.add('hidden');
+                bottomBadge.classList.add('hidden');
+            }
+
+            // Free Shipping Progress Bar Widget (Target: ৳200)
+            const target = 200;
+            const progress = Math.min(100, (subtotal / target) * 100);
+            const freeBar = document.getElementById('freeShippingBar');
+            const freeText = document.getElementById('freeShippingText');
+
+            if (freeBar) freeBar.style.width = `${progress}%`;
+            if (freeText) {
+                if (subtotal >= target) {
+                    freeText.innerHTML = `<span class="font-bold text-brand-600"><i class="fa-solid fa-circle-check"></i> You unlocked FREE Delivery!</span>`;
+                } else {
+                    const diff = target - subtotal;
+                    freeText.innerHTML = `Add <span class="font-bold text-brand-600">৳${diff}</span> more for FREE delivery`;
+                }
+            }
+
+            // Cart Modal Dynamic Prices
+            const { deliveryFee, grandTotal } = calculateCartTotals();
+            document.getElementById('cartSubtotal').textContent = `৳${subtotal}`;
+            document.getElementById('cartDeliveryFee').textContent = deliveryFee === 0 ? 'FREE' : `৳${deliveryFee}`;
+            document.getElementById('cartGrandTotal').textContent = `৳${grandTotal}`;
+            
+            // Disable Checkout Button if empty
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            if (checkoutBtn) {
+                if (itemCount === 0) {
+                    checkoutBtn.disabled = true;
+                    checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    checkoutBtn.disabled = false;
+                    checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            }
+        }
+
+        // --- NAVIGATION & UI CONTROLS ---
+        function filterCategory(catId) {
+            currentCategory = catId;
+            renderCategoryPills();
+            renderProducts();
+        }
+
+        function handleSearch(val) {
+            searchQuery = val;
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (val.trim().length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            renderProducts();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            handleSearch('');
+        }
+
+        function switchTab(tabName) {
+            // Update Active Tab Styles
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-brand-600', 'font-semibold');
+                btn.classList.add('text-slate-400', 'font-medium');
+            });
+            const selectedTab = document.getElementById(`tab-${tabName}`);
+            if (selectedTab) {
+                selectedTab.classList.remove('text-slate-400', 'font-medium');
+                selectedTab.classList.add('text-brand-600', 'font-semibold');
+            }
+
+            // Views Toggle
+            document.getElementById('viewHome').classList.add('hidden');
+            document.getElementById('viewCategories').classList.add('hidden');
+            document.getElementById('viewOffers').classList.add('hidden');
+            document.getElementById('viewProfile').classList.add('hidden');
+
+            if (tabName === 'home') document.getElementById('viewHome').classList.remove('hidden');
+            if (tabName === 'categories') document.getElementById('viewCategories').classList.remove('hidden');
+            if (tabName === 'offers') document.getElementById('viewOffers').classList.remove('hidden');
+            if (tabName === 'profile') {
+                renderOrderHistory();
+                document.getElementById('viewProfile').classList.remove('hidden');
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- MODAL CONTROLS ---
+        function openCartModal() {
+            renderCartModalItems();
+            updateCartBadges();
+            document.getElementById('cartModal').classList.remove('hidden');
+        }
+
+        function closeCartModal() {
+            document.getElementById('cartModal').classList.add('hidden');
+        }
+
+        function openCheckoutModal() {
+            closeCartModal();
+            const { grandTotal } = calculateCartTotals();
+            document.getElementById('checkoutPayableTotal').textContent = `৳${grandTotal}`;
+            document.getElementById('checkoutModal').classList.remove('hidden');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+        }
+
+        function handlePlaceOrder(event) {
+            event.preventDefault();
+            const name = document.getElementById('customerName').value;
+            const phone = document.getElementById('customerPhone').value;
+            const address = document.getElementById('customerAddress').value;
+
+            const { grandTotal, itemCount } = calculateCartTotals();
+
+            const newOrder = {
+                id: Math.floor(100000 + Math.random() * 900000),
+                date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+                itemsCount: itemCount,
+                total: grandTotal,
+                status: 'Processing'
+            };
+
+            orderHistory.unshift(newOrder);
+            saveOrderHistoryToStorage();
+
+            // Display Success Dialog
+            document.getElementById('orderDetailsCard').innerHTML = `
+                <div><span class="font-bold">Order ID:</span> #${newOrder.id}</div>
+                <div><span class="font-bold">Customer:</span> ${name} (${phone})</div>
+                <div><span class="font-bold">Address:</span> ${address}</div>
+                <div><span class="font-bold">Payment:</span> Cash on Delivery</div>
+                <div class="text-brand-700 font-extrabold text-sm pt-1">Total Payable: ৳${grandTotal}</div>
+            `;
+
+            closeCheckoutModal();
+            document.getElementById('orderSuccessModal').classList.remove('hidden');
+
+            // Reset Cart
+            cart = {};
+            saveCartToStorage();
+            renderProducts();
+            updateCartBadges();
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('orderSuccessModal').classList.add('hidden');
+            switchTab('home');
+        }
+
+        function clearOrderHistory() {
+            orderHistory = [];
+            saveOrderHistoryToStorage();
+            renderOrderHistory();
+        }
+    </script>
+</body>
+</html>
+```
