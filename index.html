@@ -8,14 +8,16 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-fontawesome/6.4.0/css/all.min.css">
   
   <!-- Firebase SDKs (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getAuth, 
+      createUserWithEmailAndPassword,
       signInWithEmailAndPassword, 
+      sendPasswordResetEmail,
       signOut, 
       onAuthStateChanged,
       setPersistence,
@@ -24,6 +26,7 @@
     import { 
       getFirestore, 
       doc, 
+      setDoc,
       getDoc,
       collection,
       getDocs 
@@ -53,10 +56,13 @@
     window.firebaseAuth = auth;
     window.firebaseDb = db;
     window.firebaseServices = {
+      createUserWithEmailAndPassword,
       signInWithEmailAndPassword,
+      sendPasswordResetEmail,
       signOut,
       onAuthStateChanged,
       doc,
+      setDoc,
       getDoc,
       collection,
       getDocs
@@ -146,13 +152,16 @@
 
     <!-- Tab 4: Account Screen -->
     <section id="accountTab" class="p-4 hidden space-y-4">
-      <!-- Login Form (Visible when logged out) -->
+      <!-- Auth Container (When User is Logged Out) -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-        <div class="text-center">
-          <h3 class="font-bold text-emerald-600 text-base">লগইন করুন</h3>
-          <p class="text-xs text-gray-500 mt-1">মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন</p>
+        
+        <!-- Toggle Tabs: Login & Sign Up -->
+        <div class="flex border-b border-gray-200 text-center font-bold text-sm">
+          <button id="showLoginBtn" class="flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600">লগইন</button>
+          <button id="showSignupBtn" class="flex-1 py-2 text-gray-400">রেজিস্ট্রেশন (Sign Up)</button>
         </div>
 
+        <!-- 1. LOGIN FORM -->
         <form id="loginForm" class="space-y-3">
           <div>
             <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর</label>
@@ -162,10 +171,61 @@
             <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
             <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
+          <div class="text-right">
+            <button type="button" id="showForgotBtn" class="text-xs text-emerald-600 hover:underline">পাসওয়ার্ড ভুলে গেছেন? (Password Recovery)</button>
+          </div>
           <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
             লগইন করুন
           </button>
         </form>
+
+        <!-- 2. SIGN UP FORM -->
+        <form id="signupForm" class="space-y-3 hidden">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">আপনার নাম *</label>
+            <input type="text" id="signupName" required placeholder="MD. AL HELAL" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর *</label>
+            <input type="tel" id="signupPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ইমেইল (পাসওয়ার্ড রিকভারির জন্য প্রযোজ্য)</label>
+            <input type="email" id="signupEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড (কমপক্ষে ৬ ডিজিট) *</label>
+            <input type="password" id="signupPassword" minlength="6" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন *</label>
+            <select id="signupAddressSelect" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="">ঠিকানা লোড হচ্ছে...</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+            অ্যাকাউন্ট তৈরি করুন (Sign Up)
+          </button>
+        </form>
+
+        <!-- 3. PASSWORD RECOVERY FORM -->
+        <form id="forgotForm" class="space-y-3 hidden">
+          <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 text-center">
+            <h4 class="font-bold text-xs text-emerald-800">পাসওয়ার্ড রিকভারি</h4>
+            <p class="text-[11px] text-gray-600 mt-1">আপনার নিবন্ধিত ইমেইল এড্রেস লিখুন। পাসওয়ার্ড রিসেট করার একটি লিংক ইমেইলে পাঠানো হবে।</p>
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ইমেইল এড্রেস *</label>
+            <input type="email" id="recoveryEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+            পাসওয়ার্ড রিসেট লিংক পাঠান
+          </button>
+          <div class="text-center pt-2">
+            <button type="button" id="backToLoginBtn" class="text-xs text-gray-500 hover:underline">← লগইন পেজে ফিরে যান</button>
+          </div>
+        </form>
+
       </div>
 
       <!-- Authenticated Profile View (Visible when logged in) -->
@@ -309,6 +369,34 @@
 
       document.getElementById('searchInput').addEventListener('input', (e) => {
         renderProducts(e.target.value.toLowerCase());
+      });
+
+      // UI Tab Toggles inside Account Section
+      document.getElementById('showLoginBtn').addEventListener('click', () => {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('signupForm').classList.add('hidden');
+        document.getElementById('forgotForm').classList.add('hidden');
+        document.getElementById('showLoginBtn').className = "flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600";
+        document.getElementById('showSignupBtn').className = "flex-1 py-2 text-gray-400";
+      });
+
+      document.getElementById('showSignupBtn').addEventListener('click', () => {
+        document.getElementById('signupForm').classList.remove('hidden');
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('forgotForm').classList.add('hidden');
+        document.getElementById('showSignupBtn').className = "flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600";
+        document.getElementById('showLoginBtn').className = "flex-1 py-2 text-gray-400";
+      });
+
+      document.getElementById('showForgotBtn').addEventListener('click', () => {
+        document.getElementById('forgotForm').classList.remove('hidden');
+        document.getElementById('loginForm').classList.add('hidden');
+        document.getElementById('signupForm').classList.add('hidden');
+      });
+
+      document.getElementById('backToLoginBtn').addEventListener('click', () => {
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('forgotForm').classList.add('hidden');
       });
 
       setTimeout(initFirebaseEvents, 500);
@@ -477,16 +565,19 @@
       document.getElementById('cartModal').classList.toggle('hidden');
     }
 
-    // Load Admin Addresses into Checkout Dropdown from Firestore collection "delivery_addresses"
+    // Load Admin Addresses into Dropdowns from Firestore
     async function loadAdminAddresses() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
-      const selectEl = document.getElementById('checkoutAddressSelect');
+      const checkoutSelect = document.getElementById('checkoutAddressSelect');
+      const signupSelect = document.getElementById('signupAddressSelect');
       
       try {
         const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
         if (querySnapshot.empty) {
-          selectEl.innerHTML = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
+          const emptyOpt = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
+          checkoutSelect.innerHTML = emptyOpt;
+          signupSelect.innerHTML = emptyOpt;
           return;
         }
 
@@ -496,20 +587,23 @@
           const addressText = data.address || data.name || "ঠিকানা";
           optionsHTML += `<option value="${addressText}">${addressText}</option>`;
         });
-        selectEl.innerHTML = optionsHTML;
+        checkoutSelect.innerHTML = optionsHTML;
+        signupSelect.innerHTML = optionsHTML;
       } catch (e) {
         console.error("Error loading addresses:", e);
-        selectEl.innerHTML = `<option value="">ঠিকানা লোড করতে সমস্যা হয়েছে</option>`;
+        const errOpt = `<option value="">ঠিকানা লোড করতে সমস্যা হয়েছে</option>`;
+        checkoutSelect.innerHTML = errOpt;
+        signupSelect.innerHTML = errOpt;
       }
     }
 
-    // Firebase Auth & Login Logic (Phone + Password)
+    // Firebase Auth Handlers (Signup, Login, Password Recovery)
     function initFirebaseEvents() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
-      const { signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, getDoc } = window.firebaseServices;
+      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
 
-      // Auth Observer
+      // Auth State Observer
       onAuthStateChanged(auth, async (user) => {
         if (user) {
           document.getElementById('authForms').classList.add('hidden');
@@ -521,8 +615,8 @@
             if (docSnap.exists()) {
               const data = docSnap.data();
               document.getElementById('userName').innerText = data.name || "গ্রাহক";
-              document.getElementById('userPhone').innerText = data.phone || user.phoneNumber || "নম্বর নেই";
-              document.getElementById('userEmail').innerText = data.email || "ইমেইল দেয়া হয়নি";
+              document.getElementById('userPhone').innerText = data.phone || "নম্বর নেই";
+              document.getElementById('userEmail').innerText = data.email || user.email;
               document.getElementById('userAddress').innerText = data.address || "কোনো ঠিকানা দেয়া হয়নি";
             }
           } catch (e) { console.error("Firestore read error:", e); }
@@ -532,24 +626,79 @@
         }
       });
 
-      // Login Form Handler (Phone & Password)
+      // 1. SIGN UP HANDLER
+      document.getElementById('signupForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('signupName').value;
+        const phone = document.getElementById('signupPhone').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const password = document.getElementById('signupPassword').value;
+        const address = document.getElementById('signupAddressSelect').value;
+
+        if(!address) {
+          alert("অনুগ্রহ করে একটি ডেলিভারি ঠিকানা সিলেক্ট করুন।");
+          return;
+        }
+
+        try {
+          // Create Auth User using Email & Password
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+
+          // Save Details in Firestore
+          await setDoc(doc(db, "users", user.uid), {
+            name: name,
+            phone: phone,
+            email: email,
+            address: address,
+            createdAt: new Date().toISOString()
+          });
+
+          alert("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
+        } catch (error) {
+          alert("রেজিস্ট্রেশন করতে সমস্যা হয়েছে: " + error.message);
+        }
+      });
+
+      // 2. LOGIN HANDLER
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const phone = document.getElementById('loginPhone').value.trim();
         const password = document.getElementById('loginPassword').value;
 
-        // Firebase-এ ফোন নম্বর দিয়ে লগইন করার জন্য ইন্টারনাল ডামি ইমেইল ফরম্যাট ব্যবহার করা হচ্ছে
+        // Convert phone number to internal formatted email
         const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandexpress.com`;
 
         try {
           await signInWithEmailAndPassword(auth, formattedEmail, password);
           alert("লগইন সফল হয়েছে!");
         } catch (error) {
-          alert("লগইন ব্যর্থ হয়েছে! সঠিক ফোন নম্বর ও পাসওয়ার্ড দিন।");
+          // If login fails via phone email format, attempt login via direct email
+          try {
+            await signInWithEmailAndPassword(auth, phone, password);
+            alert("লগইন সফল হয়েছে!");
+          } catch (err) {
+            alert("লগইন ব্যর্থ হয়েছে! সঠিক ফোন নম্বর/ইমেইল ও পাসওয়ার্ড দিন।");
+          }
         }
       });
 
-      // Handle Logout
+      // 3. PASSWORD RECOVERY HANDLER
+      document.getElementById('forgotForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('recoveryEmail').value.trim();
+
+        try {
+          await sendPasswordResetEmail(auth, email);
+          alert("আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিংক পাঠানো হয়েছে! ইনবক্স বা স্প্যাম ফোল্ডার চেক করুন।");
+          document.getElementById('loginForm').classList.remove('hidden');
+          document.getElementById('forgotForm').classList.add('hidden');
+        } catch (error) {
+          alert("সমস্যা হয়েছে: " + error.message);
+        }
+      });
+
+      // LOGOUT HANDLER
       document.getElementById('logoutBtn').addEventListener('click', async () => {
         await signOut(auth);
         alert("সাইন আউট করা হয়েছে।");
