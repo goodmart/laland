@@ -29,7 +29,8 @@
       setDoc,
       getDoc,
       collection,
-      getDocs 
+      getDocs,
+      addDoc
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -63,7 +64,8 @@
       setDoc,
       getDoc,
       collection,
-      getDocs
+      getDocs,
+      addDoc
     };
   </script>
 
@@ -92,6 +94,10 @@
         </div>
       </div>
       <div class="flex items-center space-x-3">
+        <!-- Admin Portal Link -->
+        <a href="admin/index.html" class="text-xs bg-emerald-700 px-2.5 py-1.5 rounded-xl border border-emerald-500 hover:bg-emerald-800 transition font-semibold" title="Admin Panel">
+          <i class="fa-solid fa-lock mr-1"></i> Admin
+        </a>
         <button id="openCartBtn" class="relative p-2 rounded-full hover:bg-emerald-700 transition">
           <i class="fa-solid fa-cart-shopping text-xl"></i>
           <span id="cartBadge" class="absolute -top-1 -right-1 bg-amber-400 text-emerald-950 font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center hidden">
@@ -322,17 +328,7 @@
 
   <!-- Application Logic JS -->
   <script>
-    const products = [
-      { id: 1, name: "মিনিকেট চাল (৫ কেজি)", price: 360, oldPrice: 380, category: "groceries", image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80" },
-      { id: 2, name: "সয়াবিন তেল (২ লিটার)", price: 330, oldPrice: 350, category: "groceries", image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=300&q=80" },
-      { id: 3, name: "তরল দুধ (১ লিটার)", price: 90, oldPrice: 95, category: "groceries", image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=300&q=80" },
-      { id: 4, name: "ডাবর ভাটিকা শ্যাম্পু (২০০ml)", price: 220, oldPrice: 240, category: "personal", image: "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&w=300&q=80" },
-      { id: 5, name: "কডুমো বেবি শ্যাম্পু (২০০ml)", price: 310, oldPrice: 330, category: "baby", image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?auto=format&fit=crop&w=300&q=80" },
-      { id: 6, name: "নিভিয়া সফট ক্রিম (১০০ml)", price: 280, oldPrice: 300, category: "personal", image: "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=300&q=80" },
-      { id: 7, name: "ফগ বডি স্প্রে (১২০ml)", price: 350, oldPrice: 380, category: "personal", image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=300&q=80" },
-      { id: 8, name: "নুটেলা হ্যাজেলনাট স্প্রেড (২০০g)", price: 420, oldPrice: 450, category: "snacks", image: "https://images.unsplash.com/photo-1541592106381-b31e9677c0e5?auto=format&fit=crop&w=300&q=80" }
-    ];
-
+    let products = []; // Dynamic products fetched from Firebase
     const categories = [
       { id: 'all', name: 'সকল আইটেম', icon: 'fa-layer-group' },
       { id: 'groceries', name: 'মুদি বাজার', icon: 'fa-basket-shopping' },
@@ -370,7 +366,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       renderCategoryPills();
       renderCategoryGrid();
-      renderProducts();
+      fetchProductsFromFirebase(); // Load dynamic products from Firestore
       updateCartUI();
 
       const navButtons = document.querySelectorAll('.nav-btn');
@@ -387,6 +383,51 @@
 
       document.getElementById('searchInput').addEventListener('input', (e) => {
         renderProducts(e.target.value.toLowerCase());
+      });
+
+      // Checkout Button Handler - Sends Order to Firebase 'orders' collection
+      document.getElementById('checkoutBtn').addEventListener('click', async () => {
+        if (cart.length === 0) {
+          alert("আপনার কার্ট খালি রয়েছে!");
+          return;
+        }
+
+        const address = document.getElementById('checkoutAddressSelect').value;
+        if (!address) {
+          alert("অনুগ্রহ করে ডেলিভারি ঠিকানা সিলেক্ট করুন।");
+          return;
+        }
+
+        const auth = window.firebaseAuth;
+        const db = window.firebaseDb;
+        const { addDoc, collection } = window.firebaseServices;
+
+        const user = auth.currentUser;
+        const userName = user ? (document.getElementById('userName').innerText || 'গ্রাহক') : 'অতিথি গ্রাহক';
+        const userPhone = user ? (document.getElementById('userPhone').innerText || 'নম্বর নেই') : 'N/A';
+        
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const totalAmount = subtotal + 30; // Delivery charge fixed to 30 BDT
+
+        const orderData = {
+          userName: userName,
+          userPhone: userPhone,
+          items: cart,
+          totalAmount: totalAmount,
+          address: address,
+          status: 'Pending',
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "orders"), orderData);
+          alert("আপনার অর্ডারটি সফলভাবে সম্পন্ন হয়েছে!");
+          cart = [];
+          saveCart();
+          toggleCartModal();
+        } catch (err) {
+          alert("অর্ডার করতে সমস্যা হয়েছে: " + err.message);
+        }
       });
 
       // UI Tab Toggles inside Account Section
@@ -420,6 +461,40 @@
       setTimeout(initFirebaseEvents, 500);
       loadAdminAddresses();
     });
+
+    // Fetch Products from Firestore 'products' collection
+    async function fetchProductsFromFirebase() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const grid = document.getElementById('productGrid');
+      
+      if(!db) {
+        setTimeout(fetchProductsFromFirebase, 500);
+        return;
+      }
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        products = [];
+        querySnapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          products.push({
+            id: docSnap.id,
+            name: d.name,
+            price: Number(d.discountPrice || d.mrp || 0),
+            oldPrice: Number(d.mrp || 0),
+            category: d.category || 'groceries',
+            image: d.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80',
+            barcode: d.barcode,
+            supplier: d.supplier
+          });
+        });
+        renderProducts();
+      } catch (e) {
+        console.error("Error loading products from Firebase:", e);
+        grid.innerHTML = `<p class="text-xs text-red-500 col-span-2 text-center">পণ্য লোড করতে সমস্যা হয়েছে।</p>`;
+      }
+    }
 
     function showTab(tabId) {
       ['homeTab', 'categoriesTab', 'cartTab', 'accountTab'].forEach(id => {
@@ -462,6 +537,11 @@
 
       document.getElementById('productCount').innerText = `${filtered.length} টি আইটেম`;
 
+      if (filtered.length === 0) {
+        document.getElementById('productGrid').innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-6">কোনো পণ্য পাওয়া যায়নি।</p>`;
+        return;
+      }
+
       document.getElementById('productGrid').innerHTML = filtered.map(prod => {
         const cartItem = cart.find(item => item.id === prod.id);
         const qty = cartItem ? cartItem.qty : 0;
@@ -482,17 +562,17 @@
 
             <div class="mt-3">
               ${qty === 0 ? `
-                <button onclick="addToCart(${prod.id})" class="w-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center space-x-1 hover:bg-emerald-600 hover:text-white transition">
+                <button onclick="addToCart('${prod.id}')" class="w-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center space-x-1 hover:bg-emerald-600 hover:text-white transition">
                   <i class="fa-solid fa-plus text-[10px]"></i>
                   <span>যোগ করুন</span>
                 </button>
               ` : `
                 <div class="flex items-center justify-between bg-emerald-600 text-white rounded-xl p-1">
-                  <button onclick="updateQty(${prod.id}, -1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
+                  <button onclick="updateQty('${prod.id}', -1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
                     <i class="fa-solid fa-minus text-[10px]"></i>
                   </button>
                   <span class="text-xs font-bold">${qty}</span>
-                  <button onclick="updateQty(${prod.id}, 1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
+                  <button onclick="updateQty('${prod.id}', 1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
                     <i class="fa-solid fa-plus text-[10px]"></i>
                   </button>
                 </div>
@@ -505,7 +585,13 @@
 
     window.addToCart = function(id) {
       const prod = products.find(p => p.id === id);
-      cart.push({ ...prod, qty: 1 });
+      if(!prod) return;
+      const existing = cart.find(item => item.id === id);
+      if(existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({ ...prod, qty: 1 });
+      }
       saveCart();
     };
 
@@ -563,9 +649,9 @@
             <div class="flex items-center space-x-2">
               <span class="text-xs font-bold text-emerald-600">৳ ${item.price * item.qty}</span>
               <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button onclick="updateQty(${item.id}, -1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">-</button>
+                <button onclick="updateQty('${item.id}', -1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">-</button>
                 <span class="text-xs font-bold px-1.5">${item.qty}</span>
-                <button onclick="updateQty(${item.id}, 1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">+</button>
+                <button onclick="updateQty('${item.id}', 1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">+</button>
               </div>
             </div>
           </div>
@@ -589,6 +675,11 @@
       const checkoutSelect = document.getElementById('checkoutAddressSelect');
       const signupSelect = document.getElementById('signupAddressSelect');
       
+      if(!db) {
+        setTimeout(loadAdminAddresses, 500);
+        return;
+      }
+
       try {
         const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
         if (querySnapshot.empty) {
