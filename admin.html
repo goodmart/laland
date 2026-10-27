@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laland Express - Admin Panel</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      collection,
+      addDoc,
+      getDocs,
+      deleteDoc,
+      doc
+    };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+  <!-- Admin Header -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-gauge text-xl"></i>
+        <h1 class="font-bold text-lg">Laland Express - Admin Panel</h1>
+      </div>
+      <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 hidden">
+        লগআউট
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto p-4 space-y-6">
+
+    <!-- Admin Login Section (If not logged in) -->
+    <div id="adminLoginSection" class="bg-white p-6 rounded-2xl shadow-sm max-w-md mx-auto space-y-4">
+      <h2 class="text-base font-bold text-emerald-700 text-center">অ্যাডমিন লগইন</h2>
+      <form id="adminLoginForm" class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">অ্যাডমিন ইমেইল</label>
+          <input type="email" id="adminEmail" required placeholder="admin@lalandexpress.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+          <input type="password" id="adminPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+          লগইন করুন
+        </button>
+      </form>
+    </div>
+
+    <!-- Admin Dashboard (Visible after login) -->
+    <div id="adminDashboard" class="space-y-6 hidden">
+      
+      <!-- Section 1: Add Delivery Address -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm space-y-4">
+        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2"><i class="fa-solid fa-location-dot"></i> নতুন ডেলিভারি ঠিকানা এন্ট্রি করুন</h3>
+        <form id="addressForm" class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">ঠিকানার নাম / এলাকা (যেমন: কামারপাড়া, রংপুর)</label>
+            <input type="text" id="newAddressInput" required placeholder="ঠিকানা লিখুন..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <button type="submit" class="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-700 shadow">
+            ঠিকানা যুক্ত করুন
+          </button>
+        </form>
+
+        <!-- Address List -->
+        <div class="mt-4">
+          <h4 class="text-xs font-bold text-gray-500 mb-2">বিদ্যমান ঠিকানাগুলোর তালিকা:</h4>
+          <div id="addressListContainer" class="space-y-2 max-h-40 overflow-y-auto">
+            <!-- Loaded by JS -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(initAdminAuth, 500);
+
+      // Address Form Handler
+      document.getElementById('addressForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const addressText = document.getElementById('newAddressInput').value.trim();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        if(!addressText) return;
+
+        try {
+          await addDoc(collection(db, "delivery_addresses"), {
+            address: addressText,
+            createdAt: new Date().toISOString()
+          });
+          alert("সফলভাবে নতুন ঠিকানা যুক্ত করা হয়েছে!");
+          document.getElementById('newAddressInput').value = "";
+          loadAddressesList();
+        } catch (err) {
+          alert("ত্রুটি: " + err.message);
+        }
+      });
+    });
+
+    function initAdminAuth() {
+      const auth = window.firebaseAuth;
+      const { signInWithEmailAndPassword, signOut, onAuthStateChanged } = window.firebaseServices;
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          document.getElementById('adminLoginSection').classList.add('hidden');
+          document.getElementById('adminDashboard').classList.remove('hidden');
+          document.getElementById('adminLogoutBtn').classList.remove('hidden');
+          loadAddressesList();
+        } else {
+          document.getElementById('adminLoginSection').classList.remove('hidden');
+          document.getElementById('adminDashboard').classList.add('hidden');
+          document.getElementById('adminLogoutBtn').classList.add('hidden');
+        }
+      });
+
+      document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('adminEmail').value;
+        const password = document.getElementById('adminPassword').value;
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          alert("অ্যাডমিন লগইন সফল হয়েছে!");
+        } catch (error) {
+          alert("লগইন ব্যর্থ হয়েছে: সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+        }
+      });
+
+      document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
+        await signOut(auth);
+        alert("লগআউট করা হয়েছে।");
+      });
+    }
+
+    // Load and Display Existing Addresses
+    async function loadAddressesList() {
+      const db = window.firebaseDb;
+      const { collection, getDocs, deleteDoc, doc } = window.firebaseServices;
+      const container = document.getElementById('addressListContainer');
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
+        if (querySnapshot.empty) {
+          container.innerHTML = `<p class="text-xs text-gray-400">কোনো ঠিকানা এন্ট্রি করা নেই।</p>`;
+          return;
+        }
+
+        let html = '';
+        querySnapshot.forEach((documentSnap) => {
+          const data = documentSnap.data();
+          html += `
+            <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
+              <span class="font-medium text-gray-700">${data.address}</span>
+              <button onclick="deleteAddress('${documentSnap.id}')" class="text-red-500 hover:text-red-700 px-2 py-1">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (e) {
+        console.error("Error loading addresses:", e);
+      }
+    }
+
+    // Delete Address Function
+    window.deleteAddress = async function(id) {
+      if(!confirm("আপনি কি এই ঠিকানাটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "delivery_addresses", id));
+        alert("ঠিকানা ডিলিট করা হয়েছে!");
+        loadAddressesList();
+      } catch (e) {
+        alert("ডিলিট করতে সমস্যা হয়েছে: " + e.message);
+      }
+    };
+  </script>
+</body>
+</html>
