@@ -30,7 +30,9 @@
       getDoc,
       collection,
       getDocs,
-      addDoc
+      addDoc,
+      query,
+      where
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -65,7 +67,9 @@
       getDoc,
       collection,
       getDocs,
-      addDoc
+      addDoc,
+      query,
+      where
     };
   </script>
 
@@ -233,6 +237,7 @@
 
       <!-- Authenticated Profile View -->
       <div id="profileView" class="hidden space-y-4">
+        <!-- User Information Header -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xl font-bold">
@@ -249,10 +254,28 @@
           </button>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-2">
-          <h4 class="text-xs font-bold text-gray-400 uppercase">ডেলিভারি ঠিকানা (নির্ধারিত)</h4>
-          <p id="userAddress" class="text-sm text-gray-700 font-semibold">ঠিকানা লোড হচ্ছে...</p>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-1">
+          <h4 class="text-[10px] font-bold text-gray-400 uppercase">ডিফল্ট ডেলিভারি ঠিকানা</h4>
+          <p id="userAddress" class="text-xs text-gray-700 font-semibold">ঠিকানা লোড হচ্ছে...</p>
         </div>
+
+        <!-- NEW: ORDER HISTORY & TRACKING SECTION -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h4 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
+              <i class="fa-solid fa-clock-rotate-left text-emerald-600"></i>
+              <span>আমার অর্ডারসমূহ (Order History & Tracking)</span>
+            </h4>
+            <button onclick="fetchCustomerOrderHistory()" class="text-[11px] text-emerald-600 hover:underline font-bold">
+              <i class="fa-solid fa-rotate"></i> রিফ্রেশ
+            </button>
+          </div>
+
+          <div id="customerOrdersContainer" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+            <p class="text-xs text-gray-400 text-center py-4">অর্ডার তথ্য লোড হচ্ছে...</p>
+          </div>
+        </div>
+
       </div>
     </section>
   </main>
@@ -385,7 +408,7 @@
         renderProducts(e.target.value.toLowerCase());
       });
 
-      // Checkout Button Handler
+      // Checkout Button Handler (Generates Unique Order ID)
       document.getElementById('checkoutBtn').addEventListener('click', async () => {
         if (cart.length === 0) {
           alert("আপনার কার্ট খালি রয়েছে!");
@@ -409,9 +432,14 @@
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const totalAmount = subtotal + 30;
 
+        // Generate Unique 6-Digit Order ID
+        const uniqueOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+
         const orderData = {
+          orderId: uniqueOrderId,
           userName: userName,
           userPhone: userPhone,
+          userUid: user ? user.uid : 'guest',
           items: cart,
           totalAmount: totalAmount,
           address: address,
@@ -421,10 +449,14 @@
 
         try {
           await addDoc(collection(db, "orders"), orderData);
-          alert("আপনার অর্ডারটি সফলভাবে সম্পন্ন হয়েছে!");
+          alert(`আপনার অর্ডারটি সফলভাবে সম্পন্ন হয়েছে!\nট্র্যাকিং আইডি: ${uniqueOrderId}`);
           cart = [];
           saveCart();
           toggleCartModal();
+          
+          // Refresh order history if user is logged in
+          if(user) fetchCustomerOrderHistory();
+
         } catch (err) {
           alert("অর্ডার করতে সমস্যা হয়েছে: " + err.message);
         }
@@ -546,7 +578,6 @@
         const cartItem = cart.find(item => String(item.id) === String(prod.id));
         const qty = cartItem ? cartItem.qty : 0;
         
-        // Calculate discount amount (MRP - Discount Price)
         const discountAmount = prod.oldPrice > prod.price ? (prod.oldPrice - prod.price) : 0;
 
         return `
@@ -615,7 +646,6 @@
       saveCart();
     };
 
-    // Remove item completely from cart
     window.removeFromCart = function(id) {
       id = String(id);
       cart = cart.filter(item => String(item.id) !== id);
@@ -726,6 +756,120 @@
       }
     }
 
+    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING
+    async function fetchCustomerOrderHistory() {
+      const auth = window.firebaseAuth;
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+      const container = document.getElementById('customerOrdersContainer');
+
+      const user = auth.currentUser;
+      if (!user) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">অর্ডার লিস্ট দেখতে লগইন করুন।</p>`;
+        return;
+      }
+
+      try {
+        const q = query(collection(db, "orders"), where("userUid", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">আপনার কোনো পূর্ববর্তী অর্ডার নেই।</p>`;
+          return;
+        }
+
+        let ordersList = [];
+        querySnapshot.forEach(docSnap => {
+          ordersList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Sort by newest order first
+        ordersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+        let html = '';
+        ordersList.forEach(ord => {
+          const status = (ord.status || 'Pending').toLowerCase();
+          
+          // Generate Items Summary String
+          const itemsSummary = ord.items ? ord.items.map(i => `${i.name} (${i.qty}x)`).join(', ') : 'তথ্য নেই';
+          const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('bn-BD') : '';
+
+          // Tracker Steps Highlight Calculation
+          const isPending = status === 'pending' || status === 'processing' || status === 'delivered';
+          const isProcessing = status === 'processing' || status === 'delivered';
+          const isDelivered = status === 'delivered';
+
+          html += `
+            <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 text-xs">
+              <!-- Order Header -->
+              <div class="flex justify-between items-center border-b border-gray-200 pb-1.5">
+                <div>
+                  <span class="font-extrabold text-emerald-700">${ord.orderId || '#ORD-N/A'}</span>
+                  <span class="text-[10px] text-gray-400 block">${orderDate}</span>
+                </div>
+                <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${getStatusBadgeStyle(ord.status)}">
+                  ${ord.status || 'Pending'}
+                </span>
+              </div>
+
+              <!-- Items & Price -->
+              <div class="space-y-1 text-gray-600">
+                <p class="line-clamp-2"><strong>পণ্যসমূহ:</strong> ${itemsSummary}</p>
+                <p><strong>মোট বিল:</strong> <span class="text-emerald-700 font-extrabold">৳ ${ord.totalAmount || 0}</span></p>
+              </div>
+
+              <!-- Visual Live Order Tracker Bar -->
+              <div class="pt-2 border-t border-gray-200">
+                <p class="text-[10px] font-bold text-gray-500 mb-1.5">অর্ডার ট্র্যাকিং (Live Status):</p>
+                <div class="flex items-center justify-between text-[9px] font-bold">
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isPending ? 'bg-amber-500' : 'bg-gray-300'}">
+                      <i class="fa-solid fa-check text-[8px]"></i>
+                    </div>
+                    <span class="mt-0.5 ${isPending ? 'text-amber-600' : 'text-gray-400'}">গৃহীত</span>
+                  </div>
+
+                  <div class="flex-1 h-0.5 ${isProcessing ? 'bg-blue-500' : 'bg-gray-200'} mx-1"></div>
+
+                  <div class="flex flex-col items-center">
+                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isProcessing ? 'bg-blue-500' : 'bg-gray-300'}">
+                      <i class="fa-solid fa-box text-[8px]"></i>
+                    </div>
+                    <span class="mt-0.5 ${isProcessing ? 'text-blue-600' : 'text-gray-400'}">প্রসেসিং</span>
+                  </div>
+
+                  <div class="flex-1 h-0.5 ${isDelivered ? 'bg-emerald-500' : 'bg-gray-200'} mx-1"></div>
+
+                  <div class="flex flex-col items-center">
+                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isDelivered ? 'bg-emerald-600' : 'bg-gray-300'}">
+                      <i class="fa-solid fa-truck-ramp-box text-[8px]"></i>
+                    </div>
+                    <span class="mt-0.5 ${isDelivered ? 'text-emerald-600' : 'text-gray-400'}">ডেলিভারড</span>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        console.error("Error fetching order history:", err);
+        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">হিস্ট্রি লোড করতে সমস্যা হয়েছে।</p>`;
+      }
+    }
+
+    function getStatusBadgeStyle(status) {
+      status = (status || '').toLowerCase();
+      if(status === 'delivered') return 'bg-emerald-100 text-emerald-800';
+      if(status === 'processing') return 'bg-blue-100 text-blue-800';
+      if(status === 'cancelled') return 'bg-red-100 text-red-800';
+      return 'bg-amber-100 text-amber-800';
+    }
+
     function initFirebaseEvents() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
@@ -746,6 +890,10 @@
               document.getElementById('userEmail').innerText = data.email || user.email;
               document.getElementById('userAddress').innerText = data.address || "কোনো ঠিকানা দেয়া হয়নি";
             }
+            
+            // Load Order History for Logged-in Customer
+            fetchCustomerOrderHistory();
+
           } catch (e) { console.error("Firestore read error:", e); }
         } else {
           document.getElementById('authForms').classList.remove('hidden');
