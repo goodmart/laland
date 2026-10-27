@@ -1,1 +1,218 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>এডমিন মাস্টার ড্যাশবোর্ড - Laland Express</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) for Live Stats -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.firebaseDb = db;
+    window.firebaseServices = { collection, getDocs };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-user-shield text-2xl"></i>
+        <h1 class="font-bold text-lg">Laland Express - অ্যাডমিন কন্ট্রোল প্যানেল</h1>
+      </div>
+      <div>
+        <span class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold">
+          <i class="fa-solid fa-circle text-green-400 text-[10px] mr-1"></i> লাইভ সিস্টেম
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-6 mt-4">
+
+    <!-- Welcome Banner -->
+    <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="space-y-1">
+        <h2 class="text-xl font-extrabold">স্বাগতম, অ্যাডমিন প্যানেলে!</h2>
+        <p class="text-xs text-emerald-100">আপনার গুড মার্ট এন্টারপ্রাইজ / ল্যাল্যান্ড এক্সপ্রেস ই-কমার্স প্ল্যাটফর্মটি এখান থেকে সম্পূর্ণ নিয়ন্ত্রণ করুন।</p>
+      </div>
+      <div class="flex space-x-2">
+        <a href="orders.html" class="bg-white text-emerald-700 font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-50 shadow transition">
+          <i class="fa-solid fa-bolt mr-1"></i> অর্ডার ম্যানেজ করুন
+        </a>
+      </div>
+    </div>
+
+    <!-- LIVE STATS SUMMARY CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট পণ্য</p>
+          <h3 id="dashTotalProducts" class="text-2xl font-extrabold text-gray-800">...</h3>
+        </div>
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-boxes-stacked text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট অর্ডার</p>
+          <h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3>
+        </div>
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-cart-shopping text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">কাস্টমার সংখ্যা</p>
+          <h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3>
+        </div>
+        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-users text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">ডেলিভারি লোকেশন</p>
+          <h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3>
+        </div>
+        <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-map-location-dot text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION MODULES CARDS (মেইন ক্যাটাগরি লিংকসমূহ) -->
+    <div class="space-y-3">
+      <h3 class="font-bold text-sm text-gray-700 px-1"><i class="fa-solid fa-layer-group text-emerald-600 mr-1"></i> ম্যানেজমেন্ট মডিউলসমূহ</h3>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- 1. Products Card -->
+        <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-emerald-500 transition group space-y-3 block">
+          <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
+            <i class="fa-solid fa-box-open text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-gray-800 text-sm">পণ্য ব্যবস্থাপনা</h4>
+            <p class="text-[11px] text-gray-500 mt-0.5">নতুন পণ্য এন্ট্রি, বারকোড স্ক্যানার ও স্টক তালিকা।</p>
+          </div>
+          <div class="text-xs font-bold text-emerald-600 flex items-center pt-1">
+            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+          </div>
+        </a>
+
+        <!-- 2. Orders Card -->
+        <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-amber-500 transition group space-y-3 block">
+          <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
+            <i class="fa-solid fa-list-check text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-gray-800 text-sm">অর্ডার ড্যাশবোর্ড</h4>
+            <p class="text-[11px] text-gray-500 mt-0.5">অর্ডার স্ট্যাটাস আপডেট, ফিল্টার ও ইনভয়েস প্রিন্ট।</p>
+          </div>
+          <div class="text-xs font-bold text-amber-600 flex items-center pt-1">
+            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+          </div>
+        </a>
+
+        <!-- 3. Customers Card -->
+        <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-blue-500 transition group space-y-3 block">
+          <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
+            <i class="fa-solid fa-user-group text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-gray-800 text-sm">কাস্টমার ডাটাবেস</h4>
+            <p class="text-[11px] text-gray-500 mt-0.5">ওয়ালেট ব্যালেন্স, লয়ালটি পয়েন্ট ও কাস্টমার প্রোফাইল।</p>
+          </div>
+          <div class="text-xs font-bold text-blue-600 flex items-center pt-1">
+            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+          </div>
+        </a>
+
+        <!-- 4. Locations Card -->
+        <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-teal-500 transition group space-y-3 block">
+          <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition">
+            <i class="fa-solid fa-map-location-dot text-lg"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-gray-800 text-sm">ডেলিভারি লোকেশন</h4>
+            <p class="text-[11px] text-gray-500 mt-0.5">প্রাইমারি, সাব-লোকেশন ও রোড/এরিয়া ম্যানেজ।</p>
+          </div>
+          <div class="text-xs font-bold text-teal-600 flex items-center pt-1">
+            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+          </div>
+        </a>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SCRIPT TO LOAD LIVE COUNTS FROM FIREBASE -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadDashboardStats();
+      }, 500);
+    });
+
+    async function loadDashboardStats() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      if (!db) return;
+
+      try {
+        // Products count
+        const prodSnap = await getDocs(collection(db, "products"));
+        document.getElementById('dashTotalProducts').innerText = prodSnap.size;
+
+        // Orders count
+        const ordSnap = await getDocs(collection(db, "orders"));
+        document.getElementById('dashTotalOrders').innerText = ordSnap.size;
+
+        // Unique Customers count extracted from orders
+        let uniquePhones = new Set();
+        ordSnap.forEach(d => {
+          if(d.data().userPhone) uniquePhones.add(d.data().userPhone);
+        });
+        document.getElementById('dashTotalCustomers').innerText = uniquePhones.size;
+
+        // Locations count
+        const locSnap = await getDocs(collection(db, "delivery_locations"));
+        document.getElementById('dashTotalLocations').innerText = locSnap.size;
+
+      } catch (err) {
+        console.error("Error loading stats:", err);
+      }
+    }
+  </script>
+</body>
+</html>
 
