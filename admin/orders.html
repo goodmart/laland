@@ -248,17 +248,31 @@
 
       let html = '';
       filtered.forEach(ord => {
-        // Items list with Admin Remove / Cancel Item Feature
+        // Items list with Quantity Edit and Remove options
         const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
-          <div class="flex justify-between items-center py-1 border-b border-dashed border-gray-200 last:border-none">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
             <div>
-              <span class="text-gray-800 font-medium">${i.name}</span>
-              <strong class="text-emerald-700 ml-1">x${i.qty}</strong>
-              <span class="text-gray-500 ml-2">(৳ ${i.price * i.qty})</span>
+              <span class="text-gray-800 font-bold">${i.name}</span>
+              <span class="text-gray-500 ml-1 text-[11px]">(৳ ${i.price} প্রতি পিস)</span>
             </div>
-            <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-0.5 rounded border border-red-200 font-bold transition" title="স্টক না থাকায় এই পণ্যটি অর্ডার থেকে বাদ দিন">
-              <i class="fa-solid fa-xmark mr-1"></i> বাদ দিন
-            </button>
+            
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
+              <!-- Quantity Edit Controller -->
+              <div class="flex items-center space-x-1 bg-white border rounded-lg px-2 py-0.5 shadow-sm">
+                <span class="text-[10px] text-gray-400 font-bold">Qty:</span>
+                <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
+                <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700" title="পরিমাণ আপডেট করুন">
+                  আপডেট
+                </button>
+              </div>
+
+              <span class="font-extrabold text-emerald-700 text-xs w-16 text-right">৳ ${i.price * i.qty}</span>
+
+              <!-- Remove Item Button -->
+              <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition" title="পণ্যটি সম্পূর্ণ বাদ দিন">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
           </div>
         `).join('') : '<p class="text-gray-400 text-center py-1">এই অর্ডারে কোনো আইটেম নেই</p>';
 
@@ -293,7 +307,7 @@
             <!-- Items List & Delivery Address -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
-                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (স্টক না থাকলে 'বাদ দিন' ক্লিক করুন):</p>
+                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (পরিমাণ এডিট বা বাদ দিতে পারবেন):</p>
                 ${formattedItems}
               </div>
               <div class="space-y-1">
@@ -367,9 +381,45 @@
       }
     };
 
+    // UPDATE PRODUCT QUANTITY IN ORDER (e.g., from 3 to 1 or 2)
+    window.updateProductQty = async function(orderId, itemIndex) {
+      const qtyInput = document.getElementById(`qty_${orderId}_${itemIndex}`);
+      const newQty = parseInt(qtyInput.value);
+
+      if (isNaN(newQty) || newQty <= 0) {
+        alert("দয়া করে সঠিক পরিমাণ (কমপক্ষে ১) দিন। পণ্য বাদ দিতে চাইলে 'বাদ দিন' (X) বাটনে ক্লিক করুন।");
+        return;
+      }
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if (!ord || !ord.items || !ord.items[itemIndex]) return;
+
+      // Update quantity
+      ord.items[itemIndex].qty = newQty;
+
+      // Recalculate Subtotal and Total Amount (Delivery Charge = 30 BDT)
+      let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
+      let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), {
+          items: ord.items,
+          totalAmount: newTotalAmount
+        });
+
+        alert("পণ্যের পরিমাণ সফলভাবে আপডেট করা হয়েছে এবং মোট বিল সামঞ্জস্য করা হয়েছে!");
+        loadAllOrders(); // Refresh data
+      } catch (err) {
+        alert("পরিমাণ আপডেট করতে সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
     // REMOVE SINGLE PRODUCT FROM ORDER (STOCK NOT AVAILABLE)
     window.removeProductFromOrder = async function(orderId, itemIndex) {
-      if (!confirm("আপনি কি নিশ্চিত যে স্টক না থাকায় এই পণ্যটি অর্ডার থেকে বাদ দিতে চান?")) return;
+      if (!confirm("আপনি কি নিশ্চিত যে এই পণ্যটি অর্ডার থেকে সম্পূর্ণ বাদ দিতে চান?")) return;
 
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
@@ -440,7 +490,6 @@
               body { font-family: 'SolaimanLipi', sans-serif, Arial; padding: 20px; color: #333; }
               .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
               .details { margin: 15px 0; font-size: 13px; }
-              style { font-family: sans-serif; }
               table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
               th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
               .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
