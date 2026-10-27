@@ -1,1 +1,451 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>স্টক-ইন ও চালান ব্যবস্থাপনা - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      collection, addDoc, getDocs, doc, updateDoc, increment
+    };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Admin Header -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-truck-ramp-box text-xl"></i>
+        <h1 class="font-bold text-lg">স্টক-ইন ম্যানেজমেন্ট - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="hover:underline">পণ্যসমূহ</a>
+        <a href="stock-in.html" class="underline font-bold">স্টক-ইন (চালান)</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="locations.html" class="hover:underline">ঠিকানা</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-6">
+
+    <!-- TOP SECTION: SELECT SUPPLIER & ADD PRODUCTS TO STOCK-IN CART -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+      <div class="border-b pb-2 flex justify-between items-center">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-square-plus mr-1"></i> নতুন স্টক-ইন চালান তৈরি করুন (Stock In Entry)</h3>
+        <span id="invoiceBadge" class="text-xs font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">চালান আইডি: STK-XXXXXX</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 1. Supplier Selection -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার (Supplier) সিলেক্ট করুন *</label>
+          <select id="stockSupplierSelect" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold">
+            <option value="">-- সাপ্লায়ার সিলেক্ট করুন --</option>
+          </select>
+        </div>
+
+        <!-- 2. Product Search & Selection -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পণ্য সার্চ করুন ও যোগ করুন *</label>
+          <select id="productSelectDropdown" onchange="addProductToStockCart()" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold">
+            <option value="">-- পণ্য সিলেক্ট করুন --</option>
+          </select>
+        </div>
+
+        <!-- 3. Reference / Memo Number -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার চালান/মেমো নম্বর (যদি থাকে)</label>
+          <input type="text" id="suppMemoNo" placeholder="যেমন: Memo-8492" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+      </div>
+    </div>
+
+    <!-- STOCK-IN RECEIVING CART TABLE -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+      <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wide">রিসিভকৃত পণ্যের তালিকা ও পরিমাণ:</h4>
+      
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b text-gray-500">
+              <th class="p-2.5">পণ্যের নাম</th>
+              <th class="p-2.5">ক্যাটাগরি</th>
+              <th class="p-2.5 text-center">বর্তমান স্টক</th>
+              <th class="p-2.5 text-center">আনা হলো (Qty)</th>
+              <th class="p-2.5 text-right">কেনা দাম (TP)</th>
+              <th class="p-2.5 text-right">মোট মূল্য</th>
+              <th class="p-2.5 text-center">অ্যাকশন</th>
+            </tr>
+          </thead>
+          <tbody id="stockCartTableBody">
+            <tr>
+              <td colspan="7" class="text-center py-6 text-gray-400">কোনো পণ্য যোগ করা হয়নি। উপর থেকে পণ্য সিলেক্ট করুন।</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer Summary & Submit Button -->
+      <div class="flex flex-col md:flex-row justify-between items-center pt-4 border-t gap-3">
+        <div class="text-xs text-gray-600">
+          সর্বমোট আইটেম: <strong id="totalCartItems" class="text-emerald-700">০</strong> টি | 
+          সর্বমোট খরচ (TP): <strong id="totalStockCost" class="text-emerald-700">৳ ০</strong>
+        </div>
+
+        <button onclick="finalizeStockIn()" class="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-check-double"></i>
+          <span>স্টক-ইন কনফার্ম করুন ও ইনভয়েস জেনারেট করুন</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- PREVIOUS STOCK-IN INVOICES HISTORY -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+      <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wide"><i class="fa-solid fa-clock-rotate-left mr-1"></i> পূর্ববর্তী স্টক-ইন চালানসমূহ (Stock-In History):</h4>
+      <div id="stockInHistoryContainer" class="space-y-2 max-h-80 overflow-y-auto">
+        <p class="text-xs text-gray-400 text-center py-4">চালানের ইতিহাস লোড হচ্ছে...</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script>
+    let suppliersList = [];
+    let productsList = [];
+    let stockCart = [];
+    let currentInvoiceNo = '';
+
+    document.addEventListener("DOMContentLoaded", () => {
+      generateNewInvoiceNo();
+      setTimeout(() => {
+        loadSuppliers();
+        loadProductsForDropdown();
+        loadStockInHistory();
+      }, 600);
+    });
+
+    function generateNewInvoiceNo() {
+      currentInvoiceNo = 'STK-' + Math.floor(100000 + Math.random() * 900000);
+      document.getElementById('invoiceBadge').innerText = `চালান আইডি: ${currentInvoiceNo}`;
+    }
+
+    // Load Suppliers for Dropdown
+    async function loadSuppliers() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const select = document.getElementById('stockSupplierSelect');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "suppliers"));
+        let html = '<option value="">-- সাপ্লায়ার সিলেক্ট করুন --</option>';
+        querySnapshot.forEach(docSnap => {
+          const sup = docSnap.data();
+          html += `<option value="${sup.companyName}">${sup.companyName} [${sup.supplierCategory || ''}]</option>`;
+        });
+        select.innerHTML = html;
+      } catch(err) { console.error(err); }
+    }
+
+    // Load Products for Dropdown
+    async function loadProductsForDropdown() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const select = document.getElementById('productSelectDropdown');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        productsList = [];
+        let html = '<option value="">-- পণ্য সিলেক্ট করে যোগ করুন --</option>';
+        
+        querySnapshot.forEach(docSnap => {
+          const p = { id: docSnap.id, ...docSnap.data() };
+          productsList.push(p);
+          html += `<option value="${p.id}">${p.name} (স্টক: ${p.stock || 0}) - MRP: ৳${p.mrp}</option>`;
+        });
+        select.innerHTML = html;
+      } catch(err) { console.error(err); }
+    }
+
+    // Add Product to Stock-In Cart
+    window.addProductToStockCart = function() {
+      const select = document.getElementById('productSelectDropdown');
+      const prodId = select.value;
+      if(!prodId) return;
+
+      const product = productsList.find(p => p.id === prodId);
+      if(!product) return;
+
+      // Check if already in cart
+      const existing = stockCart.find(item => item.id === prodId);
+      if(existing) {
+        existing.qty += 1;
+      } else {
+        stockCart.push({
+          id: product.id,
+          name: product.name,
+          category: product.category || 'general',
+          currentStock: Number(product.stock || 0),
+          tp: Number(product.tp || 0),
+          qty: 1
+        });
+      }
+
+      select.value = ""; // Reset dropdown
+      renderStockCart();
+    };
+
+    // Update Cart Quantity or TP
+    window.updateCartItem = function(index, field, value) {
+      const val = Number(value);
+      if(field === 'qty') stockCart[index].qty = val > 0 ? val : 1;
+      if(field === 'tp') stockCart[index].tp = val >= 0 ? val : 0;
+      renderStockCart();
+    };
+
+    // Remove from Cart
+    window.removeCartItem = function(index) {
+      stockCart.splice(index, 1);
+      renderStockCart();
+    };
+
+    // Render Stock-In Cart Table
+    function renderStockCart() {
+      const tbody = document.getElementById('stockCartTableBody');
+      if(stockCart.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">কোনো পণ্য যোগ করা হয়নি। উপর থেকে পণ্য সিলেক্ট করুন।</td></tr>`;
+        document.getElementById('totalCartItems').innerText = '০';
+        document.getElementById('totalStockCost').innerText = '৳ ০';
+        return;
+      }
+
+      let html = '';
+      let totalCost = 0;
+      let totalQty = 0;
+
+      stockCart.forEach((item, index) => {
+        const subTotal = item.qty * item.tp;
+        totalCost += subTotal;
+        totalQty += item.qty;
+
+        html += `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-2.5 font-bold text-gray-800">${item.name}</td>
+            <td class="p-2.5 text-gray-500">${item.category}</td>
+            <td class="p-2.5 text-center font-semibold text-blue-600">${item.currentStock} টি</td>
+            <td class="p-2.5 text-center">
+              <input type="number" min="1" value="${item.qty}" onchange="updateCartItem(${index}, 'qty', this.value)" class="w-16 px-2 py-1 border rounded-lg text-center font-bold text-emerald-700 bg-white">
+            </td>
+            <td class="p-2.5 text-right">
+              <input type="number" min="0" value="${item.tp}" onchange="updateCartItem(${index}, 'tp', this.value)" class="w-20 px-2 py-1 border rounded-lg text-right font-semibold">
+            </td>
+            <td class="p-2.5 text-right font-extrabold text-emerald-700">৳ ${subTotal}</td>
+            <td class="p-2.5 text-center">
+              <button onclick="removeCartItem(${index})" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      document.getElementById('totalCartItems').innerText = totalQty;
+      document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
+    }
+
+    // Finalize Stock-In and Save to Firestore
+    window.finalizeStockIn = async function() {
+      const supplier = document.getElementById('stockSupplierSelect').value;
+      if(!supplier) {
+        alert("দয়া করে একজন সাপ্লায়ার সিলেক্ট করুন।");
+        return;
+      }
+      if(stockCart.length === 0) {
+        alert("স্টক-ইন কার্টে কোনো পণ্য নেই!");
+        return;
+      }
+
+      const db = window.firebaseDb;
+      const { collection, addDoc, doc, updateDoc, increment } = window.firebaseServices;
+      const memoNo = document.getElementById('suppMemoNo').value.trim() || 'N/A';
+
+      const stockInRecord = {
+        invoiceNo: currentInvoiceNo,
+        supplier: supplier,
+        memoNo: memoNo,
+        items: stockCart,
+        totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
+        totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        // 1. Save Stock-In Record to 'stock_in_history' collection
+        await addDoc(collection(db, "stock_in_history"), stockInRecord);
+
+        // 2. Update Product Stock in 'products' collection using increment
+        for (const item of stockCart) {
+          const prodRef = doc(db, "products", item.id);
+          await updateDoc(prodRef, {
+            stock: increment(item.qty),
+            tp: item.tp // Update latest purchase TP if changed
+          });
+        }
+
+        alert(`স্টক-ইন সফলভাবে সম্পন্ন হয়েছে!\nচালান আইডি: ${currentInvoiceNo}`);
+        
+        // Print Invoice
+        printStockInvoice(stockInRecord);
+
+        // Reset
+        stockCart = [];
+        document.getElementById('suppMemoNo').value = "";
+        document.getElementById('stockSupplierSelect').value = "";
+        generateNewInvoiceNo();
+        renderStockCart();
+        loadProductsForDropdown();
+        loadStockInHistory();
+
+      } catch (err) {
+        alert("স্টক-ইন সেভ করতে সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
+    // Load Stock-In History
+    async function loadStockInHistory() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('stockInHistoryContainer');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "stock_in_history"));
+        if(querySnapshot.empty) {
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">কোনো পূর্ববর্তী স্টক-ইন চালান নেই।</p>`;
+          return;
+        }
+
+        let historyList = [];
+        querySnapshot.forEach(docSnap => {
+          historyList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        historyList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        let html = '';
+        historyList.forEach(rec => {
+          const dateStr = new Date(rec.createdAt).toLocaleString('bn-BD');
+          html += `
+            <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border text-xs">
+              <div>
+                <span class="font-bold text-emerald-700">${rec.invoiceNo}</span> 
+                <span class="text-gray-500">(সাপ্লায়ার: ${rec.supplier})</span>
+                <p class="text-[10px] text-gray-400">তারিখ: ${dateStr} | মেমো: ${rec.memoNo}</p>
+              </div>
+              <div class="text-right">
+                <span class="font-extrabold text-emerald-700 block">৳ ${rec.totalCost}</span>
+                <button onclick='printStockInvoice(${JSON.stringify(rec)})' class="mt-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100">
+                  <i class="fa-solid fa-print"></i> ইনভয়েস
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch(err) { console.error(err); }
+    }
+
+    // Print Stock-In Invoice / Memo
+    window.printStockInvoice = function(rec) {
+      const printWin = window.open('', '_blank');
+      const itemsRows = rec.items.map(i => `
+        <tr>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">${i.qty}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.tp}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.qty * i.tp}</td>
+        </tr>
+      `).join('');
+
+      printWin.document.write(`
+        <html>
+          <head>
+            <title>স্টক-ইন চালান - ${rec.invoiceNo}</title>
+            <style>
+              body { font-family: 'SolaimanLipi', sans-serif, Arial; padding: 20px; color: #333; }
+              .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
+              .details { margin: 15px 0; font-size: 13px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+              th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
+              .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>Laland Express / Good Mart Enterprise</h2>
+              <p style="font-size: 11px;">কামারপাড়া, রংপুর | স্টক-ইন চালান রসিদ (Goods Receiving Note)</p>
+              <p style="font-size: 12px; color: #047857;"><strong>চালান আইডি:</strong> ${rec.invoiceNo}</p>
+            </div>
+            <div class="details">
+              <p><strong>সাপ্লায়ার নাম:</strong> ${rec.supplier}</p>
+              <p><strong>সাপ্লায়ার মেমো নং:</strong> ${rec.memoNo}</p>
+              <p><strong>তারিখ:</strong> ${new Date(rec.createdAt).toLocaleString('bn-BD')}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>পণ্যের নাম</th>
+                  <th style="text-align: center;">রিসিভড পরিমাণ</th>
+                  <th style="text-align: right;">কেনা দাম (TP)</th>
+                  <th style="text-align: right;">মোট মূল্য</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRows}
+              </tbody>
+            </table>
+            <div class="total">
+              সর্বমোট চালান মূল্য: ৳ ${rec.totalCost}
+            </div>
+          </body>
+        </html>
+      `);
+      printWin.document.close();
+      printWin.print();
+    };
+  </script>
+</body>
+</html>
 
