@@ -14,7 +14,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -33,7 +33,7 @@
     window.firebaseAuth = auth;
     window.firebaseDb = db;
     window.firebaseServices = {
-      collection, addDoc, getDocs, doc, updateDoc, increment
+      collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment
     };
   </script>
 </head>
@@ -62,9 +62,15 @@
     <!-- TOP SECTION: SELECT SUPPLIER & ADD PRODUCTS TO STOCK-IN CART -->
     <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
       <div class="border-b pb-2 flex justify-between items-center">
-        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-square-plus mr-1"></i> নতুন স্টক-ইন চালান তৈরি করুন (Stock In Entry)</h3>
-        <span id="invoiceBadge" class="text-xs font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">চালান আইডি: STK-XXXXXX</span>
+        <h3 id="formSectionTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-square-plus mr-1"></i> নতুন স্টক-ইন চালান তৈরি করুন (Stock In Entry)</h3>
+        <div class="flex items-center space-x-2">
+          <button type="button" id="cancelEditBtn" onclick="resetStockForm()" class="hidden bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-300">এডিট বাতিল</button>
+          <span id="invoiceBadge" class="text-xs font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">চালান আইডি: STK-XXXXXX</span>
+        </div>
       </div>
+
+      <!-- Hidden field for Edit Invoice ID -->
+      <input type="hidden" id="editStockId">
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <!-- 1. Supplier Selection -->
@@ -130,7 +136,7 @@
           সর্বমোট খরচ (TP): <strong id="totalStockCost" class="text-emerald-700">৳ ০</strong>
         </div>
 
-        <button onclick="finalizeStockIn()" class="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-2">
+        <button id="submitStockBtn" onclick="finalizeStockIn()" class="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-2">
           <i class="fa-solid fa-check-double"></i>
           <span>স্টক-ইন কনফার্ম করুন ও ইনভয়েস জেনারেট করুন</span>
         </button>
@@ -151,6 +157,7 @@
   <script>
     let productsList = [];
     let stockCart = [];
+    let stockHistoryStore = {};
     let currentInvoiceNo = '';
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -187,11 +194,9 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Compress to target size under 100KB (Quality 0.6)
             let quality = 0.7;
             let dataUrl = canvas.toDataURL('image/jpeg', quality);
             
-            // Ensure size approximation
             while (dataUrl.length > 130000 && quality > 0.1) {
               quality -= 0.1;
               dataUrl = canvas.toDataURL('image/jpeg', quality);
@@ -291,10 +296,9 @@
       const product = productsList.find(p => p.id === prodId);
       if(!product) return;
 
-      document.getElementById('productSearchInput').value = product.name;
+      document.getElementById('productSearchInput').value = '';
       document.getElementById('productSuggestions').classList.add('hidden');
 
-      // Check if already in cart
       const existing = stockCart.find(item => item.id === prodId);
       if(existing) {
         existing.qty += 1;
@@ -369,7 +373,7 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // Finalize Stock-In and Save to Firestore
+    // Finalize Stock-In (Create or Update)
     window.finalizeStockIn = async function() {
       const supplier = document.getElementById('stockSupplierSelect').value;
       if(!supplier) {
@@ -381,8 +385,10 @@
         return;
       }
 
+      const editId = document.getElementById('editStockId').value;
       const chalanBase64 = document.getElementById('chalanImageBase64').value;
-      if(!chalanBase64) {
+
+      if(!editId && !chalanBase64) {
         alert("দয়া করে সাপ্লায়ার চালানের মেমো বা ছবি আপলোড করুন।");
         return;
       }
@@ -390,48 +396,120 @@
       const db = window.firebaseDb;
       const { collection, addDoc, doc, updateDoc, increment } = window.firebaseServices;
 
-      const stockInRecord = {
-        invoiceNo: currentInvoiceNo,
-        supplier: supplier,
-        chalanImage: chalanBase64,
-        items: stockCart,
-        totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
-        totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
-        createdAt: new Date().toISOString()
-      };
-
       try {
-        // 1. Save Stock-In Record to 'stock_in_history' collection
-        await addDoc(collection(db, "stock_in_history"), stockInRecord);
+        if (editId) {
+          // Edit Mode: Update existing record
+          const existingRec = stockHistoryStore[editId];
+          const stockInRecord = {
+            invoiceNo: existingRec.invoiceNo,
+            supplier: supplier,
+            chalanImage: chalanBase64 || existingRec.chalanImage,
+            items: stockCart,
+            totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
+            totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
+            updatedAt: new Date().toISOString()
+          };
 
-        // 2. Update Product Stock in 'products' collection using increment
-        for (const item of stockCart) {
-          const prodRef = doc(db, "products", item.id);
-          await updateDoc(prodRef, {
-            stock: increment(item.qty),
-            tp: item.tp
-          });
+          await updateDoc(doc(db, "stock_in_history", editId), stockInRecord);
+
+          // Adjust product stock differences if needed or simply apply new increment
+          for (const item of stockCart) {
+            const prodRef = doc(db, "products", item.id);
+            await updateDoc(prodRef, {
+              stock: increment(item.qty),
+              tp: item.tp
+            });
+          }
+
+          alert("স্টক-ইন চালান সফলভাবে আপডেট করা হয়েছে!");
+          printStockInvoice(stockInRecord);
+          resetStockForm();
+
+        } else {
+          // Create Mode: Add new record
+          const stockInRecord = {
+            invoiceNo: currentInvoiceNo,
+            supplier: supplier,
+            chalanImage: chalanBase64,
+            items: stockCart,
+            totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
+            totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
+            createdAt: new Date().toISOString()
+          };
+
+          await addDoc(collection(db, "stock_in_history"), stockInRecord);
+
+          for (const item of stockCart) {
+            const prodRef = doc(db, "products", item.id);
+            await updateDoc(prodRef, {
+              stock: increment(item.qty),
+              tp: item.tp
+            });
+          }
+
+          alert(`স্টক-ইন সফলভাবে সম্পন্ন হয়েছে!\nচালান আইডি: ${currentInvoiceNo}`);
+          printStockInvoice(stockInRecord);
+          resetStockForm();
         }
 
-        alert(`স্টক-ইন সফলভাবে সম্পন্ন হয়েছে!\nচালান আইডি: ${currentInvoiceNo}`);
-        
-        // Print Invoice
-        printStockInvoice(stockInRecord);
-
-        // Reset
-        stockCart = [];
-        document.getElementById('productSearchInput').value = "";
-        document.getElementById('stockSupplierSelect').value = "";
-        document.getElementById('chalanImageFile').value = "";
-        document.getElementById('chalanImageBase64').value = "";
-        document.getElementById('imageStatusText').innerText = "ছবি ১০০ কিলোবাইটের নিচে স্বয়ংক্রিয়ভাবে রিসাইজ হবে।";
-        generateNewInvoiceNo();
-        renderStockCart();
         loadProductsForSearch();
         loadStockInHistory();
 
       } catch (err) {
         alert("স্টক-ইন সেভ করতে সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
+    // Edit Stock-In Record
+    window.editStockIn = function(id) {
+      const rec = stockHistoryStore[id];
+      if(!rec) return;
+
+      document.getElementById('editStockId').value = id;
+      document.getElementById('stockSupplierSelect').value = rec.supplier;
+      document.getElementById('invoiceBadge').innerText = `चालান আইডি: ${rec.invoiceNo}`;
+      document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> স্টক-ইন চালান এডিট করুন (${rec.invoiceNo})`;
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+      document.getElementById('submitStockBtn').innerText = "পরিবর্তন সংরক্ষণ করুন (Update)";
+
+      if(rec.chalanImage) {
+        document.getElementById('chalanImageBase64').value = rec.chalanImage;
+        document.getElementById('imageStatusText').innerHTML = `<span class="text-blue-600 font-bold">✓ পূর্ববর্তী মেমো ছবি বহাল আছে।</span>`;
+      }
+
+      stockCart = JSON.parse(JSON.stringify(rec.items));
+      renderStockCart();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Reset Form
+    window.resetStockForm = function() {
+      document.getElementById('editStockId').value = "";
+      document.getElementById('stockSupplierSelect').value = "";
+      document.getElementById('productSearchInput').value = "";
+      document.getElementById('chalanImageFile').value = "";
+      document.getElementById('chalanImageBase64').value = "";
+      document.getElementById('imageStatusText').innerText = "ছবি ১০০ কিলোবাইটের নিচে স্বয়ংক্রিয়ভাবে রিসাইজ হবে।";
+      document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-square-plus mr-1"></i> নতুন স্টক-ইন চালান তৈরি করুন (Stock In Entry)`;
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+      document.getElementById('submitStockBtn').innerText = "স্টক-ইন কনফার্ম করুন ও ইনভয়েস জেনারেট করুন";
+      stockCart = [];
+      generateNewInvoiceNo();
+      renderStockCart();
+    };
+
+    // Delete Stock-In Record
+    window.deleteStockIn = async function(id) {
+      if(!confirm("আপনি কি নিশ্চিত যে এই স্টক-ইন চালানটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "stock_in_history", id));
+        alert("স্টক-ইন চালান ডিলিট করা হয়েছে!");
+        loadStockInHistory();
+      } catch(err) {
+        alert("ডিলিট করতে সমস্যা হয়েছে: " + err.message);
       }
     };
 
@@ -449,16 +527,19 @@
           return;
         }
 
+        stockHistoryStore = {};
         let historyList = [];
         querySnapshot.forEach(docSnap => {
-          historyList.push({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          stockHistoryStore[docSnap.id] = data;
+          historyList.push({ id: docSnap.id, ...data });
         });
 
-        historyList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        historyList.sort((a, b) => new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt));
 
         let html = '';
         historyList.forEach(rec => {
-          const dateStr = new Date(rec.createdAt).toLocaleString('bn-BD');
+          const dateStr = new Date(rec.createdAt || rec.updatedAt).toLocaleString('bn-BD');
           html += `
             <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border text-xs">
               <div>
@@ -468,9 +549,14 @@
               </div>
               <div class="flex items-center space-x-2">
                 <span class="font-extrabold text-emerald-700">৳ ${rec.totalCost}</span>
-                ${rec.chalanImage ? `<a href="${rec.chalanImage}" target="_blank" class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg font-bold hover:bg-blue-100" title="মেমো ছবি দেখুন"><i class="fa-solid fa-image"></i></a>` : ''}
-                <button onclick='printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100">
-                  <i class="fa-solid fa-print"></i> ইনভয়েস
+                <button onclick='printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100" title="ইনভয়েস প্রিন্ট/ভিউ">
+                  <i class="fa-solid fa-print"></i>
+                </button>
+                <button onclick="editStockIn('${rec.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg font-bold hover:bg-blue-100" title="এডিট করুন">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="deleteStockIn('${rec.id}')" class="bg-red-50 text-red-500 border border-red-200 px-2 py-1 rounded-lg font-bold hover:bg-red-100" title="ডিলিট করুন">
+                  <i class="fa-solid fa-trash"></i>
                 </button>
               </div>
             </div>
@@ -480,7 +566,7 @@
       } catch(err) { console.error(err); }
     }
 
-    // Print Stock-In Invoice / Memo
+    // Print Stock-In Invoice / Memo (Supplier Chalan/Memo Picture Hidden Completely)
     window.printStockInvoice = function(rec) {
       const printWin = window.open('', '_blank');
       const itemsRows = rec.items.map(i => `
@@ -513,7 +599,7 @@
             </div>
             <div class="details">
               <p><strong>সাপ্লায়ার নাম:</strong> ${rec.supplier}</p>
-              <p><strong>তারিখ:</strong> ${new Date(rec.createdAt).toLocaleString('bn-BD')}</p>
+              <p><strong>তারিখ:</strong> ${new Date(rec.createdAt || rec.updatedAt).toLocaleString('bn-BD')}</p>
             </div>
             <table>
               <thead>
@@ -531,7 +617,6 @@
             <div class="total">
               সর্বমোট চালান মূল্য: ৳ ${rec.totalCost}
             </div>
-            ${rec.chalanImage ? `<div style="margin-top:20px;"><p><strong>সাপ্লায়ার চালানের মেমো/ছবি:</strong></p><img src="${rec.chalanImage}" style="max-width:300px; border:1px solid #ccc; border-radius:8px; margin-top:5px;" /></div>` : ''}
           </body>
         </html>
       `);
