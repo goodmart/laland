@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Laland Express - Admin Panel</title>
+  <title>Laland Express - Comprehensive Admin Panel</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -14,7 +14,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -39,32 +39,35 @@
       collection,
       addDoc,
       getDocs,
+      updateDoc,
       deleteDoc,
-      doc
+      doc,
+      query,
+      orderBy
     };
   </script>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-100 text-gray-800 pb-10">
 
   <!-- Admin Header -->
   <header class="bg-emerald-700 text-white shadow">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-2">
-        <i class="fa-solid fa-gauge text-xl"></i>
-        <h1 class="font-bold text-lg">Laland Express - Admin Panel</h1>
+        <i class="fa-solid fa-user-shield text-xl"></i>
+        <h1 class="font-bold text-lg">Laland Express Admin</h1>
       </div>
       <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-600 hidden">
-        লগআউট
+        <i class="fa-solid fa-right-from-bracket"></i> লগআউট
       </button>
     </div>
   </header>
 
   <!-- Main Container -->
-  <main class="max-w-4xl mx-auto p-4 space-y-6">
+  <main class="max-w-5xl mx-auto p-4 space-y-6">
 
-    <!-- Admin Login Section (If not logged in) -->
-    <div id="adminLoginSection" class="bg-white p-6 rounded-2xl shadow-sm max-w-md mx-auto space-y-4">
-      <h2 class="text-base font-bold text-emerald-700 text-center">অ্যাডমিন লগইন</h2>
+    <!-- Admin Login Form -->
+    <div id="adminLoginSection" class="bg-white p-6 rounded-2xl shadow-sm max-w-md mx-auto space-y-4 border my-10">
+      <h2 class="text-base font-bold text-emerald-700 text-center">অ্যাডমিন ড্যাশবোর্ড লগইন</h2>
       <form id="adminLoginForm" class="space-y-3">
         <div>
           <label class="text-xs text-gray-600 block mb-1">অ্যাডমিন ইমেইল</label>
@@ -80,60 +83,183 @@
       </form>
     </div>
 
-    <!-- Admin Dashboard (Visible after login) -->
+    <!-- Admin Dashboard View -->
     <div id="adminDashboard" class="space-y-6 hidden">
-      
-      <!-- Section 1: Add Delivery Address -->
-      <div class="bg-white p-5 rounded-2xl shadow-sm space-y-4">
-        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2"><i class="fa-solid fa-location-dot"></i> নতুন ডেলিভারি ঠিকানা এন্ট্রি করুন</h3>
-        <form id="addressForm" class="space-y-3">
-          <div>
-            <label class="text-xs text-gray-600 block mb-1">ঠিকানার নাম / এলাকা (যেমন: কামারপাড়া, রংপুর)</label>
-            <input type="text" id="newAddressInput" required placeholder="ঠিকানা লিখুন..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          </div>
-          <button type="submit" class="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-700 shadow">
-            ঠিকানা যুক্ত করুন
-          </button>
-        </form>
 
-        <!-- Address List -->
-        <div class="mt-4">
-          <h4 class="text-xs font-bold text-gray-500 mb-2">বিদ্যমান ঠিকানাগুলোর তালিকা:</h4>
-          <div id="addressListContainer" class="space-y-2 max-h-40 overflow-y-auto">
+      <!-- Navigation Tabs -->
+      <div class="flex border-b border-gray-200 bg-white rounded-xl p-1 shadow-sm text-xs font-bold space-x-1">
+        <button id="tabOrdersBtn" class="flex-1 py-2 rounded-lg bg-emerald-600 text-white shadow">
+          <i class="fa-solid fa-box-archive"></i> অর্ডারসমূহ
+        </button>
+        <button id="tabProductsBtn" class="flex-1 py-2 rounded-lg text-gray-600 hover:bg-gray-100">
+          <i class="fa-solid fa-cart-plus"></i> পণ্য যুক্তকরণ
+        </button>
+        <button id="tabAddressBtn" class="flex-1 py-2 rounded-lg text-gray-600 hover:bg-gray-100">
+          <i class="fa-solid fa-location-dot"></i> ঠিকানা সমূহ
+        </button>
+      </div>
+
+      <!-- SECTION 1: ORDERS MANAGEMENT -->
+      <section id="sectionOrders" class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="font-bold text-sm text-gray-700"><i class="fa-solid fa-list-check text-emerald-600"></i> কাস্টমার অর্ডার তালিকা</h3>
+          <button onclick="loadOrders()" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-200 font-bold">
+            <i class="fa-solid fa-rotate"></i> রিফ্রেশ
+          </button>
+        </div>
+
+        <div id="ordersContainer" class="space-y-3">
+          <p class="text-xs text-gray-400">অর্ডার লোড হচ্ছে...</p>
+        </div>
+      </section>
+
+      <!-- SECTION 2: PRODUCT MANAGEMENT -->
+      <section id="sectionProducts" class="space-y-4 hidden">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+          <h3 class="font-bold text-sm text-emerald-700 border-b pb-2"><i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন</h3>
+          <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">পণ্যের নাম *</label>
+              <input type="text" id="prodName" required placeholder="যেমন: মিনিকেট চাল (৫ কেজি)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">ক্যাটাগরি *</label>
+              <select id="prodCategory" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="groceries">মুদি বাজার (Groceries)</option>
+                <option value="personal">পার্সোনাল কেয়ার (Personal)</option>
+                <option value="baby">বেবি কেয়ার (Baby)</option>
+                <option value="snacks">স্ন্যাক্স ও পানীয় (Snacks)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">বিক্রয় মূল্য (৳) *</label>
+              <input type="number" id="prodPrice" required placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">পূর্বের মূল্য/ছাড় মূল্যের জন্য (৳)</label>
+              <input type="number" id="prodOldPrice" placeholder="380" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-xs text-gray-600 block mb-1">পণ্যের ছবির লিংক (Image URL) *</label>
+              <input type="url" id="prodImage" required placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div class="md:col-span-2">
+              <button type="submit" class="bg-emerald-600 text-white font-bold px-5 py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow">
+                পণ্য সংরক্ষণ করুন
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+          <h4 class="text-xs font-bold text-gray-600">ডাটাবেজে থাকা পণ্যের তালিকা:</h4>
+          <div id="adminProductList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
             <!-- Loaded by JS -->
           </div>
         </div>
-      </div>
+      </section>
+
+      <!-- SECTION 3: ADDRESS MANAGEMENT -->
+      <section id="sectionAddress" class="space-y-4 hidden">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+          <h3 class="font-bold text-sm text-emerald-700 border-b pb-2"><i class="fa-solid fa-location-dot"></i> নতুন ডেলিভারি এলাকা যুক্ত করুন</h3>
+          <form id="addressForm" class="space-y-3">
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">ঠিকানার নাম / এলাকা (যেমন: কামারপাড়া, রংপুর)</label>
+              <input type="text" id="newAddressInput" required placeholder="ঠিকানা লিখুন..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <button type="submit" class="bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-700 shadow">
+              ঠিকানা যুক্ত করুন
+            </button>
+          </form>
+
+          <div class="mt-4">
+            <h4 class="text-xs font-bold text-gray-500 mb-2">বিদ্যমান ঠিকানাগুলোর তালিকা:</h4>
+            <div id="addressListContainer" class="space-y-2 max-h-40 overflow-y-auto">
+              <!-- Loaded by JS -->
+            </div>
+          </div>
+        </div>
+      </section>
 
     </div>
 
   </main>
 
-  <!-- Script Logic -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initAdminAuth, 500);
 
-      // Address Form Handler
+      // Section Navigation Toggles
+      const tabOrdersBtn = document.getElementById('tabOrdersBtn');
+      const tabProductsBtn = document.getElementById('tabProductsBtn');
+      const tabAddressBtn = document.getElementById('tabAddressBtn');
+
+      const sectionOrders = document.getElementById('sectionOrders');
+      const sectionProducts = document.getElementById('sectionProducts');
+      const sectionAddress = document.getElementById('sectionAddress');
+
+      tabOrdersBtn.addEventListener('click', () => {
+        switchTab(tabOrdersBtn, sectionOrders);
+        loadOrders();
+      });
+
+      tabProductsBtn.addEventListener('click', () => {
+        switchTab(tabProductsBtn, sectionProducts);
+        loadProducts();
+      });
+
+      tabAddressBtn.addEventListener('click', () => {
+        switchTab(tabAddressBtn, sectionAddress);
+        loadAddressesList();
+      });
+
+      function switchTab(activeBtn, activeSection) {
+        [tabOrdersBtn, tabProductsBtn, tabAddressBtn].forEach(btn => {
+          btn.className = "flex-1 py-2 rounded-lg text-gray-600 hover:bg-gray-100";
+        });
+        [sectionOrders, sectionProducts, sectionAddress].forEach(sec => sec.classList.add('hidden'));
+
+        activeBtn.className = "flex-1 py-2 rounded-lg bg-emerald-600 text-white shadow";
+        activeSection.classList.remove('hidden');
+      }
+
+      // Add Product Form Submit
+      document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const productData = {
+          name: document.getElementById('prodName').value,
+          category: document.getElementById('prodCategory').value,
+          price: Number(document.getElementById('prodPrice').value),
+          oldPrice: Number(document.getElementById('prodOldPrice').value) || 0,
+          image: document.getElementById('prodImage').value,
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "products"), productData);
+          alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
+          document.getElementById('addProductForm').reset();
+          loadProducts();
+        } catch (e) { alert("ত্রুটি: " + e.message); }
+      });
+
+      // Address Form Submit
       document.getElementById('addressForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const addressText = document.getElementById('newAddressInput').value.trim();
         const db = window.firebaseDb;
         const { collection, addDoc } = window.firebaseServices;
 
-        if(!addressText) return;
-
         try {
-          await addDoc(collection(db, "delivery_addresses"), {
-            address: addressText,
-            createdAt: new Date().toISOString()
-          });
-          alert("সফলভাবে নতুন ঠিকানা যুক্ত করা হয়েছে!");
+          await addDoc(collection(db, "delivery_addresses"), { address: addressText, createdAt: new Date().toISOString() });
+          alert("ঠিকানা যুক্ত করা হয়েছে!");
           document.getElementById('newAddressInput').value = "";
           loadAddressesList();
-        } catch (err) {
-          alert("ত্রুটি: " + err.message);
-        }
+        } catch (err) { alert("ত্রুটি: " + err.message); }
       });
     });
 
@@ -146,7 +272,7 @@
           document.getElementById('adminLoginSection').classList.add('hidden');
           document.getElementById('adminDashboard').classList.remove('hidden');
           document.getElementById('adminLogoutBtn').classList.remove('hidden');
-          loadAddressesList();
+          loadOrders();
         } else {
           document.getElementById('adminLoginSection').classList.remove('hidden');
           document.getElementById('adminDashboard').classList.add('hidden');
@@ -156,15 +282,10 @@
 
       document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('adminEmail').value;
-        const password = document.getElementById('adminPassword').value;
-
         try {
-          await signInWithEmailAndPassword(auth, email, password);
+          await signInWithEmailAndPassword(auth, document.getElementById('adminEmail').value, document.getElementById('adminPassword').value);
           alert("অ্যাডমিন লগইন সফল হয়েছে!");
-        } catch (error) {
-          alert("লগইন ব্যর্থ হয়েছে: সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
-        }
+        } catch (error) { alert("লগইন ব্যর্থ হয়েছে: ইমেইল বা পাসওয়ার্ড পরীক্ষা করুন।"); }
       });
 
       document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
@@ -173,7 +294,126 @@
       });
     }
 
-    // Load and Display Existing Addresses
+    // Load Orders from Firestore
+    async function loadOrders() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('ordersContainer');
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "orders"));
+        if (querySnapshot.empty) {
+          container.innerHTML = `<div class="bg-white p-6 rounded-xl text-center text-xs text-gray-400">কোনো নতুন অর্ডার নেই।</div>`;
+          return;
+        }
+
+        let html = '';
+        querySnapshot.forEach((docSnap) => {
+          const order = docSnap.data();
+          const itemsList = order.items ? order.items.map(i => `${i.name} (x${i.qty})`).join(', ') : 'তথ্য নেই';
+
+          html += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2">
+              <div class="flex justify-between items-start border-b pb-2">
+                <div>
+                  <h4 class="font-bold text-xs text-gray-800">${order.userName || 'গ্রাহক'}</h4>
+                  <p class="text-[11px] text-emerald-600 font-semibold">${order.userPhone || 'নম্বর নেই'}</p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(order.status)}">
+                  ${order.status || 'Pending'}
+                </span>
+              </div>
+
+              <div class="text-xs text-gray-600 space-y-1">
+                <p><strong>আইটেমসমূহ:</strong> ${itemsList}</p>
+                <p><strong>ঠিকানা:</strong> ${order.address || 'দেয়া হয়নি'}</p>
+                <p><strong>মোট মূল্য:</strong> <span class="text-emerald-700 font-bold">৳ ${order.totalAmount || 0}</span></p>
+              </div>
+
+              <div class="flex items-center justify-between pt-2 border-t text-xs">
+                <label class="text-[11px] font-bold text-gray-500">স্টেটাস পরিবর্তন:</label>
+                <select onchange="updateOrderStatus('${docSnap.id}', this.value)" class="px-2 py-1 border rounded-lg text-xs bg-gray-50 focus:outline-none">
+                  <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                  <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                  <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                  <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (e) { console.error(e); }
+    }
+
+    function getStatusBadgeClass(status) {
+      if(status === 'Delivered') return 'bg-emerald-100 text-emerald-800';
+      if(status === 'Processing') return 'bg-blue-100 text-blue-800';
+      if(status === 'Cancelled') return 'bg-red-100 text-red-800';
+      return 'bg-amber-100 text-amber-800';
+    }
+
+    // Update Order Status
+    window.updateOrderStatus = async function(orderId, newStatus) {
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        alert("অর্ডার স্টেটাস আপডেট করা হয়েছে!");
+        loadOrders();
+      } catch (e) { alert("সমস্যা হয়েছে: " + e.message); }
+    };
+
+    // Load Added Products
+    async function loadProducts() {
+      const db = window.firebaseDb;
+      const { collection, getDocs, deleteDoc, doc } = window.firebaseServices;
+      const container = document.getElementById('adminProductList');
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        if (querySnapshot.empty) {
+          container.innerHTML = `<p class="text-xs text-gray-400">কোনো পণ্য পাওয়া যায়নি।</p>`;
+          return;
+        }
+
+        let html = '';
+        querySnapshot.forEach((docSnap) => {
+          const prod = docSnap.data();
+          html += `
+            <div class="flex items-center justify-between bg-gray-50 p-2 rounded-xl border text-xs">
+              <div class="flex items-center space-x-2">
+                <img src="${prod.image}" class="w-10 h-10 object-cover rounded-lg">
+                <div>
+                  <p class="font-bold text-gray-800">${prod.name}</p>
+                  <p class="text-emerald-600">৳ ${prod.price}</p>
+                </div>
+              </div>
+              <button onclick="deleteProduct('${docSnap.id}')" class="text-red-500 hover:text-red-700 p-2">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (e) { console.error(e); }
+    }
+
+    // Delete Product
+    window.deleteProduct = async function(id) {
+      if(!confirm("পণ্যটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "products", id));
+        alert("পণ্য ডিলিট করা হয়েছে!");
+        loadProducts();
+      } catch (e) { alert(e.message); }
+    };
+
+    // Load Addresses List
     async function loadAddressesList() {
       const db = window.firebaseDb;
       const { collection, getDocs, deleteDoc, doc } = window.firebaseServices;
@@ -187,26 +427,24 @@
         }
 
         let html = '';
-        querySnapshot.forEach((documentSnap) => {
-          const data = documentSnap.data();
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
           html += `
             <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
               <span class="font-medium text-gray-700">${data.address}</span>
-              <button onclick="deleteAddress('${documentSnap.id}')" class="text-red-500 hover:text-red-700 px-2 py-1">
+              <button onclick="deleteAddress('${docSnap.id}')" class="text-red-500 hover:text-red-700 px-2 py-1">
                 <i class="fa-solid fa-trash"></i>
               </button>
             </div>
           `;
         });
         container.innerHTML = html;
-      } catch (e) {
-        console.error("Error loading addresses:", e);
-      }
+      } catch (e) { console.error(e); }
     }
 
-    // Delete Address Function
+    // Delete Address
     window.deleteAddress = async function(id) {
-      if(!confirm("আপনি কি এই ঠিকানাটি ডিলিট করতে চান?")) return;
+      if(!confirm("ঠিকানাটি ডিলিট করতে চান?")) return;
       const db = window.firebaseDb;
       const { doc, deleteDoc } = window.firebaseServices;
 
@@ -214,9 +452,7 @@
         await deleteDoc(doc(db, "delivery_addresses", id));
         alert("ঠিকানা ডিলিট করা হয়েছে!");
         loadAddressesList();
-      } catch (e) {
-        alert("ডিলিট করতে সমস্যা হয়েছে: " + e.message);
-      }
+      } catch (e) { alert(e.message); }
     };
   </script>
 </body>
