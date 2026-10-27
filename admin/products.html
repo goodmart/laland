@@ -72,14 +72,22 @@
     <section id="sectionProducts" class="space-y-4 pt-2">
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
         <div class="flex justify-between items-center border-b pb-2">
-          <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন</h3>
-          <button type="button" onclick="openSupplierModal()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100">
-            <i class="fa-solid fa-truck-field"></i> + নতুন সাপ্লায়ার যোগ করুন
-          </button>
+          <h3 id="formTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন</h3>
+          <div class="flex space-x-2">
+            <button type="button" id="cancelEditBtn" onclick="resetProductForm()" class="hidden bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-300">
+              এডিট বাতিল করুন
+            </button>
+            <button type="button" onclick="openSupplierModal()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100">
+              <i class="fa-solid fa-truck-field"></i> + নতুন সাপ্লায়ার যোগ করুন
+            </button>
+          </div>
         </div>
         
         <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
           
+          <!-- Hidden field for Edit Product ID -->
+          <input type="hidden" id="editProductId">
+
           <!-- Supplier Selection -->
           <div class="md:col-span-2">
             <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার (Supplier) সিলেক্ট করুন *</label>
@@ -149,16 +157,16 @@
 
           <!-- Product Picture Upload (Auto Resizing) -->
           <div class="md:col-span-2">
-            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে অপ্টিমাইজ হবে) *</label>
-            <input type="file" id="prodImageFile" accept="image/*" required class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-50 focus:outline-none">
-            <p class="text-[10px] text-gray-400 mt-1">যেকোনো সাইজের ছবি দিন, সিস্টেম নিজে থেকেই এটিকে স্ট্যান্ডার্ড সাইজে অপ্টিমাইজ করে নেবে।</p>
+            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে অপ্টিমাইজ হবে)</label>
+            <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-50 focus:outline-none">
+            <p class="text-[10px] text-gray-400 mt-1">ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।</p>
           </div>
 
           <!-- Hidden field for processed base64 image -->
           <input type="hidden" id="processedImageBase64">
 
           <div class="md:col-span-2 pt-2">
-            <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-emerald-700 shadow">
+            <button type="submit" id="submitBtn" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-emerald-700 shadow">
               পণ্য সংরক্ষণ করুন
             </button>
           </div>
@@ -166,7 +174,7 @@
       </div>
 
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
-        <h4 class="text-xs font-bold text-gray-600">ডাটাবেজে থাকা পণ্যের তালিকা:</h4>
+        <h4 class="text-xs font-bold text-gray-600">ডাটাবেজে থাকা পণ্যের তালিকা (এডিট ও ডিলিট অপশনসহ):</h4>
         <div id="adminProductList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
           <!-- Loaded by JS -->
           <p class="text-xs text-gray-400">পণ্য লোড হচ্ছে...</p>
@@ -217,6 +225,7 @@
   <!-- Script Logic -->
   <script>
     let html5QrCode = null;
+    let productsDataStore = {}; // Store loaded products locally for easy editing
 
     document.addEventListener("DOMContentLoaded", () => {
       // Wait for Firebase to initialize then load suppliers and products
@@ -259,15 +268,18 @@
         reader.readAsDataURL(file);
       });
 
-      // Add Product Form Submit
+      // Add / Update Product Form Submit
       document.getElementById('addProductForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         stopCameraScanner();
         const db = window.firebaseDb;
-        const { collection, addDoc } = window.firebaseServices;
+        const { collection, addDoc, updateDoc, doc } = window.firebaseServices;
 
+        const editId = document.getElementById('editProductId').value;
         const imageBase64 = document.getElementById('processedImageBase64').value;
-        if(!imageBase64) {
+
+        // If it's a new product, image is required
+        if(!editId && !imageBase64) {
           alert("অনুগ্রহ করে একটি ছবি সিলেক্ট করুন এবং প্রসেস হওয়ার জন্য কিছুক্ষণ অপেক্ষা করুন।");
           return;
         }
@@ -281,15 +293,28 @@
           mrp: Number(document.getElementById('prodMRP').value),
           discountPrice: Number(document.getElementById('prodDiscountPrice').value) || Number(document.getElementById('prodMRP').value),
           price: Number(document.getElementById('prodDiscountPrice').value) || Number(document.getElementById('prodMRP').value),
-          image: imageBase64,
-          createdAt: new Date().toISOString()
+          updatedAt: new Date().toISOString()
         };
 
+        // Include image only if a new image was uploaded during edit or create
+        if (imageBase64) {
+          productData.image = imageBase64;
+        }
+
         try {
-          await addDoc(collection(db, "products"), productData);
-          alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
-          document.getElementById('addProductForm').reset();
-          document.getElementById('processedImageBase64').value = "";
+          if (editId) {
+            // Update existing product
+            await updateDoc(doc(db, "products", editId), productData);
+            alert("পণ্য সফলভাবে আপডেট করা হয়েছে!");
+            resetProductForm();
+          } else {
+            // Add new product
+            productData.createdAt = new Date().toISOString();
+            await addDoc(collection(db, "products"), productData);
+            alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
+            document.getElementById('addProductForm').reset();
+            document.getElementById('processedImageBase64').value = "";
+          }
           loadProducts();
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
@@ -316,6 +341,39 @@
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
     });
+
+    // Edit Product Function (Loads product data into form)
+    window.editProduct = function(id) {
+      const prod = productsDataStore[id];
+      if(!prod) return;
+
+      document.getElementById('editProductId').value = id;
+      document.getElementById('prodSupplierSelect').value = prod.supplier || "";
+      document.getElementById('prodName').value = prod.name || "";
+      document.getElementById('prodBarcode').value = prod.barcode || "";
+      document.getElementById('prodCategory').value = prod.category || "groceries";
+      document.getElementById('prodTP').value = prod.tp || "";
+      document.getElementById('prodMRP').value = prod.mrp || "";
+      document.getElementById('prodDiscountPrice').value = prod.discountPrice || "";
+      
+      // Update form header and buttons
+      document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> পণ্য এডিট করুন (ID: ${id.substring(0,5)}...)`;
+      document.getElementById('submitBtn').innerText = "পরিবর্তন সংরক্ষণ করুন (Update)";
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+      // Scroll to top to see form
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Reset Form to Add Mode
+    window.resetProductForm = function() {
+      document.getElementById('addProductForm').reset();
+      document.getElementById('editProductId').value = "";
+      document.getElementById('processedImageBase64').value = "";
+      document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন`;
+      document.getElementById('submitBtn').innerText = "পণ্য সংরক্ষণ করুন";
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+    };
 
     // Mobile Camera Barcode Scanner Functions
     window.startCameraScanner = function() {
@@ -425,9 +483,12 @@
           return;
         }
 
+        productsDataStore = {}; // Reset local store
         let html = '';
         querySnapshot.forEach((docSnap) => {
           const prod = docSnap.data();
+          productsDataStore[docSnap.id] = prod; // Store data
+
           html += `
             <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border text-xs">
               <div class="flex items-center space-x-2.5">
@@ -438,9 +499,14 @@
                   <p class="text-emerald-600 font-semibold">MRP: ৳ ${prod.mrp} | TP: ৳ ${prod.tp} | Disc: ৳ ${prod.discountPrice}</p>
                 </div>
               </div>
-              <button onclick="deleteProduct('${docSnap.id}')" class="text-red-500 hover:text-red-700 p-2">
-                <i class="fa-solid fa-trash text-sm"></i>
-              </button>
+              <div class="flex items-center space-x-1">
+                <button onclick="editProduct('${docSnap.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2 rounded-lg" title="এডিট করুন">
+                  <i class="fa-solid fa-pen-to-square text-sm"></i>
+                </button>
+                <button onclick="deleteProduct('${docSnap.id}')" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg" title="ডিলিট করুন">
+                  <i class="fa-solid fa-trash text-sm"></i>
+                </button>
+              </div>
             </div>
           `;
         });
@@ -461,4 +527,3 @@
   </script>
 </body>
 </html>
-
