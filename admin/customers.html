@@ -1,1 +1,343 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>কাস্টমার ডাটাবেস - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.firebaseDb = db;
+    window.firebaseServices = { collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-users text-xl"></i>
+        <h1 class="font-bold text-lg">কাস্টমার ডাটাবেস - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="hover:underline">পণ্যসমূহ</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="locations.html" class="hover:underline">ঠিকানা</a>
+        <a href="customers.html" class="underline font-bold">কাস্টমার</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-5">
+
+    <!-- 1. SUMMARY CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট নিবন্ধিত কাস্টমার</p>
+          <h3 id="statTotalCustomers" class="text-2xl font-extrabold text-gray-800">০</h3>
+        </div>
+        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-user-group text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">ওয়ালেটে মোট জমা টাকা</p>
+          <h3 id="statTotalWallet" class="text-2xl font-extrabold text-blue-600">৳ ০</h3>
+        </div>
+        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-wallet text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট লয়ালটি পয়েন্ট বিতরণ</p>
+          <h3 id="statTotalPoints" class="text-2xl font-extrabold text-amber-600">০ PTS</h3>
+        </div>
+        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-award text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SEARCH & CONTROLS -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-3">
+      <div class="relative w-full md:w-80">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-xs"></i>
+        <input type="text" id="customerSearchInput" onkeyup="filterCustomers()" placeholder="কাস্টমারের নাম বা ফোন নম্বর দিয়ে খুঁজুন..." class="w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+      </div>
+      
+      <button onclick="loadCustomersData()" class="w-full md:w-auto bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-100 shadow-sm flex items-center justify-center space-x-1">
+        <i class="fa-solid fa-rotate"></i>
+        <span>ডাটা রিফ্রেশ করুন</span>
+      </button>
+    </div>
+
+    <!-- 3. CUSTOMERS LIST CONTAINER -->
+    <div id="customersContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400 md:col-span-2">
+        <i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>
+        কাস্টমার ডাটা লোড করা হচ্ছে...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- WALLET & POINTS ADJUSTMENT MODAL -->
+  <div id="walletModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-coins"></i> ওয়ালেট ব্যালেন্স ও পয়েন্ট ম্যানেজ</h3>
+        <button onclick="closeWalletModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <input type="hidden" id="modalCustomerId">
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <p class="font-bold text-gray-700 mb-1">কাস্টমার: <span id="modalCustomerName" class="text-emerald-700"></span></p>
+          <p class="text-gray-500">বর্তমান ওয়ালেট জমা: <strong id="modalCurrentWallet" class="text-blue-600">৳ ০</strong></p>
+        </div>
+
+        <div>
+          <label class="block text-gray-600 mb-1">ওয়ালেট থেকে টাকা কাটুন (Deduct Balance ৳)</label>
+          <input type="number" id="modalDeductBalance" placeholder="কাটার পরিমাণ (যেমন: ১০০)" class="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <p class="text-[10px] text-gray-400 mt-0.5">এডমিন প্রয়োজনে কাস্টমারের ওয়ালেট থেকে টাকা কাটতে (Deduct) পারবেন।</p>
+        </div>
+
+        <div>
+          <label class="block text-gray-600 mb-1">লয়ালটি পয়েন্ট অ্যাড বা কাট করুন (Points)</label>
+          <input type="number" id="modalAdjustPoints" placeholder="যেমন: 50 বা -20" class="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <div class="pt-2 flex space-x-2">
+        <button onclick="saveCustomerWalletUpdates()" class="flex-1 bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700 shadow">
+          পরিবর্তন সংরক্ষণ করুন
+        </button>
+        <button onclick="closeWalletModal()" class="bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-gray-300">
+          বাতিল
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    let allCustomersList = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadCustomersData();
+      }, 500);
+    });
+
+    // Load Customers from Firestore
+    async function loadCustomersData() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('customersContainer');
+
+      if (!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "orders"));
+        let customerMap = {};
+
+        querySnapshot.forEach((docSnap) => {
+          const ord = docSnap.data();
+          const phone = ord.userPhone || 'unknown';
+
+          if (phone !== 'unknown') {
+            if (!customerMap[phone]) {
+              customerMap[phone] = {
+                id: docSnap.id,
+                name: ord.userName || 'নামহীন কাস্টমার',
+                phone: phone,
+                address: ord.address || 'ঠিকানা দেওয়া হয়নি',
+                walletBalance: ord.walletBalance || 0, // কাস্টমারের জমা রাখা ব্যালেন্স
+                loyaltyPoints: ord.loyaltyPoints || 0,
+                totalOrders: 0,
+                totalSpent: 0
+              };
+            }
+            customerMap[phone].totalOrders += 1;
+            if((ord.status || '').toLowerCase() === 'delivered') {
+              customerMap[phone].totalSpent += Number(ord.totalAmount || 0);
+            }
+          }
+        });
+
+        allCustomersList = Object.values(customerMap);
+        updateAnalytics();
+        renderCustomersList();
+
+      } catch (err) {
+        console.error("Error loading customers:", err);
+        container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 border md:col-span-2">কাস্টমার ডাটা লোড করতে সমস্যা হয়েছে: ${err.message}</div>`;
+      }
+    }
+
+    // Analytics Summary
+    function updateAnalytics() {
+      let totalWallet = 0;
+      let totalPoints = 0;
+
+      allCustomersList.forEach(c => {
+        totalWallet += Number(c.walletBalance || 0);
+        totalPoints += Number(c.loyaltyPoints || 0);
+      });
+
+      document.getElementById('statTotalCustomers').innerText = allCustomersList.length;
+      document.getElementById('statTotalWallet').innerText = '৳ ' + totalWallet;
+      document.getElementById('statTotalPoints').innerText = totalPoints + ' PTS';
+    }
+
+    // Render Customers List Cards
+    function renderCustomersList() {
+      const container = document.getElementById('customersContainer');
+      const searchQuery = document.getElementById('customerSearchInput').value.toLowerCase().trim();
+
+      let filtered = allCustomersList.filter(c => 
+        c.name.toLowerCase().includes(searchQuery) || c.phone.includes(searchQuery)
+      );
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400 md:col-span-2">
+            <i class="fa-solid fa-user-slash text-2xl text-gray-300 mb-2 block"></i>
+            কোনো কাস্টমার পাওয়া যায়নি।
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(c => {
+        html += `
+          <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3 transition hover:shadow-md">
+            
+            <!-- Card Header -->
+            <div class="flex justify-between items-start border-b pb-2">
+              <div>
+                <h4 class="font-bold text-sm text-gray-800 flex items-center space-x-1">
+                  <i class="fa-solid fa-user-circle text-emerald-600 mr-1"></i>
+                  <span>${c.name}</span>
+                </h4>
+                <p class="text-xs text-emerald-700 font-bold mt-0.5"><i class="fa-solid fa-phone mr-1"></i>${c.phone}</p>
+              </div>
+              <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                অর্ডার: ${c.totalOrders} টি
+              </span>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <div>
+                <p class="text-gray-400 text-[10px]">ওয়ালেট জমা (Prepaid)</p>
+                <p class="font-extrabold text-blue-600 text-sm">৳ ${c.walletBalance}</p>
+              </div>
+              <div>
+                <p class="text-gray-400 text-[10px]">লয়ালটি পয়েন্ট</p>
+                <p class="font-extrabold text-amber-600 text-sm">${c.loyaltyPoints} PTS</p>
+              </div>
+              <div class="col-span-2 pt-1 border-t border-gray-200">
+                <p class="text-gray-400 text-[10px]">মোট কেনাকাটা (Delivered)</p>
+                <p class="font-bold text-gray-700">৳ ${c.totalSpent}</p>
+              </div>
+            </div>
+
+            <!-- Address -->
+            <p class="text-xs text-gray-600"><strong>ঠিকানা:</strong> ${c.address}</p>
+
+            <!-- Actions -->
+            <div class="flex justify-end pt-1 border-t text-xs">
+              <button onclick="openWalletModal('${c.phone}', '${c.name}', ${c.walletBalance}, ${c.loyaltyPoints})" class="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-700 shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-wallet"></i>
+                <span>ওয়ালেট ও পয়েন্ট ম্যানেজ</span>
+              </button>
+            </div>
+
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Filter Trigger
+    window.filterCustomers = function() {
+      renderCustomersList();
+    };
+
+    // Modal Controllers
+    window.openWalletModal = function(phone, name, currentBalance, currentPoints) {
+      document.getElementById('modalCustomerId').value = phone;
+      document.getElementById('modalCustomerName').innerText = name + ' (' + phone + ')';
+      document.getElementById('modalCurrentWallet').innerText = '৳ ' + currentBalance;
+      document.getElementById('modalDeductBalance').value = '';
+      document.getElementById('modalAdjustPoints').value = '';
+      document.getElementById('walletModal').classList.remove('hidden');
+    };
+
+    window.closeWalletModal = function() {
+      document.getElementById('walletModal').classList.add('hidden');
+    };
+
+    // Save Updates (Deduct balance or adjust points, NO DUE option)
+    window.saveCustomerWalletUpdates = function() {
+      const phone = document.getElementById('modalCustomerId').value;
+      const deductAmt = Number(document.getElementById('modalDeductBalance').value) || 0;
+      const adjustPts = Number(document.getElementById('modalAdjustPoints').value) || 0;
+
+      const cust = allCustomersList.find(c => c.phone === phone);
+      if (cust) {
+        if (deductAmt > 0) {
+          if (deductAmt > cust.walletBalance) {
+            alert("ত্রুটি: কাস্টমারের ওয়ালেট জমার চেয়ে বেশি টাকা কাটতে চাচ্ছেন!");
+            return;
+          }
+          cust.walletBalance -= deductAmt;
+        }
+
+        cust.loyaltyPoints = Number(cust.loyaltyPoints) + adjustPts;
+        if(cust.loyaltyPoints < 0) cust.loyaltyPoints = 0;
+
+        updateAnalytics();
+        renderCustomersList();
+        closeWalletModal();
+        alert("কাস্টমার ওয়ালেট ও পয়েন্ট সফলভাবে আপডেট করা হয়েছে!");
+      }
+    };
+  </script>
+</body>
+</html>
 
