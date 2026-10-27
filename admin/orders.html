@@ -1,1 +1,447 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>অর্ডার ব্যবস্থাপনা - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.firebaseDb = db;
+    window.firebaseServices = { collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-cart-shopping text-xl"></i>
+        <h1 class="font-bold text-lg">অর্ডার ড্যাশবোর্ড - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="hover:underline">পণ্যসমূহ</a>
+        <a href="orders.html" class="underline font-bold">অর্ডার</a>
+        <a href="locations.html" class="hover:underline">ঠিকানা</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-5">
+
+    <!-- 1. ANALYTICS SUMMARY CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট অর্ডার</p>
+          <h3 id="statTotalOrders" class="text-xl font-extrabold text-gray-800">০</h3>
+        </div>
+        <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-box text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">পেন্ডিং অর্ডার</p>
+          <h3 id="statPendingOrders" class="text-xl font-extrabold text-amber-600">০</h3>
+        </div>
+        <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-clock text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">ডেলিভারি সম্পন্ন</p>
+          <h3 id="statDeliveredOrders" class="text-xl font-extrabold text-blue-600">০</h3>
+        </div>
+        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-truck-ramp-box text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[11px] font-semibold text-gray-500">মোট বিক্রি (BDT)</p>
+          <h3 id="statTotalSales" class="text-xl font-extrabold text-emerald-700">৳ ০</h3>
+        </div>
+        <div class="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-bangladeshi-taka-sign text-lg"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SEARCH & STATUS FILTER TABS -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+      
+      <!-- Top Actions: Search Box & Refresh -->
+      <div class="flex flex-col md:flex-row justify-between items-center gap-3">
+        <div class="relative w-full md:w-72">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+          <input type="text" id="orderSearchInput" onkeyup="filterOrders()" placeholder="কাস্টমারের নাম বা মোবাইল নম্বর..." class="w-full pl-9 pr-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        
+        <button onclick="loadAllOrders()" class="w-full md:w-auto bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100 shadow-sm flex items-center justify-center space-x-1">
+          <i class="fa-solid fa-rotate"></i>
+          <span>রিফ্রেশ ডাটা</span>
+        </button>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="flex overflow-x-auto space-x-2 pt-2 border-t text-xs font-bold no-scrollbar">
+        <button onclick="setFilterStatus('All')" id="btnFilterAll" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm">সবগুলো (<span id="cntAll">০</span>)</button>
+        <button onclick="setFilterStatus('Pending')" id="btnFilterPending" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">পেন্ডিং (<span id="cntPending">০</span>)</button>
+        <button onclick="setFilterStatus('Processing')" id="btnFilterProcessing" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">প্রসেসিং (<span id="cntProcessing">০</span>)</button>
+        <button onclick="setFilterStatus('Delivered')" id="btnFilterDelivered" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">ডেলিভারড (<span id="cntDelivered">০</span>)</button>
+        <button onclick="setFilterStatus('Cancelled')" id="btnFilterCancelled" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">ক্যানসেলড (<span id="cntCancelled">০</span>)</button>
+      </div>
+
+    </div>
+
+    <!-- 3. ORDERS LIST / CONTAINER -->
+    <div id="ordersListContainer" class="space-y-3">
+      <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400">
+        <i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>
+        অর্ডারসমূহ লোড করা হচ্ছে...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    let allOrdersList = [];
+    let currentActiveStatus = 'All';
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadAllOrders();
+      }, 500);
+    });
+
+    // Fetch orders from Firebase
+    async function loadAllOrders() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('ordersListContainer');
+
+      if (!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "orders"));
+        allOrdersList = [];
+
+        querySnapshot.forEach((docSnap) => {
+          allOrdersList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Sort orders by newest first
+        allOrdersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+        updateAnalyticsAndCounts();
+        renderOrdersList();
+
+      } catch (err) {
+        console.error("Error loading orders:", err);
+        container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 border">অর্ডার লোড করতে সমস্যা হয়েছে: ${err.message}</div>`;
+      }
+    }
+
+    // Analytics and Counts Update
+    function updateAnalyticsAndCounts() {
+      let pendingCount = 0;
+      let processingCount = 0;
+      let deliveredCount = 0;
+      let cancelledCount = 0;
+      let totalSales = 0;
+
+      allOrdersList.forEach(ord => {
+        const st = (ord.status || 'Pending').toLowerCase();
+        if (st === 'pending') pendingCount++;
+        else if (st === 'processing') processingCount++;
+        else if (st === 'delivered') {
+          deliveredCount++;
+          totalSales += Number(ord.totalAmount || 0);
+        } else if (st === 'cancelled') cancelledCount++;
+      });
+
+      document.getElementById('statTotalOrders').innerText = allOrdersList.length;
+      document.getElementById('statPendingOrders').innerText = pendingCount;
+      document.getElementById('statDeliveredOrders').innerText = deliveredCount;
+      document.getElementById('statTotalSales').innerText = '৳ ' + totalSales;
+
+      document.getElementById('cntAll').innerText = allOrdersList.length;
+      document.getElementById('cntPending').innerText = pendingCount;
+      document.getElementById('cntProcessing').innerText = processingCount;
+      document.getElementById('cntDelivered').innerText = deliveredCount;
+      document.getElementById('cntCancelled').innerText = cancelledCount;
+    }
+
+    // Set Status Filter
+    window.setFilterStatus = function(status) {
+      currentActiveStatus = status;
+
+      const btnMap = {
+        'All': 'btnFilterAll',
+        'Pending': 'btnFilterPending',
+        'Processing': 'btnFilterProcessing',
+        'Delivered': 'btnFilterDelivered',
+        'Cancelled': 'btnFilterCancelled'
+      };
+
+      Object.keys(btnMap).forEach(key => {
+        const btn = document.getElementById(btnMap[key]);
+        if (key === status) {
+          btn.className = "px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm font-bold";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap font-bold";
+        }
+      });
+
+      renderOrdersList();
+    };
+
+    // Filter and Render Orders List
+    function renderOrdersList() {
+      const container = document.getElementById('ordersListContainer');
+      const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+
+      let filtered = allOrdersList.filter(ord => {
+        const matchStatus = (currentActiveStatus === 'All') ? true : (ord.status || 'Pending').toLowerCase() === currentActiveStatus.toLowerCase();
+        const matchSearch = (ord.userName || '').toLowerCase().includes(searchQuery) || (ord.userPhone || '').includes(searchQuery);
+        return matchStatus && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400">
+            <i class="fa-solid fa-box-open text-2xl text-gray-300 mb-2 block"></i>
+            কোনো অর্ডার পাওয়া যায়নি।
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(ord => {
+        const formattedItems = ord.items ? ord.items.map(i => `
+          <div class="flex justify-between py-1 border-b border-dashed border-gray-100 last:border-none">
+            <span class="text-gray-700">${i.name} <strong class="text-emerald-700">x${i.qty}</strong></span>
+            <span class="font-semibold text-gray-600">৳ ${i.price * i.qty}</span>
+          </div>
+        `).join('') : '<p class="text-gray-400">কোনো আইটেম নেই</p>';
+
+        const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString('bn-BD') : 'তারিখ পাওয়া যায়নি';
+
+        html += `
+          <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3 transition hover:shadow-md">
+            
+            <!-- Order Card Header -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h4 class="font-bold text-sm text-gray-800">${ord.userName || 'নাম প্রকাশহীন গ্রাহক'}</h4>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(ord.status)}">
+                    ${ord.status || 'Pending'}
+                  </span>
+                </div>
+                <p class="text-[11px] text-gray-500 flex items-center space-x-2 mt-0.5">
+                  <span><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${ord.userPhone || 'নম্বর নেই'}</span>
+                  <span>•</span>
+                  <span><i class="fa-regular fa-clock text-gray-400 mr-1"></i>${dateString}</span>
+                </p>
+              </div>
+
+              <div class="text-left md:text-right">
+                <span class="text-xs text-gray-400 block">মোট বিল</span>
+                <span class="text-sm font-extrabold text-emerald-700">৳ ${ord.totalAmount || 0}</span>
+              </div>
+            </div>
+
+            <!-- Items List & Delivery Address -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
+                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
+                ${formattedItems}
+              </div>
+              <div class="space-y-1">
+                <p class="font-bold text-gray-500">ডেলিভারি ঠিকানা:</p>
+                <p class="text-gray-700 font-medium">${ord.address || 'ঠিকানা দেওয়া হয়নি'}</p>
+                ${ord.note ? `<p class="text-[10px] text-amber-600 bg-amber-50 p-1 rounded mt-1"><strong>নোট:</strong> ${ord.note}</p>` : ''}
+              </div>
+            </div>
+
+            <!-- Footer: Status Changing Controller -->
+            <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
+              <div class="flex items-center space-x-2 w-full sm:w-auto">
+                <label class="font-bold text-gray-500 whitespace-nowrap">স্ট্যাটাস আপডেট:</label>
+                <select onchange="updateOrderStatus('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
+                  <option value="Pending" ${ord.status === 'Pending' ? 'selected' : ''}>Pending (অপেক্ষাধীন)</option>
+                  <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing (প্রসেসিং)</option>
+                  <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered (ডেলিভারড)</option>
+                  <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled (বাতিল)</option>
+                </select>
+              </div>
+
+              <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                <button onclick="printInvoice('${ord.id}')" class="bg-gray-100 text-gray-700 font-bold px-3 py-1.5 rounded-xl hover:bg-gray-200 flex items-center space-x-1">
+                  <i class="fa-solid fa-print"></i>
+                  <span>প্রিন্ট মেমো</span>
+                </button>
+                <button onclick="deleteOrder('${ord.id}')" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50">
+                  <i class="fa-solid fa-trash text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Dynamic Filter Trigger
+    window.filterOrders = function() {
+      renderOrdersList();
+    };
+
+    // Badge styling logic
+    function getStatusBadgeClass(status) {
+      status = (status || '').toLowerCase();
+      if (status === 'delivered') return 'bg-emerald-100 text-emerald-800';
+      if (status === 'processing') return 'bg-blue-100 text-blue-800';
+      if (status === 'cancelled') return 'bg-red-100 text-red-800';
+      return 'bg-amber-100 text-amber-800';
+    }
+
+    // Update Status in Firestore
+    window.updateOrderStatus = async function(orderId, newStatus) {
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        
+        // Update local state instantly for fast UI response
+        const ord = allOrdersList.find(o => o.id === orderId);
+        if (ord) ord.status = newStatus;
+
+        updateAnalyticsAndCounts();
+        renderOrdersList();
+        
+        alert("অর্ডার স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে!");
+      } catch (err) {
+        alert("আপডেট ব্যর্থ হয়েছে: " + err.message);
+      }
+    };
+
+    // Delete Order
+    window.deleteOrder = async function(orderId) {
+      if (!confirm("আপনি কি নিশ্চিত যে এই অর্ডারটি ডাটাবেজ থেকে মুছে ফেলতে চান?")) return;
+
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "orders", orderId));
+        allOrdersList = allOrdersList.filter(o => o.id !== orderId);
+
+        updateAnalyticsAndCounts();
+        renderOrdersList();
+
+        alert("অর্ডারটি সফলভাবে মুছে ফেলা হয়েছে!");
+      } catch (err) {
+        alert("ত্রুটি: " + err.message);
+      }
+    };
+
+    // Quick Memo / Invoice Print Concept
+    window.printInvoice = function(orderId) {
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if(!ord) return;
+
+      const printWindow = window.open('', '_blank');
+      const itemsTable = ord.items ? ord.items.map(i => `
+        <tr>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">${i.qty}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price * i.qty}</td>
+        </tr>
+      `).join('') : '';
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>ইনভয়েস - ${ord.userName || 'Order'}</title>
+            <style>
+              body { font-family: 'SolaimanLipi', sans-serif, Arial; padding: 20px; color: #333; }
+              .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
+              .details { margin: 15px 0; font-size: 13px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+              th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
+              .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>Laland Express / Good Mart Enterprise</h2>
+              <p style="font-size: 11px;">কামারপাড়া, রংপুর | কাস্টমার সাপোর্ট মেমো</p>
+            </div>
+            <div class="details">
+              <p><strong>গ্রাহকের নাম:</strong> ${ord.userName || 'N/A'}</p>
+              <p><strong>মোবাইল:</strong> ${ord.userPhone || 'N/A'}</p>
+              <p><strong>ঠিকানা:</strong> ${ord.address || 'N/A'}</p>
+              <p><strong>তারিখ:</strong> ${ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('bn-BD') : ''}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>পণ্য</th>
+                  <th style="text-align: center;">পরিমাণ</th>
+                  <th style="text-align: right;">মূল্য</th>
+                  <th style="text-align: right;">মোট</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsTable}
+              </tbody>
+            </table>
+            <div class="total">
+              সর্বমোট মূল্য: ৳ ${ord.totalAmount || 0}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    };
+  </script>
+</body>
+</html>
 
