@@ -1,1 +1,328 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>লোকেশন ব্যবস্থাপনা - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.firebaseDb = db;
+    window.firebaseServices = { collection, addDoc, getDocs, deleteDoc, doc };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-map-location-dot text-xl"></i>
+        <h1 class="font-bold text-lg">লোকেশন ব্যবস্থাপনা - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="hover:underline">পণ্যসমূহ</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="locations.html" class="underline font-bold">ঠিকানা</a>
+        <a href="customers.html" class="hover:underline">কাস্টমার</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto p-4 space-y-6">
+
+    <!-- 1. ADD LOCATION FORM -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+      <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">
+        <i class="fa-solid fa-circle-plus"></i> নতুন ডেলিভারি জোন / লোকেশন যুক্ত করুন
+      </h3>
+      
+      <form id="locationForm" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        
+        <!-- Primary Location -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">১. প্রাইমারি লোকেশন (যেমন: কামারপাড়া) *</label>
+          <input type="text" id="primaryLocation" required placeholder="প্রধান এলাকার নাম" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <!-- Sub Location -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">২. সাব-লোকেশন (যেমন: দক্ষিণ কামারপাড়া)</label>
+          <input type="text" id="subLocation" placeholder="উপ-এলাকা বা মহল্লা" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <!-- Secondary/Road Location -->
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">৩. সেকেন্ডারি / রোড (যেমন: মাস্টারবাড়ি রোড)</label>
+          <input type="text" id="roadLocation" placeholder="রোড বা গলি নম্বর" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <div class="md:col-span-3 pt-2">
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow">
+            লোকেশন সংরক্ষণ করুন
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 2. EXISTING LOCATIONS LIST TABLE -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h4 class="text-xs font-bold text-gray-700"><i class="fa-solid fa-list text-emerald-600"></i> ডাটাবেজে থাকা ডেলিভারি লোকেশনসমূহ</h4>
+        <button onclick="loadLocations()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl font-bold hover:bg-emerald-100">
+          <i class="fa-solid fa-rotate"></i> রিফ্রেশ
+        </button>
+      </div>
+
+      <div class="overflow-x-auto max-h-96">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-50 text-gray-600 border-b">
+              <th class="p-2.5">প্রাইমারি এলাকা</th>
+              <th class="p-2.5">সাব-লোকেশন (মহল্লা)</th>
+              <th class="p-2.5">রোড / সেকেন্ডারি</th>
+              <th class="p-2.5 text-center">অ্যাকশন</th>
+            </tr>
+          </thead>
+          <tbody id="locationsTableBody">
+            <tr>
+              <td colspan="4" class="text-center p-4 text-gray-400">লোকেশন লোড হচ্ছে...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. CUSTOMER CHECKOUT PREVIEW DEMO (কাস্টমার যেভাবে সিলেক্ট করবে) -->
+    <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-200 space-y-3">
+      <h4 class="text-xs font-bold text-emerald-800">
+        <i class="fa-solid fa-eye"></i> কাস্টমার ড্রপডাউন প্রিভিউ (মেইন সাইটে কাস্টমার যেভাবে সিলেক্ট করবে):
+      </h4>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div>
+          <label class="block text-gray-600 mb-1 font-semibold">প্রাইমারি এলাকা সিলেক্ট করুন:</label>
+          <select id="customerPrimarySelect" onchange="onPrimaryChange()" class="w-full px-3 py-2 border rounded-xl bg-white focus:outline-none">
+            <option value="">-- এলাকা সিলেক্ট করুন --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-600 mb-1 font-semibold">সাব-লোকেশন সিলেক্ট করুন:</label>
+          <select id="customerSubSelect" onchange="onSubChange()" disabled class="w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none">
+            <option value="">-- প্রথমে প্রাইমারি সিলেক্ট করুন --</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-600 mb-1 font-semibold">রোড / সেকেন্ডারি সিলেক্ট করুন:</label>
+          <select id="customerRoadSelect" disabled class="w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none">
+            <option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    let allLocationsList = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadLocations();
+      }, 500);
+
+      // Add Location Form Submit
+      document.getElementById('locationForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const locData = {
+          primary: document.getElementById('primaryLocation').value.trim(),
+          sub: document.getElementById('subLocation').value.trim() || 'প্রযোজ্য নয়',
+          road: document.getElementById('roadLocation').value.trim() || 'প্রযোজ্য নয়',
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "delivery_locations"), locData);
+          alert("লোকেশন সফলভাবে যুক্ত হয়েছে!");
+          document.getElementById('locationForm').reset();
+          loadLocations();
+        } catch (err) {
+          alert("ত্রুটি: " + err.message);
+        }
+      });
+    });
+
+    // Load Locations from Firestore
+    async function loadLocations() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const tbody = document.getElementById('locationsTableBody');
+
+      if (!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "delivery_locations"));
+        allLocationsList = [];
+
+        querySnapshot.forEach((docSnap) => {
+          allLocationsList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        renderAdminTable();
+        populateCustomerDropdowns();
+
+      } catch (err) {
+        console.error("Error loading locations:", err);
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-red-500">লোকেশন লোড করতে সমস্যা হয়েছে</td></tr>`;
+      }
+    }
+
+    // Render Admin Table
+    function renderAdminTable() {
+      const tbody = document.getElementById('locationsTableBody');
+      if (allLocationsList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-gray-400">কোনো লোকেশন এন্ট্রি করা নেই।</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      allLocationsList.forEach(loc => {
+        html += `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-2.5 font-bold text-gray-800">${loc.primary}</td>
+            <td class="p-2.5 text-gray-600">${loc.sub}</td>
+            <td class="p-2.5 text-gray-600">${loc.road}</td>
+            <td class="p-2.5 text-center">
+              <button onclick="deleteLocation('${loc.id}')" class="text-red-500 hover:text-red-700 p-1">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // Delete Location
+    window.deleteLocation = async function(id) {
+      if (!confirm("আপনি কি এই লোকেশনটি মুছে ফেলতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "delivery_locations", id));
+        alert("লোকেশন মুছে ফেলা হয়েছে!");
+        loadLocations();
+      } catch (err) {
+        alert("ত্রুটি: " + err.message);
+      }
+    };
+
+    // Populate Customer Cascading Dropdowns
+    function populateCustomerDropdowns() {
+      const primarySelect = document.getElementById('customerPrimarySelect');
+      
+      // Get unique primary locations
+      let primaries = [...new Set(allLocationsList.map(item => item.primary))];
+      
+      let optionsHTML = `<option value="">-- এলাকা সিলেক্ট করুন --</option>`;
+      primaries.forEach(p => {
+        optionsHTML += `<option value="${p}">${p}</option>`;
+      });
+      primarySelect.innerHTML = optionsHTML;
+
+      // Reset sub and road dropdowns
+      document.getElementById('customerSubSelect').innerHTML = `<option value="">-- প্রথমে প্রাইমারি সিলেক্ট করুন --</option>`;
+      document.getElementById('customerSubSelect').disabled = true;
+      document.getElementById('customerSubSelect').className = "w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none";
+
+      document.getElementById('customerRoadSelect').innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      document.getElementById('customerRoadSelect').disabled = true;
+      document.getElementById('customerRoadSelect').className = "w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none";
+    }
+
+    // When Primary Location changes
+    window.onPrimaryChange = function() {
+      const selectedPrimary = document.getElementById('customerPrimarySelect').value;
+      const subSelect = document.getElementById('customerSubSelect');
+      const roadSelect = document.getElementById('customerRoadSelect');
+
+      roadSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      roadSelect.disabled = true;
+      roadSelect.className = "w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none";
+
+      if (!selectedPrimary) {
+        subSelect.innerHTML = `<option value="">-- প্রথমে প্রাইমারি সিলেক্ট করুন --</option>`;
+        subSelect.disabled = true;
+        subSelect.className = "w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none";
+        return;
+      }
+
+      // Filter sub-locations for this primary
+      let subs = allLocationsList.filter(item => item.primary === selectedPrimary).map(item => item.sub);
+      subs = [...new Set(subs)];
+
+      let html = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      subs.forEach(s => {
+        html += `<option value="${s}">${s}</option>`;
+      });
+      subSelect.innerHTML = html;
+      subSelect.disabled = false;
+      subSelect.className = "w-full px-3 py-2 border rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+    };
+
+    // When Sub Location changes
+    window.onSubChange = function() {
+      const selectedPrimary = document.getElementById('customerPrimarySelect').value;
+      const selectedSub = document.getElementById('customerSubSelect').value;
+      const roadSelect = document.getElementById('customerRoadSelect');
+
+      if (!selectedSub) {
+        roadSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+        roadSelect.disabled = true;
+        roadSelect.className = "w-full px-3 py-2 border rounded-xl bg-gray-100 focus:outline-none";
+        return;
+      }
+
+      // Filter roads for this primary & sub
+      let roads = allLocationsList.filter(item => item.primary === selectedPrimary && item.sub === selectedSub).map(item => item.road);
+      roads = [...new Set(roads)];
+
+      let html = `<option value="">-- রোড / সেকেন্ডারি সিলেক্ট করুন --</option>`;
+      roads.forEach(r => {
+        html += `<option value="${r}">${r}</option>`;
+      });
+      roadSelect.innerHTML = html;
+      roadSelect.disabled = false;
+      roadSelect.className = "w-full px-3 py-2 border rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+    };
+  </script>
+</body>
+</html>
 
