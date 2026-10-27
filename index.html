@@ -328,7 +328,7 @@
 
   <!-- Application Logic JS -->
   <script>
-    let products = []; // Dynamic products fetched from Firebase
+    let products = [];
     const categories = [
       { id: 'all', name: 'সকল আইটেম', icon: 'fa-layer-group' },
       { id: 'groceries', name: 'মুদি বাজার', icon: 'fa-basket-shopping' },
@@ -366,7 +366,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       renderCategoryPills();
       renderCategoryGrid();
-      fetchProductsFromFirebase(); // Load dynamic products from Firestore
+      fetchProductsFromFirebase();
       updateCartUI();
 
       const navButtons = document.querySelectorAll('.nav-btn');
@@ -385,7 +385,7 @@
         renderProducts(e.target.value.toLowerCase());
       });
 
-      // Checkout Button Handler - Sends Order to Firebase 'orders' collection
+      // Checkout Button Handler
       document.getElementById('checkoutBtn').addEventListener('click', async () => {
         if (cart.length === 0) {
           alert("আপনার কার্ট খালি রয়েছে!");
@@ -407,7 +407,7 @@
         const userPhone = user ? (document.getElementById('userPhone').innerText || 'নম্বর নেই') : 'N/A';
         
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        const totalAmount = subtotal + 30; // Delivery charge fixed to 30 BDT
+        const totalAmount = subtotal + 30;
 
         const orderData = {
           userName: userName,
@@ -462,7 +462,7 @@
       loadAdminAddresses();
     });
 
-    // Fetch Products from Firestore 'products' collection
+    // Fetch Products from Firestore
     async function fetchProductsFromFirebase() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -479,7 +479,7 @@
         querySnapshot.forEach((docSnap) => {
           const d = docSnap.data();
           products.push({
-            id: docSnap.id,
+            id: String(docSnap.id),
             name: d.name,
             price: Number(d.discountPrice || d.mrp || 0),
             oldPrice: Number(d.mrp || 0),
@@ -543,20 +543,27 @@
       }
 
       document.getElementById('productGrid').innerHTML = filtered.map(prod => {
-        const cartItem = cart.find(item => item.id === prod.id);
+        const cartItem = cart.find(item => String(item.id) === String(prod.id));
         const qty = cartItem ? cartItem.qty : 0;
+        
+        // Calculate discount amount (MRP - Discount Price)
+        const discountAmount = prod.oldPrice > prod.price ? (prod.oldPrice - prod.price) : 0;
 
         return `
           <div class="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between">
             <div>
               <div class="h-28 rounded-xl overflow-hidden mb-2 bg-gray-100 relative">
                 <img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-cover">
-                <span class="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">ছাড়</span>
+                ${discountAmount > 0 ? `
+                  <span class="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow">
+                    ৳ ${discountAmount} ছাড়
+                  </span>
+                ` : ''}
               </div>
               <h4 class="text-xs font-bold text-gray-800 line-clamp-2">${prod.name}</h4>
               <div class="flex items-baseline space-x-1 mt-1">
                 <span class="text-sm font-extrabold text-emerald-600">৳ ${prod.price}</span>
-                <span class="text-[10px] text-gray-400 line-through">৳ ${prod.oldPrice}</span>
+                ${prod.oldPrice > prod.price ? `<span class="text-[10px] text-gray-400 line-through">৳ ${prod.oldPrice}</span>` : ''}
               </div>
             </div>
 
@@ -584,9 +591,10 @@
     }
 
     window.addToCart = function(id) {
-      const prod = products.find(p => p.id === id);
+      id = String(id);
+      const prod = products.find(p => String(p.id) === id);
       if(!prod) return;
-      const existing = cart.find(item => item.id === id);
+      const existing = cart.find(item => String(item.id) === id);
       if(existing) {
         existing.qty += 1;
       } else {
@@ -596,11 +604,21 @@
     };
 
     window.updateQty = function(id, change) {
-      const index = cart.findIndex(item => item.id === id);
+      id = String(id);
+      const index = cart.findIndex(item => String(item.id) === id);
       if (index !== -1) {
         cart[index].qty += change;
-        if (cart[index].qty <= 0) cart.splice(index, 1);
+        if (cart[index].qty <= 0) {
+          cart.splice(index, 1);
+        }
       }
+      saveCart();
+    };
+
+    // Remove item completely from cart
+    window.removeFromCart = function(id) {
+      id = String(id);
+      cart = cart.filter(item => String(item.id) !== id);
       saveCart();
     };
 
@@ -642,7 +660,7 @@
             <div class="flex items-center space-x-2">
               <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
               <div>
-                <h5 class="text-xs font-bold text-gray-800">${item.name}</h5>
+                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
                 <p class="text-[10px] text-gray-500">৳ ${item.price} × ${item.qty}</p>
               </div>
             </div>
@@ -653,6 +671,9 @@
                 <span class="text-xs font-bold px-1.5">${item.qty}</span>
                 <button onclick="updateQty('${item.id}', 1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">+</button>
               </div>
+              <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 p-1 text-xs" title="রিমুভ করুন">
+                <i class="fa-solid fa-trash"></i>
+              </button>
             </div>
           </div>
         `).join('');
