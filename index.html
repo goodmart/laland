@@ -10,13 +10,12 @@
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Firebase SDKs (v9) -->
+  <!-- Firebase SDKs (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getAuth, 
-      RecaptchaVerifier, 
-      signInWithPhoneNumber,
+      signInWithEmailAndPassword, 
       signOut, 
       onAuthStateChanged,
       setPersistence,
@@ -25,8 +24,9 @@
     import { 
       getFirestore, 
       doc, 
-      setDoc, 
-      getDoc 
+      getDoc,
+      collection,
+      getDocs 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     // Firebase Config
@@ -53,13 +53,13 @@
     window.firebaseAuth = auth;
     window.firebaseDb = db;
     window.firebaseServices = {
-      RecaptchaVerifier,
-      signInWithPhoneNumber,
+      signInWithEmailAndPassword,
       signOut,
       onAuthStateChanged,
       doc,
-      setDoc,
-      getDoc
+      getDoc,
+      collection,
+      getDocs
     };
   </script>
 
@@ -74,9 +74,6 @@
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 pb-20 select-none">
-
-  <!-- reCAPTCHA Container (Required for Firebase Phone Auth) -->
-  <div id="recaptcha-container"></div>
 
   <!-- App Sticky Top Header -->
   <header class="sticky top-0 z-40 bg-emerald-600 text-white shadow-md">
@@ -149,53 +146,29 @@
 
     <!-- Tab 4: Account Screen -->
     <section id="accountTab" class="p-4 hidden space-y-4">
-      <!-- Unauthenticated Auth Forms -->
+      <!-- Login Form (Visible when logged out) -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
         <div class="text-center">
-          <h3 class="font-bold text-emerald-600 text-base">মোবাইল নম্বর দিয়ে ঢুকুন</h3>
-          <p class="text-xs text-gray-500 mt-1">আপনার ফোনে OTP কোড পাঠানো হবে</p>
+          <h3 class="font-bold text-emerald-600 text-base">লগইন করুন</h3>
+          <p class="text-xs text-gray-500 mt-1">মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন</p>
         </div>
 
-        <!-- Phone Input Step -->
-        <form id="phoneAuthForm" class="space-y-3">
+        <form id="loginForm" class="space-y-3">
           <div>
-            <label class="text-xs text-gray-600 block mb-1">আপনার নাম *</label>
-            <input type="text" id="regName" required placeholder="MD. AL HELAL" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর</label>
+            <input type="tel" id="loginPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর *</label>
-            <input type="tel" id="regPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          </div>
-          <div>
-            <label class="text-xs text-gray-600 block mb-1">ইমেইল (ঐচ্ছিক)</label>
-            <input type="email" id="regEmail" placeholder="example@gmail.com (না দিলেও চলবে)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          </div>
-          <div>
-            <label class="text-xs text-gray-600 block mb-1">ডেলিভারি ঠিকানা *</label>
-            <textarea id="regAddress" required placeholder="বাসা নম্বর, কামারপাড়া, রংপুর..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500" rows="2"></textarea>
-          </div>
-          <button type="submit" id="sendOtpBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            OTP পাঠান
-          </button>
-        </form>
-
-        <!-- OTP Verification Step (Hidden initially) -->
-        <form id="otpVerifyForm" class="space-y-3 hidden">
-          <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-center">
-            <p class="text-xs text-emerald-800">আপনার মোবাইলে পাঠানো ৬ সংখ্যার OTP কোডটি লিখুন</p>
-          </div>
-          <div>
-            <label class="text-xs text-gray-600 block mb-1">OTP কোড *</label>
-            <input type="number" id="otpCode" required placeholder="123456" class="w-full text-center tracking-widest text-lg font-bold px-3 py-2 border rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+            <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            ভেরিফাই করে সাইন-ইন করুন
+            লগইন করুন
           </button>
         </form>
-
       </div>
 
-      <!-- Authenticated Profile View -->
+      <!-- Authenticated Profile View (Visible when logged in) -->
       <div id="profileView" class="hidden space-y-4">
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
           <div class="flex items-center space-x-3">
@@ -203,19 +176,20 @@
               <i class="fa-solid fa-user"></i>
             </div>
             <div>
-              <h3 id="userName" class="font-bold text-gray-800">ইউজার নেম</h3>
-              <p id="userPhone" class="text-xs text-emerald-600 font-semibold">017XXXXXXXX <i class="fa-solid fa-circle-check"></i></p>
+              <h3 id="userName" class="font-bold text-gray-800">গ্রাহকের নাম</h3>
+              <p id="userPhone" class="text-xs text-emerald-600 font-semibold">017XXXXXXXX</p>
               <p id="userEmail" class="text-xs text-gray-400">email@example.com</p>
             </div>
           </div>
-          <button id="logoutBtn" class="text-red-500 p-2 hover:bg-red-50 rounded-full transition">
+          <button id="logoutBtn" class="text-red-500 p-2 hover:bg-red-50 rounded-full transition" title="লগআউট">
             <i class="fa-solid fa-right-from-bracket"></i>
           </button>
         </div>
 
+        <!-- User Assigned Delivery Address View -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-2">
-          <h4 class="text-xs font-bold text-gray-400 uppercase">ডিফল্ট ডেলিভারি ঠিকানা</h4>
-          <p id="userAddress" class="text-sm text-gray-700">ঠিকানা লোড হচ্ছে...</p>
+          <h4 class="text-xs font-bold text-gray-400 uppercase">ডেলিভারি ঠিকানা (নির্ধারিত)</h4>
+          <p id="userAddress" class="text-sm text-gray-700 font-semibold">ঠিকানা লোড হচ্ছে...</p>
         </div>
       </div>
     </section>
@@ -259,7 +233,15 @@
 
       <div id="drawerCartItems" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
 
+      <!-- Checkout Address Dropdown Selection (Admin Entry) -->
       <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
+        <div>
+          <label class="text-xs font-bold text-gray-700 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন (অ্যাডমিন তালিকা থেকে):</label>
+          <select id="checkoutAddressSelect" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="">ঠিকানা লোড হচ্ছে...</option>
+          </select>
+        </div>
+
         <div class="space-y-1 text-sm">
           <div class="flex justify-between text-gray-600">
             <span>পণ্য সাবটোটাল:</span>
@@ -306,27 +288,6 @@
 
     let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
     let selectedCategory = 'all';
-    let confirmationResult = null;
-    let tempUserData = {};
-
-    const TEXTBEE_API_KEY = "Txb_M4fQV5SzMwVroFcDRX5iUBJqlTJbnITH";
-    const TEXTBEE_DEVICE_ID = "6adfbd74a4996b8ebfc583fb";
-
-    async function sendTextBeeWelcomeSMS(phone, name) {
-      if(!phone) return;
-      let formattedPhone = phone.trim();
-      if (formattedPhone.startsWith('0')) formattedPhone = '+88' + formattedPhone;
-
-      const msg = `প্রিয় ${name}, Laland Express-এ আপনাকে স্বাগতম! আপনার নম্বরটি সফলভাবে ভেরিফাই হয়েছে।`;
-
-      try {
-        await fetch(`https://api.textbee.dev/api/v1/gateway/devices/${TEXTBEE_DEVICE_ID}/sendSMS`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': TEXTBEE_API_KEY },
-          body: JSON.stringify({ recipients: [formattedPhone], message: msg })
-        });
-      } catch (err) { console.error("TextBee SMS Error:", err); }
-    }
 
     document.addEventListener("DOMContentLoaded", () => {
       renderCategoryPills();
@@ -351,6 +312,7 @@
       });
 
       setTimeout(initFirebaseEvents, 500);
+      loadAdminAddresses();
     });
 
     function showTab(tabId) {
@@ -515,17 +477,37 @@
       document.getElementById('cartModal').classList.toggle('hidden');
     }
 
-    // Firebase Phone Auth Logic
+    // Load Admin Addresses into Checkout Dropdown from Firestore collection "delivery_addresses"
+    async function loadAdminAddresses() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const selectEl = document.getElementById('checkoutAddressSelect');
+      
+      try {
+        const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
+        if (querySnapshot.empty) {
+          selectEl.innerHTML = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
+          return;
+        }
+
+        let optionsHTML = `<option value="">-- ঠিকানা সিলেক্ট করুন --</option>`;
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const addressText = data.address || data.name || "ঠিকানা";
+          optionsHTML += `<option value="${addressText}">${addressText}</option>`;
+        });
+        selectEl.innerHTML = optionsHTML;
+      } catch (e) {
+        console.error("Error loading addresses:", e);
+        selectEl.innerHTML = `<option value="">ঠিকানা লোড করতে সমস্যা হয়েছে</option>`;
+      }
+    }
+
+    // Firebase Auth & Login Logic (Phone + Password)
     function initFirebaseEvents() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
-      const { RecaptchaVerifier, signInWithPhoneNumber, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
-
-      // Setup Invisible Recaptcha
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => {}
-      });
+      const { signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, getDoc } = window.firebaseServices;
 
       // Auth Observer
       onAuthStateChanged(auth, async (user) => {
@@ -539,7 +521,7 @@
             if (docSnap.exists()) {
               const data = docSnap.data();
               document.getElementById('userName').innerText = data.name || "গ্রাহক";
-              document.getElementById('userPhone').innerHTML = `${data.phone || user.phoneNumber} <i class="fa-solid fa-circle-check text-emerald-500"></i>`;
+              document.getElementById('userPhone').innerText = data.phone || user.phoneNumber || "নম্বর নেই";
               document.getElementById('userEmail').innerText = data.email || "ইমেইল দেয়া হয়নি";
               document.getElementById('userAddress').innerText = data.address || "কোনো ঠিকানা দেয়া হয়নি";
             }
@@ -550,59 +532,20 @@
         }
       });
 
-      // Step 1: Send OTP
-      document.getElementById('phoneAuthForm').addEventListener('submit', async (e) => {
+      // Login Form Handler (Phone & Password)
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('regName').value;
-        let phone = document.getElementById('regPhone').value.trim();
-        const email = document.getElementById('regEmail').value;
-        const address = document.getElementById('regAddress').value;
+        const phone = document.getElementById('loginPhone').value.trim();
+        const password = document.getElementById('loginPassword').value;
 
-        if (phone.startsWith('0')) phone = '+88' + phone;
-        else if (!phone.startsWith('+880')) phone = '+880' + phone;
-
-        tempUserData = { name, phone, email, address };
-
-        const appVerifier = window.recaptchaVerifier;
-        const sendBtn = document.getElementById('sendOtpBtn');
-        sendBtn.innerText = "OTP পাঠানো হচ্ছে...";
-        sendBtn.disabled = true;
+        // Firebase-এ ফোন নম্বর দিয়ে লগইন করার জন্য ইন্টারনাল ডামি ইমেইল ফরম্যাট ব্যবহার করা হচ্ছে
+        const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandexpress.com`;
 
         try {
-          confirmationResult = await signInWithPhoneNumber(auth, phone, appVerifier);
-          alert("মোবাইলে OTP কোড পাঠানো হয়েছে!");
-          document.getElementById('phoneAuthForm').classList.add('hidden');
-          document.getElementById('otpVerifyForm').classList.remove('hidden');
+          await signInWithEmailAndPassword(auth, formattedEmail, password);
+          alert("লগইন সফল হয়েছে!");
         } catch (error) {
-          alert("OTP পাঠাতে সমস্যা হয়েছে: " + error.message);
-          sendBtn.innerText = "OTP পাঠান";
-          sendBtn.disabled = false;
-        }
-      });
-
-      // Step 2: Verify OTP
-      document.getElementById('otpVerifyForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const otpCode = document.getElementById('otpCode').value;
-
-        try {
-          const result = await confirmationResult.confirm(otpCode);
-          const user = result.user;
-
-          // Save User profile info to Firestore
-          await setDoc(doc(db, "users", user.uid), {
-            name: tempUserData.name,
-            phone: tempUserData.phone,
-            email: tempUserData.email || "",
-            address: tempUserData.address,
-            verified: true,
-            createdAt: new Date().toISOString()
-          });
-
-          await sendTextBeeWelcomeSMS(tempUserData.phone, tempUserData.name);
-          alert("ফোন নম্বর সফলভাবে ভেরিফাই করা হয়েছে!");
-        } catch (error) {
-          alert("ভুল OTP কোড! আবার চেষ্টা করুন।");
+          alert("লগইন ব্যর্থ হয়েছে! সঠিক ফোন নম্বর ও পাসওয়ার্ড দিন।");
         }
       });
 
