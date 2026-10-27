@@ -1,1 +1,464 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>পণ্য ব্যবস্থাপনা - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Html5-Qrcode Scanner Library CDN -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      collection,
+      addDoc,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      doc
+    };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Admin Header -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-boxes-stacked text-xl"></i>
+        <h1 class="font-bold text-lg">পণ্য ব্যবস্থাপনা - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="underline font-bold">পণ্যসমূহ</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="locations.html" class="hover:underline">ঠিকানা</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto p-4 space-y-6">
+
+    <!-- PRODUCT MANAGEMENT SECTION -->
+    <section id="sectionProducts" class="space-y-4 pt-2">
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন</h3>
+          <button type="button" onclick="openSupplierModal()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100">
+            <i class="fa-solid fa-truck-field"></i> + নতুন সাপ্লায়ার যোগ করুন
+          </button>
+        </div>
+        
+        <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          
+          <!-- Supplier Selection -->
+          <div class="md:col-span-2">
+            <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার (Supplier) সিলেক্ট করুন *</label>
+            <select id="prodSupplierSelect" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="">-- সাপ্লায়ার সিলেক্ট করুন --</option>
+            </select>
+          </div>
+
+          <!-- Product Name -->
+          <div class="md:col-span-2">
+            <label class="text-xs text-gray-600 block mb-1">১. পণ্যের নাম *</label>
+            <input type="text" id="prodName" required placeholder="যেমন: মিনিকেট চাল (৫ কেজি)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- Barcode Number (Manual / Scanner Gun / Mobile Camera Scanner) -->
+          <div class="md:col-span-2">
+            <label class="text-xs text-gray-600 block mb-1">২. বারকোড নম্বর (গান দিয়ে স্ক্যান করুন, ক্যামেরা দিয়ে স্ক্যান করুন অথবা ম্যানুয়ালি টাইপ করুন) *</label>
+            <div class="flex space-x-2">
+              <input type="text" id="prodBarcode" required placeholder="Barcode number..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <button type="button" onclick="startCameraScanner()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 whitespace-nowrap shadow">
+                <i class="fa-solid fa-camera"></i> ক্যামেরা স্ক্যানার
+              </button>
+            </div>
+          </div>
+
+          <!-- Camera Scanner View Container (Hidden by default) -->
+          <div id="scannerContainer" class="md:col-span-2 hidden bg-black p-2 rounded-xl relative">
+            <div id="reader" class="w-full"></div>
+            <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-1.5 rounded-lg text-xs">
+              ক্যামেরা বন্ধ করুন
+            </button>
+          </div>
+
+          <!-- Category & Add New Category -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">৩. ক্যাটাগরি *</label>
+            <div class="flex space-x-2">
+              <select id="prodCategory" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="groceries">মুদি বাজার</option>
+                <option value="personal">পার্সোনাল কেয়ার</option>
+                <option value="baby">বেবি কেয়ার</option>
+                <option value="snacks">স্ন্যাক্স ও পানীয়</option>
+              </select>
+              <button type="button" onclick="addNewCategoryPrompt()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold hover:bg-emerald-100 whitespace-nowrap">
+                + নতুন ক্যাটাগরি
+              </button>
+            </div>
+          </div>
+
+          <!-- Trade Price (TP) -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">৪. ট্রেড প্রাইস (TP) ৳ *</label>
+            <input type="number" id="prodTP" required placeholder="320" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- MRP -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">৫. সর্বোচ্চ খুচরা মূল্য (MRP) ৳ *</label>
+            <input type="number" id="prodMRP" required placeholder="380" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- Discount Price -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">৬. ডিসকাউন্ট মূল্য (অফার মূল্য যদি থাকে) ৳</label>
+            <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- Product Picture Upload (Auto Resizing) -->
+          <div class="md:col-span-2">
+            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে অপ্টিমাইজ হবে) *</label>
+            <input type="file" id="prodImageFile" accept="image/*" required class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-50 focus:outline-none">
+            <p class="text-[10px] text-gray-400 mt-1">যেকোনো সাইজের ছবি দিন, সিস্টেম নিজে থেকেই এটিকে স্ট্যান্ডার্ড সাইজে অপ্টিমাইজ করে নেবে।</p>
+          </div>
+
+          <!-- Hidden field for processed base64 image -->
+          <input type="hidden" id="processedImageBase64">
+
+          <div class="md:col-span-2 pt-2">
+            <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm hover:bg-emerald-700 shadow">
+              পণ্য সংরক্ষণ করুন
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+        <h4 class="text-xs font-bold text-gray-600">ডাটাবেজে থাকা পণ্যের তালিকা:</h4>
+        <div id="adminProductList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+          <!-- Loaded by JS -->
+          <p class="text-xs text-gray-400">পণ্য লোড হচ্ছে...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SUPPLIER MODAL POPUP -->
+  <div id="supplierModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-truck-field"></i> নতুন সাপ্লায়ার যোগ করুন</h3>
+        <button onclick="closeSupplierModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <form id="supplierModalForm" class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">১. কোম্পানির নাম (Company Name) *</label>
+          <input type="text" id="suppCompanyName" required placeholder="যেমন: ACI Logistics / Good Mart" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">২. কন্টাক্ট নম্বর (Contact Number) *</label>
+          <input type="tel" id="suppContactNumber" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">৩. সাপ্লায়ার ক্যাটাগরি (Supplier Category) *</label>
+          <select id="suppCategoryType" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="Direct Company">1. Direct Company</option>
+            <option value="Dealer">2. Dealer</option>
+            <option value="Third Party">3. Third Party</option>
+          </select>
+        </div>
+        <div class="pt-2 flex space-x-2">
+          <button type="submit" class="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow">
+            সাপ্লায়ার সংরক্ষণ করুন
+          </button>
+          <button type="button" onclick="closeSupplierModal()" class="bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-gray-300">
+            বাতিল
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Script Logic -->
+  <script>
+    let html5QrCode = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Wait for Firebase to initialize then load suppliers and products
+      setTimeout(() => {
+        loadSuppliersDropdown();
+        loadProducts();
+      }, 600);
+
+      // Image Resizing and Compression Handler
+      document.getElementById('prodImageFile').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 500;
+            const MAX_HEIGHT = 500;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+            } else {
+              if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('processedImageBase64').value = dataUrl;
+          }
+          img.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+      });
+
+      // Add Product Form Submit
+      document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        stopCameraScanner();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const imageBase64 = document.getElementById('processedImageBase64').value;
+        if(!imageBase64) {
+          alert("অনুগ্রহ করে একটি ছবি সিলেক্ট করুন এবং প্রসেস হওয়ার জন্য কিছুক্ষণ অপেক্ষা করুন।");
+          return;
+        }
+
+        const productData = {
+          supplier: document.getElementById('prodSupplierSelect').value,
+          name: document.getElementById('prodName').value,
+          barcode: document.getElementById('prodBarcode').value,
+          category: document.getElementById('prodCategory').value,
+          tp: Number(document.getElementById('prodTP').value),
+          mrp: Number(document.getElementById('prodMRP').value),
+          discountPrice: Number(document.getElementById('prodDiscountPrice').value) || Number(document.getElementById('prodMRP').value),
+          price: Number(document.getElementById('prodDiscountPrice').value) || Number(document.getElementById('prodMRP').value),
+          image: imageBase64,
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "products"), productData);
+          alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
+          document.getElementById('addProductForm').reset();
+          document.getElementById('processedImageBase64').value = "";
+          loadProducts();
+        } catch (err) { alert("ত্রুটি: " + err.message); }
+      });
+
+      // Supplier Modal Form Submit
+      document.getElementById('supplierModalForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const supplierData = {
+          companyName: document.getElementById('suppCompanyName').value,
+          contactNumber: document.getElementById('suppContactNumber').value,
+          supplierCategory: document.getElementById('suppCategoryType').value,
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "suppliers"), supplierData);
+          alert("নতুন সাপ্লায়ার সফলভাবে যুক্ত হয়েছে!");
+          closeSupplierModal();
+          document.getElementById('supplierModalForm').reset();
+          loadSuppliersDropdown();
+        } catch (err) { alert("ত্রুটি: " + err.message); }
+      });
+    });
+
+    // Mobile Camera Barcode Scanner Functions
+    window.startCameraScanner = function() {
+      const container = document.getElementById('scannerContainer');
+      container.classList.remove('hidden');
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      const config = { fps: 10, qrbox: { width: 250, height: 100 } };
+      
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        (decodedText, decodedResult) => {
+          document.getElementById('prodBarcode').value = decodedText;
+          alert("সফলভাবে বারকোড স্ক্যান হয়েছে: " + decodedText);
+          stopCameraScanner();
+        },
+        (errorMessage) => {}
+      ).catch((err) => {
+        alert("ক্যামেরা চালু করা সম্ভব হয়নি: " + err);
+        container.classList.add('hidden');
+      });
+    };
+
+    window.stopCameraScanner = function() {
+      const container = document.getElementById('scannerContainer');
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
+          container.classList.add('hidden');
+        }).catch(err => {
+          console.error("Failed to stop scanner.", err);
+          container.classList.add('hidden');
+        });
+      } else {
+        container.classList.add('hidden');
+      }
+    };
+
+    // Supplier Modal Controllers
+    window.openSupplierModal = function() {
+      document.getElementById('supplierModal').classList.remove('hidden');
+    }
+    window.closeSupplierModal = function() {
+      document.getElementById('supplierModal').classList.add('hidden');
+    }
+
+    // Load Suppliers for Dropdown
+    async function loadSuppliersDropdown() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const selectEl = document.getElementById('prodSupplierSelect');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "suppliers"));
+        let optionsHTML = `<option value="">-- সাপ্লায়ার সিলেক্ট করুন --</option>`;
+        
+        querySnapshot.forEach((docSnap) => {
+          const sup = docSnap.data();
+          optionsHTML += `<option value="${sup.companyName} (${sup.supplierCategory})">${sup.companyName} [${sup.supplierCategory}]</option>`;
+        });
+        selectEl.innerHTML = optionsHTML;
+      } catch (e) {
+        console.error("Error loading suppliers:", e);
+      }
+    }
+
+    // Add New Category Functionality
+    window.addNewCategoryPrompt = function() {
+      const newCatName = prompt("নতুন ক্যাটাগরির নাম লিখুন (যেমন: বেভারেজ / কসমেটিকস):");
+      if(newCatName && newCatName.trim() !== "") {
+        const selectEl = document.getElementById('prodCategory');
+        const slug = newCatName.toLowerCase().replace(/\s+/g, '_');
+        
+        let exists = false;
+        for(let i=0; i<selectEl.options.length; i++) {
+          if(selectEl.options[i].value === slug) { exists = true; break; }
+        }
+
+        if(!exists) {
+          const opt = document.createElement('option');
+          opt.value = slug;
+          opt.text = newCatName;
+          selectEl.add(opt);
+          selectEl.value = slug;
+          alert(`"${newCatName}" ক্যাটাগরি সফলভাবে যুক্ত করা হয়েছে!`);
+        } else {
+          alert("এই ক্যাটাগরি ইতিমধ্যে তালিকায় রয়েছে।");
+        }
+      }
+    };
+
+    // Load Added Products
+    async function loadProducts() {
+      const db = window.firebaseDb;
+      const { collection, getDocs, deleteDoc, doc } = window.firebaseServices;
+      const container = document.getElementById('adminProductList');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "products"));
+        if (querySnapshot.empty) {
+          container.innerHTML = `<p class="text-xs text-gray-400">কোনো পণ্য পাওয়া যায়নি।</p>`;
+          return;
+        }
+
+        let html = '';
+        querySnapshot.forEach((docSnap) => {
+          const prod = docSnap.data();
+          html += `
+            <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border text-xs">
+              <div class="flex items-center space-x-2.5">
+                <img src="${prod.image}" class="w-12 h-12 object-cover rounded-lg border">
+                <div>
+                  <p class="font-bold text-gray-800">${prod.name}</p>
+                  <p class="text-gray-500 text-[10px]">Barcode: ${prod.barcode || 'N/A'} | Sup: ${prod.supplier || 'N/A'}</p>
+                  <p class="text-emerald-600 font-semibold">MRP: ৳ ${prod.mrp} | TP: ৳ ${prod.tp} | Disc: ৳ ${prod.discountPrice}</p>
+                </div>
+              </div>
+              <button onclick="deleteProduct('${docSnap.id}')" class="text-red-500 hover:text-red-700 p-2">
+                <i class="fa-solid fa-trash text-sm"></i>
+              </button>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (e) { console.error(e); }
+    }
+
+    window.deleteProduct = async function(id) {
+      if(!confirm("পণ্যটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+      try {
+        await deleteDoc(doc(db, "products", id));
+        alert("পণ্য ডিলিট করা হয়েছে!");
+        loadProducts();
+      } catch (e) { alert(e.message); }
+    };
+  </script>
+</body>
+</html>
 
