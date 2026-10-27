@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Laland Express - Advanced Admin Panel</title>
+  <title>Laland Express - Advanced Admin Panel with Camera Barcode Scanner</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Html5-Qrcode Scanner Library CDN -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   
   <!-- Firebase SDKs (v10) -->
   <script type="module">
@@ -136,15 +138,23 @@
               <input type="text" id="prodName" required placeholder="যেমন: মিনিকেট চাল (৫ কেজি)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
 
-            <!-- Barcode Number (Scan or Manual) -->
-            <div>
-              <label class="text-xs text-gray-600 block mb-1">২. বারকোড নম্বর (স্ক্যান বা ম্যানুয়াল টাইপ) *</label>
+            <!-- Barcode Number (Manual / Scanner Gun / Mobile Camera Scanner) -->
+            <div class="md:col-span-2">
+              <label class="text-xs text-gray-600 block mb-1">২. বারকোড নম্বর (গান দিয়ে স্ক্যান করুন, ক্যামেরা দিয়ে স্ক্যান করুন অথবা ম্যানুয়ালি টাইপ করুন) *</label>
               <div class="flex space-x-2">
                 <input type="text" id="prodBarcode" required placeholder="Barcode number..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                <button type="button" onclick="alert('বারকোড স্ক্যানার মোড প্রস্তুত। ইনপুট বক্সে কার্সর রেখে বারকোড গান ব্যবহার করুন।')" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-300">
-                  <i class="fa-solid fa-barcode"></i> স্ক্যান
+                <button type="button" onclick="startCameraScanner()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 whitespace-nowrap shadow">
+                  <i class="fa-solid fa-camera"></i> ক্যামেরা স্ক্যানার
                 </button>
               </div>
+            </div>
+
+            <!-- Camera Scanner View Container (Hidden by default) -->
+            <div id="scannerContainer" class="md:col-span-2 hidden bg-black p-2 rounded-xl relative">
+              <div id="reader" class="w-full"></div>
+              <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-1.5 rounded-lg text-xs">
+                ক্যামেরা বন্ধ করুন
+              </button>
             </div>
 
             <!-- Category & Add New Category -->
@@ -176,7 +186,7 @@
             </div>
 
             <!-- Discount Price -->
-            <div class="md:col-span-2">
+            <div>
               <label class="text-xs text-gray-600 block mb-1">৬. ডিসকাউন্ট মূল্য (অফার মূল্য যদি থাকে) ৳</label>
               <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
@@ -274,6 +284,8 @@
 
   <!-- Script Logic -->
   <script>
+    let html5QrCode = null;
+
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initAdminAuth, 500);
 
@@ -286,9 +298,9 @@
       const sectionProducts = document.getElementById('sectionProducts');
       const sectionAddress = document.getElementById('sectionAddress');
 
-      tabOrdersBtn.addEventListener('click', () => { switchTab(tabOrdersBtn, sectionOrders); loadOrders(); });
+      tabOrdersBtn.addEventListener('click', () => { switchTab(tabOrdersBtn, sectionOrders); loadOrders(); stopCameraScanner(); });
       tabProductsBtn.addEventListener('click', () => { switchTab(tabProductsBtn, sectionProducts); loadProducts(); loadSuppliersDropdown(); });
-      tabAddressBtn.addEventListener('click', () => { switchTab(tabAddressBtn, sectionAddress); loadAddressesList(); });
+      tabAddressBtn.addEventListener('click', () => { switchTab(tabAddressBtn, sectionAddress); loadAddressesList(); stopCameraScanner(); });
 
       function switchTab(activeBtn, activeSection) {
         [tabOrdersBtn, tabProductsBtn, tabAddressBtn].forEach(btn => btn.className = "flex-1 py-2 rounded-lg text-gray-600 hover:bg-gray-100");
@@ -334,6 +346,7 @@
       // Add Product Form Submit
       document.getElementById('addProductForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        stopCameraScanner();
         const db = window.firebaseDb;
         const { collection, addDoc } = window.firebaseServices;
 
@@ -402,6 +415,49 @@
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
     });
+
+    // Mobile Camera Barcode Scanner Functions
+    window.startCameraScanner = function() {
+      const container = document.getElementById('scannerContainer');
+      container.classList.remove('hidden');
+
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+
+      const config = { fps: 10, qrbox: { width: 250, height: 100 } };
+      
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        config, 
+        (decodedText, decodedResult) => {
+          // Success callback: when barcode is read successfully
+          document.getElementById('prodBarcode').value = decodedText;
+          alert("সফলভাবে বারকোড স্ক্যান হয়েছে: " + decodedText);
+          stopCameraScanner();
+        },
+        (errorMessage) => {
+          // Scanning error or searching frame (ignored to prevent spamming)
+        }
+      ).catch((err) => {
+        alert("ক্যামেরা চালু করা সম্ভব হয়নি: " + err);
+        container.classList.add('hidden');
+      });
+    };
+
+    window.stopCameraScanner = function() {
+      const container = document.getElementById('scannerContainer');
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => {
+          container.classList.add('hidden');
+        }).catch(err => {
+          console.error("Failed to stop scanner.", err);
+          container.classList.add('hidden');
+        });
+      } else {
+        container.classList.add('hidden');
+      }
+    };
 
     // Supplier Modal Controllers
     window.openSupplierModal = function() {
@@ -484,6 +540,7 @@
       });
 
       document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
+        stopCameraScanner();
         await signOut(auth);
         alert("লগআউট করা হয়েছে।");
       });
@@ -622,7 +679,7 @@
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           html += `
-            <div class="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border text-xs">
+            <div class="flex justify-between items-center bg-gray-50, p-2.5 rounded-xl border text-xs">
               <span class="font-medium text-gray-700">${data.address}</span>
               <button onclick="deleteAddress('${docSnap.id}')" class="text-red-500 hover:text-red-700 px-2 py-1">
                 <i class="fa-solid fa-trash"></i>
