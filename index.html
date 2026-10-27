@@ -756,7 +756,7 @@
       }
     }
 
-    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING (With Out-of-Stock Item Notice)
+    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING (With Updated Quantities & Revised Total)
     async function fetchCustomerOrderHistory() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
@@ -790,13 +790,13 @@
         ordersList.forEach(ord => {
           const status = (ord.status || 'Pending').toLowerCase();
           
-          // Render current active items in the order
+          // Render current active items with dynamically updated quantities from admin panel
           const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
-            <div class="flex justify-between text-gray-700 py-0.5">
+            <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
               <span>${i.name} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
-              <span>৳ ${i.price * i.qty}</span>
+              <span class="font-semibold">৳ ${i.price * i.qty}</span>
             </div>
-          `).join('') : '<p class="text-red-500 font-bold">সকল পণ্য স্টক না থাকায় বাতিল করা হয়েছে।</p>';
+          `).join('') : '<p class="text-red-500 font-bold py-1">এই অর্ডারের সকল পণ্য স্টক না থাকায় বাতিল করা হয়েছে।</p>';
 
           const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('bn-BD') : '';
 
@@ -818,16 +818,16 @@
                 </span>
               </div>
 
-              <!-- Items & Price with Stock Warning Notice -->
-              <div class="space-y-1 text-gray-600 bg-white p-2 rounded-lg border border-gray-100">
-                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
+              <!-- Items & Revised Total Bill Notice -->
+              <div class="space-y-1 text-gray-600 bg-white p-2.5 rounded-lg border border-gray-100">
+                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (সংশোধিত পরিমাণসহ):</p>
                 ${itemsListHTML}
-                <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800">
-                  <span>সর্বমোট বিল:</span>
+                <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800 text-sm">
+                  <span>সংশোধিত মোট বিল:</span>
                   <span class="text-emerald-700">৳ ${ord.totalAmount || 0}</span>
                 </div>
                 <p class="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded mt-1">
-                  <i class="fa-solid fa-circle-info mr-1"></i> ওয়্যারহাউজে স্টক না থাকলে অ্যাডমিন নির্দিষ্ট পণ্য অর্ডার থেকে বাদ দিতে পারেন।
+                  <i class="fa-solid fa-circle-info mr-1"></i> ওয়্যারহাউজে স্টক সীমিত থাকায় অ্যাডমিন পণ্যের পরিমাণ বা সংখ্যা আপডেট করতে পারেন।
                 </p>
               </div>
 
