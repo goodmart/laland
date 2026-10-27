@@ -248,12 +248,19 @@
 
       let html = '';
       filtered.forEach(ord => {
-        const formattedItems = ord.items ? ord.items.map(i => `
-          <div class="flex justify-between py-1 border-b border-dashed border-gray-100 last:border-none">
-            <span class="text-gray-700">${i.name} <strong class="text-emerald-700">x${i.qty}</strong></span>
-            <span class="font-semibold text-gray-600">৳ ${i.price * i.qty}</span>
+        // Items list with Admin Remove / Cancel Item Feature
+        const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
+          <div class="flex justify-between items-center py-1 border-b border-dashed border-gray-200 last:border-none">
+            <div>
+              <span class="text-gray-800 font-medium">${i.name}</span>
+              <strong class="text-emerald-700 ml-1">x${i.qty}</strong>
+              <span class="text-gray-500 ml-2">(৳ ${i.price * i.qty})</span>
+            </div>
+            <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-0.5 rounded border border-red-200 font-bold transition" title="স্টক না থাকায় এই পণ্যটি অর্ডার থেকে বাদ দিন">
+              <i class="fa-solid fa-xmark mr-1"></i> বাদ দিন
+            </button>
           </div>
-        `).join('') : '<p class="text-gray-400">কোনো আইটেম নেই</p>';
+        `).join('') : '<p class="text-gray-400 text-center py-1">এই অর্ডারে কোনো আইটেম নেই</p>';
 
         const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString('bn-BD') : 'তারিখ পাওয়া যায়নি';
 
@@ -268,6 +275,7 @@
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(ord.status)}">
                     ${ord.status || 'Pending'}
                   </span>
+                  <span class="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">${ord.orderId || '#ORD'}</span>
                 </div>
                 <p class="text-[11px] text-gray-500 flex items-center space-x-2 mt-0.5">
                   <span><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${ord.userPhone || 'নম্বর নেই'}</span>
@@ -277,7 +285,7 @@
               </div>
 
               <div class="text-left md:text-right">
-                <span class="text-xs text-gray-400 block">মোট বিল</span>
+                <span class="text-xs text-gray-400 block">মোট বিল (ডেলিভারিসহ)</span>
                 <span class="text-sm font-extrabold text-emerald-700">৳ ${ord.totalAmount || 0}</span>
               </div>
             </div>
@@ -285,7 +293,7 @@
             <!-- Items List & Delivery Address -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
-                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
+                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (স্টক না থাকলে 'বাদ দিন' ক্লিক করুন):</p>
                 ${formattedItems}
               </div>
               <div class="space-y-1">
@@ -347,7 +355,6 @@
       try {
         await updateDoc(doc(db, "orders", orderId), { status: newStatus });
         
-        // Update local state instantly for fast UI response
         const ord = allOrdersList.find(o => o.id === orderId);
         if (ord) ord.status = newStatus;
 
@@ -360,9 +367,39 @@
       }
     };
 
+    // REMOVE SINGLE PRODUCT FROM ORDER (STOCK NOT AVAILABLE)
+    window.removeProductFromOrder = async function(orderId, itemIndex) {
+      if (!confirm("আপনি কি নিশ্চিত যে স্টক না থাকায় এই পণ্যটি অর্ডার থেকে বাদ দিতে চান?")) return;
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if (!ord || !ord.items) return;
+
+      // Remove specific item from array
+      ord.items.splice(itemIndex, 1);
+
+      // Recalculate Subtotal and Total Amount (Delivery Charge = 30 BDT)
+      let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
+      let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), {
+          items: ord.items,
+          totalAmount: newTotalAmount
+        });
+
+        alert("পণ্যটি সফলভাবে অর্ডার থেকে বাদ দেওয়া হয়েছে এবং মোট বিল আপডেট করা হয়েছে!");
+        loadAllOrders(); // Refresh data
+      } catch (err) {
+        alert("পণ্য বাদ দিতে সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
     // Delete Order
     window.deleteOrder = async function(orderId) {
-      if (!confirm("আপনি কি নিশ্চিত যে এই অর্ডারটি ডাটাবেজ থেকে মুছে ফেলতে চান?")) return;
+      if (!confirm("আপনি কি নিশ্চিত যে এই অর্ডারটি ডাটাবেজ থেকে সম্পূর্ণ মুছে ফেলতে চান?")) return;
 
       const db = window.firebaseDb;
       const { doc, deleteDoc } = window.firebaseServices;
@@ -403,6 +440,7 @@
               body { font-family: 'SolaimanLipi', sans-serif, Arial; padding: 20px; color: #333; }
               .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
               .details { margin: 15px 0; font-size: 13px; }
+              style { font-family: sans-serif; }
               table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
               th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
               .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
@@ -412,6 +450,7 @@
             <div class="header">
               <h2>Laland Express / Good Mart Enterprise</h2>
               <p style="font-size: 11px;">কামারপাড়া, রংপুর | কাস্টমার সাপোর্ট মেমো</p>
+              <p style="font-size: 12px; color: #047857;"><strong>অর্ডার আইডি:</strong> ${ord.orderId || '#ORD'}</p>
             </div>
             <div class="details">
               <p><strong>গ্রাহকের নাম:</strong> ${ord.userName || 'N/A'}</p>
@@ -432,8 +471,12 @@
                 ${itemsTable}
               </tbody>
             </table>
+            <div style="margin-top: 15px; font-size: 13px; text-align: right;">
+              <p>সাবটোটাল: ৳ ${(ord.totalAmount || 30) - 30}</p>
+              <p>ডেলিভারি চার্জ: ৳ 30</p>
+            </div>
             <div class="total">
-              সর্বমোট মূল্য: ৳ ${ord.totalAmount || 0}
+              সর্বমোট বিল: ৳ ${ord.totalAmount || 0}
             </div>
           </body>
         </html>
@@ -444,4 +487,3 @@
   </script>
 </body>
 </html>
-
