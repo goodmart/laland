@@ -1,1 +1,445 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>সাপ্লায়ার ও চালানের হিসাব - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, where
+    };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Admin Header -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-truck-field text-xl"></i>
+        <h1 class="font-bold text-lg">সাপ্লায়ার ব্যবস্থাপনা - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="products.html" class="hover:underline">পণ্যসমূহ</a>
+        <a href="stock-in.html" class="hover:underline">স্টক-ইন (চালান)</a>
+        <a href="suppliers.html" class="underline font-bold">সাপ্লায়ারসমূহ</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="locations.html" class="hover:underline">ঠিকানা</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-6">
+
+    <!-- TOP SECTION: ADD NEW SUPPLIER & SUMMARY -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      
+      <!-- Add Supplier Form -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3 lg:col-span-1">
+        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">
+          <i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন
+        </h3>
+        <form id="addSupplierForm" class="space-y-3">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">কোম্পানির নাম (Company Name) *</label>
+            <input type="text" id="suppName" required placeholder="যেমন: ACI Logistics / Dabur" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর *</label>
+            <input type="tel" id="suppPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার টাইপ *</label>
+            <select id="suppCategory" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="Direct Company">1. Direct Company</option>
+              <option value="Dealer">2. Dealer</option>
+              <option value="Third Party">3. Third Party</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-plus"></i>
+            <span>সাপ্লায়ার সেভ করুন</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Supplier Overview & Filter Cards -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4 lg:col-span-2">
+        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">
+          <i class="fa-solid fa-users text-emerald-600 mr-1"></i> সাপ্লায়ার তালিকা ও বকেয়া হিসাব
+        </h3>
+        
+        <div id="supplierCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
+          <p class="text-xs text-gray-400 col-span-2 text-center py-4">সাপ্লায়ার তথ্য লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- INVOICES & PAYMENTS SECTION (AUTOMATICALLY LOADED FROM STOCK-IN) -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
+        <div>
+          <h3 class="font-bold text-sm text-emerald-700">
+            <i class="fa-solid fa-receipt mr-1"></i> স্টক-ইন চালানের তালিকা ও পেমেন্ট রিলিজ
+          </h3>
+          <p class="text-[11px] text-gray-400">স্টক-ইন পেজে চালান তৈরি হলে তা এখানে অটোমেটিক চলে আসবে। যে চালানের পেমেন্ট দেবেন সেটিতে ক্লিক করুন।</p>
+        </div>
+        
+        <!-- Filter Invoices by Supplier -->
+        <div class="flex items-center space-x-2">
+          <select id="filterSupplierSelect" onchange="filterInvoicesBySupplier()" class="px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold">
+            <option value="ALL">সকল সাপ্লায়ারের চালান</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Invoices List Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-50 border-b text-gray-500">
+              <th class="p-2.5">চালান নম্বর</th>
+              <th class="p-2.5">তারিখ</th>
+              <th class="p-2.5">সাপ্লায়ার</th>
+              <th class="p-2.5 text-right">মোট বিল</th>
+              <th class="p-2.5 text-right">পরিশোধিত</th>
+              <th class="p-2.5 text-right">বকেয়া</th>
+              <th class="p-2.5 text-center">স্ট্যাটাস</th>
+              <th class="p-2.5 text-center">অ্যাকশন (পেমেন্ট)</th>
+            </tr>
+          </thead>
+          <tbody id="invoicesTableBody">
+            <tr>
+              <td colspan="8" class="text-center py-6 text-gray-400">চালানের তথ্য লোড হচ্ছে...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PAYMENT MODAL POPUP -->
+  <div id="paymentModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-hand-holding-dollar"></i> চালানের পেমেন্ট রিলিজ করুন</h3>
+        <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="bg-emerald-50 p-3 rounded-xl text-xs space-y-1">
+        <p class="font-bold text-emerald-800" id="modalInvoiceId">চালান আইডি: STK-XXXXXX</p>
+        <p class="text-gray-600" id="modalSupplierName">সাপ্লায়ার: N/A</p>
+        <p class="text-emerald-700 font-extrabold" id="modalDueAmount">বর্তমান বকেয়া: ৳ 0</p>
+      </div>
+
+      <form id="submitPaymentForm" class="space-y-3">
+        <input type="hidden" id="payModalInvoiceNo">
+        <input type="hidden" id="payModalSupplier">
+
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পেমেন্টের পরিমাণ (৳) *</label>
+          <input type="number" id="payModalAmount" min="1" required class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 font-bold text-emerald-700">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পেমেন্ট মেথড (Payment Method) *</label>
+          <select id="payModalMethod" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="Cash">Cash (নগদ)</option>
+            <option value="Bank Transfer">Bank Transfer (ব্যাংক ডিরেক্ট)</option>
+            <option value="Mobile Banking">Mobile Banking (বিকাশ/নগদ)</option>
+            <option value="Cheque">Cheque (চেক)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">নোট / ট্রানজেকশন আইডি (Optional)</label>
+          <input type="text" id="payModalRemarks" placeholder="যেমন: ব্যাংক ট্রানজেকশন নাম্বার #9842" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <div class="pt-2 flex space-x-2">
+          <button type="submit" class="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow">
+            পেমেন্ট কনফার্ম করুন
+          </button>
+          <button type="button" onclick="closePaymentModal()" class="bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-gray-300">
+            বাতিল
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Script Logic -->
+  <script>
+    let suppliersData = [];
+    let invoicesData = [];
+    let paymentsData = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadSuppliersData();
+        loadInvoicesAndPayments();
+      }, 600);
+
+      // Add Supplier Form Handler
+      document.getElementById('addSupplierForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const supplier = {
+          companyName: document.getElementById('suppName').value.trim(),
+          contactNumber: document.getElementById('suppPhone').value.trim(),
+          supplierCategory: document.getElementById('suppCategory').value,
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "suppliers"), supplier);
+          alert("নতুন সাপ্লায়ার সফলভাবে সেভ করা হয়েছে!");
+          document.getElementById('addSupplierForm').reset();
+          loadSuppliersData();
+        } catch (err) { alert("ত্রুটি: " + err.message); }
+      });
+
+      // Payment Submission Handler
+      document.getElementById('submitPaymentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firebaseServices;
+
+        const invoiceNo = document.getElementById('payModalInvoiceNo').value;
+        const supplier = document.getElementById('payModalSupplier').value;
+        const amount = Number(document.getElementById('payModalAmount').value);
+        const method = document.getElementById('payModalMethod').value;
+        const remarks = document.getElementById('payModalRemarks').value.trim();
+
+        const paymentRecord = {
+          voucherNo: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
+          invoiceNo: invoiceNo,
+          supplier: supplier,
+          amount: amount,
+          method: method,
+          remarks: remarks,
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await addDoc(collection(db, "supplier_payments"), paymentRecord);
+          alert(`৳ ${amount} পেমেন্ট সফলভাবে প্রদান করা হয়েছে!`);
+          closePaymentModal();
+          loadInvoicesAndPayments();
+        } catch (err) { alert("ত্রুটি: " + err.message); }
+      });
+    });
+
+    // Fetch Suppliers and Display Cards
+    async function loadSuppliersData() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('supplierCardsContainer');
+      const selectFilter = document.getElementById('filterSupplierSelect');
+      if(!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "suppliers"));
+        suppliersData = [];
+        let filterHTML = '<option value="ALL">সকল সাপ্লায়ারের চালান</option>';
+
+        querySnapshot.forEach(docSnap => {
+          const sup = { id: docSnap.id, ...docSnap.data() };
+          suppliersData.push(sup);
+          filterHTML += `<option value="${sup.companyName}">${sup.companyName}</option>`;
+        });
+
+        selectFilter.innerHTML = filterHTML;
+
+        if (suppliersData.length === 0) {
+          container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-4">কোনো সাপ্লায়ার পাওয়া যায়নি।</p>`;
+          return;
+        }
+
+        renderSupplierCards();
+      } catch (err) { console.error(err); }
+    }
+
+    // Fetch Stock-In Invoices and Payments
+    async function loadInvoicesAndPayments() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      if(!db) return;
+
+      try {
+        const [stockSnap, paySnap] = await Promise.all([
+          getDocs(collection(db, "stock_in_history")),
+          getDocs(collection(db, "supplier_payments"))
+        ]);
+
+        invoicesData = [];
+        stockSnap.forEach(d => invoicesData.push({ id: d.id, ...d.data() }));
+
+        paymentsData = [];
+        paySnap.forEach(d => paymentsData.push({ id: d.id, ...d.data() }));
+
+        renderInvoicesTable();
+        renderSupplierCards(); // Refresh cards with updated balances
+      } catch (err) { console.error(err); }
+    }
+
+    function renderSupplierCards() {
+      const container = document.getElementById('supplierCardsContainer');
+      if(suppliersData.length === 0) return;
+
+      // Map paid amounts and bill amounts per supplier
+      let supplierStats = {};
+      suppliersData.forEach(s => {
+        supplierStats[s.companyName] = { totalBill: 0, totalPaid: 0 };
+      });
+
+      invoicesData.forEach(inv => {
+        if(supplierStats[inv.supplier]) {
+          supplierStats[inv.supplier].totalBill += Number(inv.totalCost || 0);
+        }
+      });
+
+      paymentsData.forEach(p => {
+        if(supplierStats[p.supplier]) {
+          supplierStats[p.supplier].totalPaid += Number(p.amount || 0);
+        }
+      });
+
+      let html = '';
+      suppliersData.forEach(sup => {
+        const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0 };
+        const due = stats.totalBill - stats.totalPaid;
+
+        html += `
+          <div class="bg-gray-50 p-3 rounded-xl border text-xs space-y-1">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-gray-800">${sup.companyName}</span>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${sup.supplierCategory || 'Company'}</span>
+            </div>
+            <p class="text-gray-500 text-[11px]"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'}</p>
+            <div class="pt-1 border-t flex justify-between font-bold">
+              <span class="text-gray-500">মোট বকেয়া:</span>
+              <span class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</span>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function renderInvoicesTable(filteredSupplier = 'ALL') {
+      const tbody = document.getElementById('invoicesTableBody');
+      
+      let list = invoicesData;
+      if(filteredSupplier !== 'ALL') {
+        list = list.filter(i => i.supplier === filteredSupplier);
+      }
+
+      if(list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">কোনো চালান পাওয়া যায়নি।</td></tr>`;
+        return;
+      }
+
+      // Map payment by invoice
+      let invoicePaidMap = {};
+      paymentsData.forEach(p => {
+        invoicePaidMap[p.invoiceNo] = (invoicePaidMap[p.invoiceNo] || 0) + Number(p.amount || 0);
+      });
+
+      list.sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+      let html = '';
+      list.forEach(inv => {
+        const totalBill = Number(inv.totalCost || 0);
+        const paid = invoicePaidMap[inv.invoiceNo] || 0;
+        const due = totalBill - paid;
+        const dateStr = inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('bn-BD') : 'N/A';
+
+        let badge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Unpaid</span>';
+        if(due <= 0) badge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Paid</span>';
+        else if(paid > 0) badge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Partial</span>';
+
+        html += `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-2.5 font-bold text-emerald-700">${inv.invoiceNo}</td>
+            <td class="p-2.5 text-gray-500">${dateStr}</td>
+            <td class="p-2.5 font-semibold text-gray-800">${inv.supplier}</td>
+            <td class="p-2.5 text-right font-bold">৳ ${totalBill}</td>
+            <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}</td>
+            <td class="p-2.5 text-right text-red-600 font-bold">৳ ${due > 0 ? due : 0}</td>
+            <td class="p-2.5 text-center">${badge}</td>
+            <td class="p-2.5 text-center">
+              ${due > 0 ? `
+                <button onclick="openPaymentModal('${inv.invoiceNo}', '${inv.supplier}', ${due})" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow">
+                  <i class="fa-solid fa-dollar-sign mr-1"></i> পেমেন্ট দিন
+                </button>
+              ` : `
+                <span class="text-emerald-600 font-bold text-xs"><i class="fa-solid fa-circle-check"></i> সম্পূর্ণ পরিশোধিত</span>
+              `}
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    window.filterInvoicesBySupplier = function() {
+      const selected = document.getElementById('filterSupplierSelect').value;
+      renderInvoicesTable(selected);
+    };
+
+    window.openPaymentModal = function(invoiceNo, supplier, due) {
+      document.getElementById('payModalInvoiceNo').value = invoiceNo;
+      document.getElementById('payModalSupplier').value = supplier;
+      document.getElementById('modalInvoiceId').innerText = `চালান আইডি: ${invoiceNo}`;
+      document.getElementById('modalSupplierName').innerText = `সাপ্লায়ার: ${supplier}`;
+      document.getElementById('modalDueAmount').innerText = `বর্তমান বকেয়া: ৳ ${due}`;
+      document.getElementById('payModalAmount').value = due;
+      document.getElementById('payModalAmount').max = due;
+
+      document.getElementById('paymentModal').classList.remove('hidden');
+    };
+
+    window.closePaymentModal = function() {
+      document.getElementById('paymentModal').classList.add('hidden');
+    };
+  </script>
+</body>
+</html>
 
