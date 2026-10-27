@@ -1,18 +1,19 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>এডমিন মাস্টার ড্যাশবোর্ড - Laland Express</title>
+  <title>Admin Master Dashboard - Laland Express</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Firebase SDKs (v10) for Live Stats -->
+  <!-- Firebase SDKs (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -26,185 +27,259 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
+    window.firebaseAuth = auth;
     window.firebaseDb = db;
-    window.firebaseServices = { collection, getDocs };
+    window.firebaseServices = {
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      collection,
+      getDocs
+    };
   </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-12">
 
-  <!-- Header Section -->
-  <header class="bg-emerald-700 text-white shadow">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-      <div class="flex items-center space-x-2">
-        <i class="fa-solid fa-user-shield text-2xl"></i>
-        <h1 class="font-bold text-lg">Laland Express - অ্যাডমিন কন্ট্রোল প্যানেল</h1>
+  <!-- ADMIN LOGIN SECTION (Protected View - Shown when logged out) -->
+  <div id="adminLoginSection" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-md space-y-5 border">
+      <div class="text-center space-y-1">
+        <i class="fa-solid fa-user-shield text-3xl text-emerald-600"></i>
+        <h2 class="text-lg font-bold text-gray-800">Admin Control Panel Login</h2>
+        <p class="text-xs text-gray-500">Please enter your authorized admin credentials.</p>
       </div>
-      <div>
-        <span class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold">
-          <i class="fa-solid fa-circle text-green-400 text-[10px] mr-1"></i> লাইভ সিস্টেম
-        </span>
-      </div>
+
+      <form id="adminLoginForm" class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-gray-600 block mb-1">Admin Email</label>
+          <input type="email" id="adminEmail" required placeholder="admin@lalan.com" class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-gray-600 block mb-1">Password</label>
+          <input type="password" id="adminPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 text-sm transition">
+          Secure Login
+        </button>
+      </form>
     </div>
-  </header>
+  </div>
 
-  <!-- Main Container -->
-  <main class="max-w-6xl mx-auto p-4 space-y-6 mt-4">
+  <!-- ADMIN MASTER DASHBOARD (Protected View - Hidden until logged in) -->
+  <div id="adminDashboard" class="hidden space-y-6">
 
-    <!-- Welcome Banner -->
-    <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="space-y-1">
-        <h2 class="text-xl font-extrabold">স্বাগতম, অ্যাডমিন প্যানেলে!</h2>
-        <p class="text-xs text-emerald-100">আপনার গুড মার্ট এন্টারপ্রাইজ / ল্যাল্যান্ড এক্সপ্রেস ই-কমার্স প্ল্যাটফর্মটি এখান থেকে সম্পূর্ণ নিয়ন্ত্রণ করুন।</p>
-      </div>
-      <div class="flex space-x-2">
-        <a href="orders.html" class="bg-white text-emerald-700 font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-50 shadow transition">
-          <i class="fa-solid fa-bolt mr-1"></i> অর্ডার ম্যানেজ করুন
-        </a>
-      </div>
-    </div>
-
-    <!-- LIVE STATS SUMMARY CARDS -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-semibold text-gray-500">মোট পণ্য</p>
-          <h3 id="dashTotalProducts" class="text-2xl font-extrabold text-gray-800">...</h3>
+    <!-- Header Section -->
+    <header class="bg-emerald-700 text-white shadow">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-user-shield text-xl"></i>
+          <h1 class="font-bold text-base">Laland Express - Master Admin Dashboard</h1>
         </div>
-        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-          <i class="fa-solid fa-boxes-stacked text-xl"></i>
+        <div class="flex items-center space-x-3">
+          <span class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold hidden sm:inline-block">
+            <i class="fa-solid fa-circle text-green-400 text-[9px] mr-1"></i> Live System
+          </span>
+          <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-600 transition shadow">
+            <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+          </button>
         </div>
       </div>
+    </header>
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-semibold text-gray-500">মোট অর্ডার</p>
-          <h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3>
-        </div>
-        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
-          <i class="fa-solid fa-cart-shopping text-xl"></i>
-        </div>
-      </div>
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto p-4 space-y-6">
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-semibold text-gray-500">কাস্টমার সংখ্যা</p>
-          <h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3>
+      <!-- Welcome Banner -->
+      <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="space-y-1">
+          <h2 class="text-xl font-extrabold">Welcome back, Admin!</h2>
+          <p class="text-xs text-emerald-100">Manage your entire e-commerce operations, inventory, orders, customers, and delivery zones seamlessly.</p>
         </div>
-        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-          <i class="fa-solid fa-users text-xl"></i>
+        <div class="flex space-x-2">
+          <a href="orders.html" class="bg-white text-emerald-700 font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-50 shadow transition whitespace-nowrap">
+            <i class="fa-solid fa-bolt mr-1"></i> Manage Orders
+          </a>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-semibold text-gray-500">ডেলিভারি লোকেশন</p>
-          <h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3>
+      <!-- LIVE STATS SUMMARY CARDS -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-gray-500">Total Products</p>
+            <h3 id="dashTotalProducts" class="text-2xl font-extrabold text-gray-800">...</h3>
+          </div>
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
+            <i class="fa-solid fa-boxes-stacked text-xl"></i>
+          </div>
         </div>
-        <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center">
-          <i class="fa-solid fa-map-location-dot text-xl"></i>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-gray-500">Total Orders</p>
+            <h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3>
+          </div>
+          <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
+            <i class="fa-solid fa-cart-shopping text-xl"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-gray-500">Total Customers</p>
+            <h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3>
+          </div>
+          <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+            <i class="fa-solid fa-users text-xl"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold text-gray-500">Delivery Locations</p>
+            <h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3>
+          </div>
+          <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center">
+            <i class="fa-solid fa-map-location-dot text-xl"></i>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- NAVIGATION MODULES CARDS (মেইন ক্যাটাগরি লিংকসমূহ) -->
-    <div class="space-y-3">
-      <h3 class="font-bold text-sm text-gray-700 px-1"><i class="fa-solid fa-layer-group text-emerald-600 mr-1"></i> ম্যানেজমেন্ট মডিউলসমূহ</h3>
-      
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- NAVIGATION MODULES CARDS -->
+      <div class="space-y-3">
+        <h3 class="font-bold text-sm text-gray-700 px-1"><i class="fa-solid fa-layer-group text-emerald-600 mr-1"></i> Management Modules</h3>
         
-        <!-- 1. Products Card -->
-        <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-emerald-500 transition group space-y-3 block">
-          <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
-            <i class="fa-solid fa-box-open text-lg"></i>
-          </div>
-          <div>
-            <h4 class="font-bold text-gray-800 text-sm">পণ্য ব্যবস্থাপনা</h4>
-            <p class="text-[11px] text-gray-500 mt-0.5">নতুন পণ্য এন্ট্রি, বারকোড স্ক্যানার ও স্টক তালিকা।</p>
-          </div>
-          <div class="text-xs font-bold text-emerald-600 flex items-center pt-1">
-            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-          </div>
-        </a>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- 1. Products Card -->
+          <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-emerald-500 transition group space-y-3 block">
+            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
+              <i class="fa-solid fa-box-open text-lg"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-800 text-sm">Product Management</h4>
+              <p class="text-[11px] text-gray-500 mt-0.5">Add products, barcode scanner, and inventory control.</p>
+            </div>
+            <div class="text-xs font-bold text-emerald-600 flex items-center pt-1">
+              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </div>
+          </a>
 
-        <!-- 2. Orders Card -->
-        <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-amber-500 transition group space-y-3 block">
-          <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
-            <i class="fa-solid fa-list-check text-lg"></i>
-          </div>
-          <div>
-            <h4 class="font-bold text-gray-800 text-sm">অর্ডার ড্যাশবোর্ড</h4>
-            <p class="text-[11px] text-gray-500 mt-0.5">অর্ডার স্ট্যাটাস আপডেট, ফিল্টার ও ইনভয়েস প্রিন্ট।</p>
-          </div>
-          <div class="text-xs font-bold text-amber-600 flex items-center pt-1">
-            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-          </div>
-        </a>
+          <!-- 2. Orders Card -->
+          <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-amber-500 transition group space-y-3 block">
+            <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
+              <i class="fa-solid fa-list-check text-lg"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-800 text-sm">Orders Dashboard</h4>
+              <p class="text-[11px] text-gray-500 mt-0.5">Order status updates, filters, and invoice printing.</p>
+            </div>
+            <div class="text-xs font-bold text-amber-600 flex items-center pt-1">
+              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </div>
+          </a>
 
-        <!-- 3. Customers Card -->
-        <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-blue-500 transition group space-y-3 block">
-          <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
-            <i class="fa-solid fa-user-group text-lg"></i>
-          </div>
-          <div>
-            <h4 class="font-bold text-gray-800 text-sm">কাস্টমার ডাটাবেস</h4>
-            <p class="text-[11px] text-gray-500 mt-0.5">ওয়ালেট ব্যালেন্স, লয়ালটি পয়েন্ট ও কাস্টমার প্রোফাইল।</p>
-          </div>
-          <div class="text-xs font-bold text-blue-600 flex items-center pt-1">
-            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-          </div>
-        </a>
+          <!-- 3. Customers Card -->
+          <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-blue-500 transition group space-y-3 block">
+            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
+              <i class="fa-solid fa-user-group text-lg"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-800 text-sm">Customer Database</h4>
+              <p class="text-[11px] text-gray-500 mt-0.5">Wallet balances, loyalty points, and customer details.</p>
+            </div>
+            <div class="text-xs font-bold text-blue-600 flex items-center pt-1">
+              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </div>
+          </a>
 
-        <!-- 4. Locations Card -->
-        <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-teal-500 transition group space-y-3 block">
-          <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition">
-            <i class="fa-solid fa-map-location-dot text-lg"></i>
-          </div>
-          <div>
-            <h4 class="font-bold text-gray-800 text-sm">ডেলিভারি লোকেশন</h4>
-            <p class="text-[11px] text-gray-500 mt-0.5">প্রাইমারি, সাব-লোকেশন ও রোড/এরিয়া ম্যানেজ।</p>
-          </div>
-          <div class="text-xs font-bold text-teal-600 flex items-center pt-1">
-            <span>প্রবেশ করুন</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-          </div>
-        </a>
+          <!-- 4. Locations Card -->
+          <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-teal-500 transition group space-y-3 block">
+            <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition">
+              <i class="fa-solid fa-map-location-dot text-lg"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-800 text-sm">Delivery Locations</h4>
+              <p class="text-[11px] text-gray-500 mt-0.5">Manage primary areas, sub-locations, and road zones.</p>
+            </div>
+            <div class="text-xs font-bold text-teal-600 flex items-center pt-1">
+              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </div>
+          </a>
 
+        </div>
       </div>
-    </div>
 
-  </main>
+    </main>
+  </div>
 
-  <!-- SCRIPT TO LOAD LIVE COUNTS FROM FIREBASE -->
+  <!-- FIREBASE AUTH & STATS SCRIPT -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      setTimeout(() => {
-        loadDashboardStats();
-      }, 500);
+      setTimeout(initAdminAuth, 500);
     });
 
+    function initAdminAuth() {
+      const auth = window.firebaseAuth;
+      const { signInWithEmailAndPassword, signOut, onAuthStateChanged } = window.firebaseServices;
+
+      // Monitor Auth State
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          // Logged In: Show Master Dashboard
+          document.getElementById('adminLoginSection').classList.add('hidden');
+          document.getElementById('adminDashboard').classList.remove('hidden');
+          loadDashboardStats();
+        } else {
+          // Logged Out: Show Login Form
+          document.getElementById('adminLoginSection').classList.remove('hidden');
+          document.getElementById('adminDashboard').classList.add('hidden');
+        }
+      });
+
+      // Login Form Submit Handler
+      document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('adminEmail').value;
+        const password = document.getElementById('adminPassword').value;
+
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          alert("Admin login successful!");
+        } catch (error) {
+          alert("Login failed: Please check your email or password.");
+        }
+      });
+
+      // Logout Button Handler
+      document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
+        await signOut(auth);
+        alert("Logged out successfully.");
+      });
+    }
+
+    // Load Live Stats from Firestore
     async function loadDashboardStats() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
       if (!db) return;
 
       try {
-        // Products count
         const prodSnap = await getDocs(collection(db, "products"));
         document.getElementById('dashTotalProducts').innerText = prodSnap.size;
 
-        // Orders count
         const ordSnap = await getDocs(collection(db, "orders"));
         document.getElementById('dashTotalOrders').innerText = ordSnap.size;
 
-        // Unique Customers count extracted from orders
         let uniquePhones = new Set();
         ordSnap.forEach(d => {
           if(d.data().userPhone) uniquePhones.add(d.data().userPhone);
         });
         document.getElementById('dashTotalCustomers').innerText = uniquePhones.size;
 
-        // Locations count
         const locSnap = await getDocs(collection(db, "delivery_locations"));
         document.getElementById('dashTotalLocations').innerText = locSnap.size;
 
@@ -215,4 +290,3 @@
   </script>
 </body>
 </html>
-
