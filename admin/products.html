@@ -104,7 +104,7 @@
             <div class="flex space-x-2">
               <input type="text" id="prodBarcode" required placeholder="Barcode number..." class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
               <button type="button" onclick="startCameraScanner()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 whitespace-nowrap shadow">
-                <i class="fa-solid fa-camera"></i> ক্যামেরা স্ক্যানার
+                <i class="fa-solid fa-camera"></i> ক্যামেরা স্ক্যানার (HD)
               </button>
             </div>
           </div>
@@ -196,7 +196,7 @@
       <!-- SUPPLIER-WISE PRODUCTS LIST SECTION -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
         <h4 class="text-xs font-bold text-emerald-700 border-b pb-2">
-          <i class="fa-solid fa-layer-group"></i> সাপ্লায়ার ওয়াইজ পণ্যের তালিকা (এডিট ও ডিলিট অপشنসহ):
+          <i class="fa-solid fa-layer-group"></i> সাপ্লায়ার ওয়াইজ পণ্যের তালিকা (এডিট ও ডিলিট অপশনসহ):
         </h4>
         <div id="adminProductList" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
           <!-- Loaded by JS -->
@@ -238,7 +238,6 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        // Clear URL input if file is chosen
         document.getElementById('prodImageUrl').value = '';
 
         const reader = new FileReader();
@@ -309,7 +308,6 @@
           imageValue = imageUrlInput;
         }
 
-        // Mandatory Image Check
         if(!imageValue) {
           alert("সতর্কতা: পণ্যের ছবি ছাড়া পণ্য সংরক্ষণ করা যাবে না। অনুগ্রহ করে ছবি আপলোড করুন অথবা ছবির সরাসরি লিংক দিন।");
           return;
@@ -364,7 +362,6 @@
       document.getElementById('prodMRP').value = prod.mrp || "";
       document.getElementById('prodDiscountPrice').value = prod.discountPrice || "";
       
-      // Check if image is URL or Base64
       if(prod.image && prod.image.startsWith('http')) {
         document.getElementById('prodImageUrl').value = prod.image;
         document.getElementById('processedImageBase64').value = prod.image;
@@ -372,7 +369,6 @@
         document.getElementById('processedImageBase64').value = prod.image || "";
       }
       
-      // Show preview for existing product image
       if(prod.image) {
         const previewImg = document.getElementById('imagePreview');
         const placeholder = document.getElementById('previewPlaceholder');
@@ -406,7 +402,7 @@
       document.getElementById('imgOptimizeStatus').innerText = "পণ্য সংরক্ষণের জন্য ছবি বা ছবির লিংক দেওয়া বাধ্যতামূলক।";
     };
 
-    // Mobile Camera Barcode Scanner Functions
+    // Mobile Camera Barcode Scanner Functions (Updated with HD resolution & Autofocus)
     window.startCameraScanner = function() {
       const container = document.getElementById('scannerContainer');
       container.classList.remove('hidden');
@@ -415,10 +411,20 @@
         html5QrCode = new Html5Qrcode("reader");
       }
 
-      const config = { fps: 10, qrbox: { width: 250, height: 100 } };
+      // High Quality Camera Constraints Configuration
+      const config = { 
+        fps: 15, 
+        qrbox: { width: 280, height: 120 },
+        aspectRatio: 1.777778 // 16:9 HD ratio
+      };
       
+      const cameraConfig = {
+        facingMode: "environment",
+        advanced: [{ focusMode: "continuous" }] // Enables continuous autofocus if supported by device
+      };
+
       html5QrCode.start(
-        { facingMode: "environment" }, 
+        cameraConfig, 
         config, 
         (decodedText, decodedResult) => {
           document.getElementById('prodBarcode').value = decodedText;
@@ -427,8 +433,20 @@
         },
         (errorMessage) => {}
       ).catch((err) => {
-        alert("ক্যামেরা চালু করা সম্ভব হয়নি: " + err);
-        container.classList.add('hidden');
+        // Fallback to basic environment camera if advanced config fails on some browsers
+        html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText, decodedResult) => {
+            document.getElementById('prodBarcode').value = decodedText;
+            alert("সফলভাবে বারকোড স্ক্যান হয়েছে: " + decodedText);
+            stopCameraScanner();
+          },
+          (errorMessage) => {}
+        ).catch((fallbackErr) => {
+          alert("ক্যামেরা চালু করা সম্ভব হয়নি: " + fallbackErr);
+          container.classList.add('hidden');
+        });
       });
     };
 
@@ -483,7 +501,7 @@
         const slug = newCatName.toLowerCase().replace(/\s+/g, '_');
         
         let exists = false;
-        for(let i=0; i<select-el.options.length; i++) {
+        for(let i=0; i<selectEl.options.length; i++) {
           if(selectEl.options[i].value === slug) { exists = true; break; }
         }
 
