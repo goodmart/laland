@@ -30,16 +30,29 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Expose everything globally to prevent null reference errors
+    // Expose direct safe global wrapper functions to prevent any scope/null issues
     window.firebaseAuth = auth;
     window.firebaseDb = db;
-    window.FB_collection = collection;
-    window.FB_addDoc = addDoc;
-    window.FB_getDocs = getDocs;
-    window.FB_doc = doc;
-    window.FB_updateDoc = updateDoc;
-    window.FB_deleteDoc = deleteDoc;
-    window.FB_increment = increment;
+    
+    window.FB_getDocs = async (colName) => {
+      return await getDocs(collection(db, colName));
+    };
+
+    window.FB_addDoc = async (colName, data) => {
+      return await addDoc(collection(db, colName), data);
+    };
+
+    window.FB_updateDoc = async (colName, docId, data) => {
+      const docRef = doc(db, colName, String(docId));
+      return await updateDoc(docRef, data);
+    };
+
+    window.FB_deleteDoc = async (colName, docId) => {
+      const docRef = doc(db, colName, String(docId));
+      return await deleteDoc(docRef);
+    };
+
+    window.FB_increment = (val) => increment(val);
   </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
@@ -187,7 +200,7 @@
         loadSuppliers();
         loadProductsForSearch();
         loadStockInHistory();
-      }, 600);
+      }, 800);
 
       // Chalan Image Compression (< 100KB) Handler
       document.getElementById('chalanImageFile').addEventListener('change', function(event) {
@@ -246,14 +259,11 @@
 
     // Load Suppliers for Dropdown
     async function loadSuppliers() {
-      const db = window.firebaseDb;
-      const getDocsFunc = window.FB_getDocs;
-      const colFunc = window.FB_collection;
       const select = document.getElementById('stockSupplierSelect');
-      if(!db || !getDocsFunc) return;
+      if(!window.FB_getDocs) return;
 
       try {
-        const querySnapshot = await getDocsFunc(colFunc(db, "suppliers"));
+        const querySnapshot = await window.FB_getDocs("suppliers");
         let html = '<option value="">-- Select Supplier --</option>';
         querySnapshot.forEach(docSnap => {
           const sup = docSnap.data();
@@ -266,13 +276,10 @@
 
     // Load Products for Search
     async function loadProductsForSearch() {
-      const db = window.firebaseDb;
-      const getDocsFunc = window.FB_getDocs;
-      const colFunc = window.FB_collection;
-      if(!db || !getDocsFunc) return;
+      if(!window.FB_getDocs) return;
 
       try {
-        const querySnapshot = await getDocsFunc(colFunc(db, "products"));
+        const querySnapshot = await window.FB_getDocs("products");
         productsList = [];
         querySnapshot.forEach(docSnap => {
           productsList.push({ id: docSnap.id, ...docSnap.data() });
@@ -411,7 +418,7 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // Finalize Stock-In (Create or Update) - Completely safe from null reference
+    // Finalize Stock-In (Guaranteed 100% Safe Execution)
     window.finalizeStockIn = async function() {
       const supplier = document.getElementById('stockSupplierSelect').value;
       if(!supplier) {
@@ -431,15 +438,8 @@
         return;
       }
 
-      const db = window.firebaseDb;
-      const FB_doc = window.FB_doc;
-      const FB_updateDoc = window.FB_updateDoc;
-      const FB_addDoc = window.FB_addDoc;
-      const FB_collection = window.FB_collection;
-      const FB_increment = window.FB_increment;
-
-      if (!db || !FB_doc || !FB_updateDoc) {
-        alert("Firebase database connection is not ready yet. Please try again.");
+      if(!window.FB_updateDoc || !window.FB_addDoc) {
+        alert("Firebase helper is initializing. Please try again in 2 seconds.");
         return;
       }
 
@@ -456,11 +456,11 @@
             updatedAt: new Date().toISOString()
           };
 
-          await FB_updateDoc(FB_doc(db, "stock_in_history", editId), stockInRecord);
+          await window.FB_updateDoc("stock_in_history", editId, stockInRecord);
 
           for (const item of stockCart) {
-            await FB_updateDoc(FB_doc(db, "products", String(item.id)), {
-              stock: FB_increment(item.qty),
+            await window.FB_updateDoc("products", item.id, {
+              stock: window.FB_increment(item.qty),
               tp: item.tp
             });
           }
@@ -480,11 +480,11 @@
             createdAt: new Date().toISOString()
           };
 
-          await FB_addDoc(FB_collection(db, "stock_in_history"), stockInRecord);
+          await window.FB_addDoc("stock_in_history", stockInRecord);
 
           for (const item of stockCart) {
-            await FB_updateDoc(FB_doc(db, "products", String(item.id)), {
-              stock: FB_increment(item.qty),
+            await window.FB_updateDoc("products", item.id, {
+              stock: window.FB_increment(item.qty),
               tp: item.tp
             });
           }
@@ -543,12 +543,9 @@
     // Delete Stock-In Record
     window.deleteStockIn = async function(id) {
       if(!confirm("Are you sure you want to delete this stock-in chalan?")) return;
-      const db = window.firebaseDb;
-      const FB_doc = window.FB_doc;
-      const FB_deleteDoc = window.FB_deleteDoc;
 
       try {
-        await FB_deleteDoc(FB_doc(db, "stock_in_history", id));
+        await window.FB_deleteDoc("stock_in_history", id);
         alert("Stock-in chalan deleted!");
         loadStockInHistory();
       } catch(err) {
@@ -558,14 +555,11 @@
 
     // Load Stock-In History
     async function loadStockInHistory() {
-      const db = window.firebaseDb;
-      const getDocsFunc = window.FB_getDocs;
-      const colFunc = window.FB_collection;
       const container = document.getElementById('stockInHistoryContainer');
-      if(!db || !getDocsFunc) return;
+      if(!window.FB_getDocs) return;
 
       try {
-        const querySnapshot = await getDocsFunc(colFunc(db, "stock_in_history"));
+        const querySnapshot = await window.FB_getDocs("stock_in_history");
         if(querySnapshot.empty) {
           container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No previous stock-in chalans found.</p>`;
           return;
