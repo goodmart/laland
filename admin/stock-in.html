@@ -504,16 +504,28 @@
       renderStockCart();
     };
 
-    // Delete Stock-In Record
+    // Delete Stock-In Record & Revert Product Stock
     window.deleteStockIn = async function(id) {
-      if(!confirm("Are you sure you want to delete this stock-in chalan?")) return;
+      if(!confirm("Are you sure you want to delete this stock-in chalan? (It will also deduct the added quantities from product stock)")) return;
 
       try {
+        const rec = stockHistoryStore[id];
+        if (rec && rec.items && Array.isArray(rec.items)) {
+          // Revert product stocks (subtract the quantities that were added)
+          for (const item of rec.items) {
+            const deductQty = -Math.abs(Number(item.qty || 0));
+            await updateDoc(doc(db, "products", String(item.id)), {
+              stock: increment(deductQty)
+            });
+          }
+        }
+
         await deleteDoc(doc(db, "stock_in_history", String(id)));
-        alert("Stock-in chalan deleted!");
+        alert("Stock-in chalan deleted and product stock adjusted successfully!");
         loadStockInHistory();
+        loadProductsForSearch();
       } catch(err) {
-        alert("Error deleting: " + err.message);
+        alert("Error deleting stock-in: " + err.message);
       }
     };
 
