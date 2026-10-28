@@ -59,6 +59,7 @@
       <nav class="space-x-3 text-xs">
         <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
         <a href="products.html" class="underline font-bold">পণ্যসমূহ</a>
+        <a href="suppliers.html" class="hover:underline">সাপ্লায়ারসমূহ</a>
         <a href="orders.html" class="hover:underline">অর্ডার</a>
         <a href="locations.html" class="hover:underline">ঠিকানা</a>
       </nav>
@@ -73,14 +74,9 @@
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
         <div class="flex justify-between items-center border-b pb-2">
           <h3 id="formTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন</h3>
-          <div class="flex space-x-2">
-            <button type="button" id="cancelEditBtn" onclick="resetProductForm()" class="hidden bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-300">
-              এডিট বাতিল করুন
-            </button>
-            <button type="button" onclick="openSupplierModal()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100">
-              <i class="fa-solid fa-truck-field"></i> + নতুন সাপ্লায়ার যোগ করুন
-            </button>
-          </div>
+          <button type="button" id="cancelEditBtn" onclick="resetProductForm()" class="hidden bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-300">
+            এডিট বাতিল করুন
+          </button>
         </div>
         
         <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -155,11 +151,11 @@
             <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Product Picture Upload (Auto Resizing) -->
+          <!-- Product Picture Upload (Auto Resizing for Low KB) -->
           <div class="md:col-span-2">
-            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে অপ্টিমাইজ হবে)</label>
+            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে কিলোবাইটে অপ্টিমাইজ হবে)</label>
             <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-50 focus:outline-none">
-            <p class="text-[10px] text-gray-400 mt-1">ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।</p>
+            <p id="imgOptimizeStatus" class="text-[10px] text-gray-400 mt-1">ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।</p>
           </div>
 
           <!-- Hidden field for processed base64 image -->
@@ -173,68 +169,32 @@
         </form>
       </div>
 
+      <!-- SUPPLIER-WISE PRODUCTS LIST SECTION -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
-        <h4 class="text-xs font-bold text-gray-600">ডাটাবেজে থাকা পণ্যের তালিকা (এডিট ও ডিলিট অপশনসহ):</h4>
-        <div id="adminProductList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+        <h4 class="text-xs font-bold text-emerald-700 border-b pb-2">
+          <i class="fa-solid fa-layer-group"></i> সাপ্লায়ার ওয়াইজ পণ্যের তালিকা (এডিট ও ডিলিট অপশনসহ):
+        </h4>
+        <div id="adminProductList" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
           <!-- Loaded by JS -->
-          <p class="text-xs text-gray-400">পণ্য লোড হচ্ছে...</p>
+          <p class="text-xs text-gray-400 text-center py-4">পণ্য লোড হচ্ছে...</p>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- SUPPLIER MODAL POPUP -->
-  <div id="supplierModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-4 shadow-2xl">
-      <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-truck-field"></i> নতুন সাপ্লায়ার যোগ করুন</h3>
-        <button onclick="closeSupplierModal()" class="text-gray-400 hover:text-gray-600">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-      <form id="supplierModalForm" class="space-y-3">
-        <div>
-          <label class="text-xs text-gray-600 block mb-1">১. কোম্পানির নাম (Company Name) *</label>
-          <input type="text" id="suppCompanyName" required placeholder="যেমন: ACI Logistics / Good Mart" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-        </div>
-        <div>
-          <label class="text-xs text-gray-600 block mb-1">২. কন্টাক্ট নম্বর (Contact Number) *</label>
-          <input type="tel" id="suppContactNumber" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
-        </div>
-        <div>
-          <label class="text-xs text-gray-600 block mb-1">৩. সাপ্লায়ার ক্যাটাগরি (Supplier Category) *</label>
-          <select id="suppCategoryType" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-            <option value="Direct Company">1. Direct Company</option>
-            <option value="Dealer">2. Dealer</option>
-            <option value="Third Party">3. Third Party</option>
-          </select>
-        </div>
-        <div class="pt-2 flex space-x-2">
-          <button type="submit" class="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow">
-            সাপ্লায়ার সংরক্ষণ করুন
-          </button>
-          <button type="button" onclick="closeSupplierModal()" class="bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs hover:bg-gray-300">
-            বাতিল
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- Script Logic -->
   <script>
     let html5QrCode = null;
-    let productsDataStore = {}; // Store loaded products locally for easy editing
+    let productsDataStore = {}; 
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Wait for Firebase to initialize then load suppliers and products
       setTimeout(() => {
         loadSuppliersDropdown();
         loadProducts();
       }, 600);
 
-      // Image Resizing and Compression Handler
+      // Image Resizing and Compression Handler (Optimizing to lowest KB with good quality)
       document.getElementById('prodImageFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -244,8 +204,8 @@
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 500;
-            const MAX_HEIGHT = 500;
+            const MAX_WIDTH = 400;  // Optimized dimension for fast web load
+            const MAX_HEIGHT = 400;
             let width = img.width;
             let height = img.height;
 
@@ -260,8 +220,18 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            // Compress to low KB JPEG format (quality 0.6)
+            let quality = 0.6;
+            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            // Further reduce if size is large
+            while (dataUrl.length > 50000 && quality > 0.2) {
+              quality -= 0.1;
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+
             document.getElementById('processedImageBase64').value = dataUrl;
+            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ছবি সফলভাবে অপ্টিমাইজ ও সাইজ ছোট করা হয়েছে।</span>`;
           }
           img.src = e.target.result;
         }
@@ -278,7 +248,6 @@
         const editId = document.getElementById('editProductId').value;
         const imageBase64 = document.getElementById('processedImageBase64').value;
 
-        // If it's a new product, image is required
         if(!editId && !imageBase64) {
           alert("অনুগ্রহ করে একটি ছবি সিলেক্ট করুন এবং প্রসেস হওয়ার জন্য কিছুক্ষণ অপেক্ষা করুন।");
           return;
@@ -296,53 +265,29 @@
           updatedAt: new Date().toISOString()
         };
 
-        // Include image only if a new image was uploaded during edit or create
         if (imageBase64) {
           productData.image = imageBase64;
         }
 
         try {
           if (editId) {
-            // Update existing product
             await updateDoc(doc(db, "products", editId), productData);
             alert("পণ্য সফলভাবে আপডেট করা হয়েছে!");
             resetProductForm();
           } else {
-            // Add new product
             productData.createdAt = new Date().toISOString();
             await addDoc(collection(db, "products"), productData);
             alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
             document.getElementById('addProductForm').reset();
             document.getElementById('processedImageBase64').value = "";
+            document.getElementById('imgOptimizeStatus').innerText = "ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।";
           }
           loadProducts();
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
-
-      // Supplier Modal Form Submit
-      document.getElementById('supplierModalForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const db = window.firebaseDb;
-        const { collection, addDoc } = window.firebaseServices;
-
-        const supplierData = {
-          companyName: document.getElementById('suppCompanyName').value,
-          contactNumber: document.getElementById('suppContactNumber').value,
-          supplierCategory: document.getElementById('suppCategoryType').value,
-          createdAt: new Date().toISOString()
-        };
-
-        try {
-          await addDoc(collection(db, "suppliers"), supplierData);
-          alert("নতুন সাপ্লায়ার সফলভাবে যুক্ত হয়েছে!");
-          closeSupplierModal();
-          document.getElementById('supplierModalForm').reset();
-          loadSuppliersDropdown();
-        } catch (err) { alert("ত্রুটি: " + err.message); }
-      });
     });
 
-    // Edit Product Function (Loads product data into form)
+    // Edit Product Function
     window.editProduct = function(id) {
       const prod = productsDataStore[id];
       if(!prod) return;
@@ -356,12 +301,10 @@
       document.getElementById('prodMRP').value = prod.mrp || "";
       document.getElementById('prodDiscountPrice').value = prod.discountPrice || "";
       
-      // Update form header and buttons
-      document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> পণ্য এডিট করুন (ID: ${id.substring(0,5)}...)`;
+      document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> পণ্য এডিট করুন`;
       document.getElementById('submitBtn').innerText = "পরিবর্তন সংরক্ষণ করুন (Update)";
       document.getElementById('cancelEditBtn').classList.remove('hidden');
 
-      // Scroll to top to see form
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -373,6 +316,7 @@
       document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন`;
       document.getElementById('submitBtn').innerText = "পণ্য সংরক্ষণ করুন";
       document.getElementById('cancelEditBtn').classList.add('hidden');
+      document.getElementById('imgOptimizeStatus').innerText = "ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।";
     };
 
     // Mobile Camera Barcode Scanner Functions
@@ -415,14 +359,6 @@
       }
     };
 
-    // Supplier Modal Controllers
-    window.openSupplierModal = function() {
-      document.getElementById('supplierModal').classList.remove('hidden');
-    }
-    window.closeSupplierModal = function() {
-      document.getElementById('supplierModal').classList.add('hidden');
-    }
-
     // Load Suppliers for Dropdown
     async function loadSuppliersDropdown() {
       const db = window.firebaseDb;
@@ -436,7 +372,7 @@
         
         querySnapshot.forEach((docSnap) => {
           const sup = docSnap.data();
-          optionsHTML += `<option value="${sup.companyName} (${sup.supplierCategory})">${sup.companyName} [${sup.supplierCategory}]</option>`;
+          optionsHTML += `<option value="${sup.companyName}">${sup.companyName} [${sup.supplierCategory || ''}]</option>`;
         });
         selectEl.innerHTML = optionsHTML;
       } catch (e) {
@@ -469,47 +405,72 @@
       }
     };
 
-    // Load Added Products
+    // Load Added Products Grouped by Supplier
     async function loadProducts() {
       const db = window.firebaseDb;
-      const { collection, getDocs, deleteDoc, doc } = window.firebaseServices;
+      const { collection, getDocs } = window.firebaseServices;
       const container = document.getElementById('adminProductList');
       if(!db) return;
 
       try {
         const querySnapshot = await getDocs(collection(db, "products"));
         if (querySnapshot.empty) {
-          container.innerHTML = `<p class="text-xs text-gray-400">কোনো পণ্য পাওয়া যায়নি।</p>`;
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">কোনো পণ্য পাওয়া যায়নি।</p>`;
           return;
         }
 
-        productsDataStore = {}; // Reset local store
-        let html = '';
+        productsDataStore = {}; 
+        let supplierGroups = {};
+
         querySnapshot.forEach((docSnap) => {
           const prod = docSnap.data();
-          productsDataStore[docSnap.id] = prod; // Store data
+          const prodId = docSnap.id;
+          productsDataStore[prodId] = prod; 
 
+          const supplierName = prod.supplier || "অন্যান্য / সাপ্লায়ারবিহীন";
+          if (!supplierGroups[supplierName]) {
+            supplierGroups[supplierName] = [];
+          }
+          supplierGroups[supplierName].push({ id: prodId, ...prod });
+        });
+
+        let html = '';
+        for (const [supplier, items] of Object.entries(supplierGroups)) {
           html += `
-            <div class="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border text-xs">
-              <div class="flex items-center space-x-2.5">
-                <img src="${prod.image}" class="w-12 h-12 object-cover rounded-lg border">
-                <div>
-                  <p class="font-bold text-gray-800">${prod.name}</p>
-                  <p class="text-gray-500 text-[10px]">Barcode: ${prod.barcode || 'N/A'} | Sup: ${prod.supplier || 'N/A'}</p>
-                  <p class="text-emerald-600 font-semibold">MRP: ৳ ${prod.mrp} | TP: ৳ ${prod.tp} | Disc: ৳ ${prod.discountPrice}</p>
+            <div class="border rounded-xl p-3 bg-gray-50 space-y-2">
+              <h5 class="font-bold text-xs text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex justify-between items-center">
+                <span><i class="fa-solid fa-truck-field mr-1"></i> ${supplier}</span>
+                <span class="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold">মোট পণ্য: ${items.length} টি</span>
+              </h5>
+              <div class="space-y-2 pl-1">
+          `;
+
+          items.forEach(prod => {
+            html += `
+              <div class="flex items-center justify-between bg-white p-2 rounded-xl border text-xs shadow-sm">
+                <div class="flex items-center space-x-2.5">
+                  <img src="${prod.image}" class="w-11 h-11 object-cover rounded-lg border">
+                  <div>
+                    <p class="font-bold text-gray-800">${prod.name}</p>
+                    <p class="text-gray-400 text-[10px]">Barcode: ${prod.barcode || 'N/A'} | Category: ${prod.category || 'N/A'}</p>
+                    <p class="text-emerald-600 font-semibold">MRP: ৳ ${prod.mrp} | TP: ৳ ${prod.tp} | Disc: ৳ ${prod.discountPrice}</p>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button onclick="editProduct('${prod.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2 rounded-lg" title="এডিট করুন">
+                    <i class="fa-solid fa-pen-to-square text-sm"></i>
+                  </button>
+                  <button onclick="deleteProduct('${prod.id}')" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg" title="ডিলিট করুন">
+                    <i class="fa-solid fa-trash text-sm"></i>
+                  </button>
                 </div>
               </div>
-              <div class="flex items-center space-x-1">
-                <button onclick="editProduct('${docSnap.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2 rounded-lg" title="এডিট করুন">
-                  <i class="fa-solid fa-pen-to-square text-sm"></i>
-                </button>
-                <button onclick="deleteProduct('${docSnap.id}')" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg" title="ডিলিট করুন">
-                  <i class="fa-solid fa-trash text-sm"></i>
-                </button>
-              </div>
-            </div>
-          `;
-        });
+            `;
+          });
+
+          html += `</div></div>`;
+        }
+
         container.innerHTML = html;
       } catch (e) { console.error(e); }
     }
