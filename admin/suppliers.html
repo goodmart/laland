@@ -337,6 +337,22 @@
         loadAllData();
       }, 600);
 
+      // Handle browser back/forward buttons for URL query states
+      window.addEventListener('popstate', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const supId = urlParams.get('id');
+        if (!supId) {
+          document.getElementById('supplierProfilePageView').classList.add('hidden');
+          document.getElementById('mainDashboardView').classList.remove('hidden');
+          currentSelectedSupplier = null;
+        } else {
+          const sup = suppliersData.find(s => s.uniqueId === supId || s.id === supId);
+          if (sup) {
+            openSupplierProfile(sup.id, false);
+          }
+        }
+      });
+
       // Payment Proof Compression (< 50KB) Handler
       document.getElementById('payProofFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
@@ -470,7 +486,7 @@
           closePaymentModal();
           loadAllData();
           if(currentSelectedSupplier) {
-            openSupplierProfile(currentSelectedSupplier.id);
+            openSupplierProfile(currentSelectedSupplier.id, false);
           }
         } catch (err) { alert("Error: " + err.message); }
       });
@@ -564,7 +580,23 @@
         document.getElementById('suppUniqueId').value = generateUniqueSupplierId();
 
         renderSupplierProfiles(suppliersData);
+
+        // Check if URL has a supplier ID parameter on load
+        checkUrlParameterForProfile();
+
       } catch (err) { console.error(err); }
+    }
+
+    // Check URL Parameters for direct link loading
+    function checkUrlParameterForProfile() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const supId = urlParams.get('id');
+      if (supId && suppliersData.length > 0) {
+        const sup = suppliersData.find(s => s.uniqueId === supId || s.id === supId);
+        if (sup) {
+          openSupplierProfile(sup.id, false);
+        }
+      }
     }
 
     // Render Supplier Profile Cards
@@ -640,11 +672,17 @@
       }
     };
 
-    // Open Supplier Profile Page
-    window.openSupplierProfile = function(supId) {
-      const sup = suppliersData.find(s => s.id === supId);
+    // Open Supplier Profile Page (with pushState support)
+    window.openSupplierProfile = function(supId, pushHistory = true) {
+      const sup = suppliersData.find(s => s.id === supId || s.uniqueId === supId);
       if(!sup) return;
       currentSelectedSupplier = sup;
+
+      // Update browser URL query string (e.g., /suppliers.html?id=SUP-001)
+      if (pushHistory) {
+        const newUrl = `${window.location.pathname}?id=${sup.uniqueId || sup.id}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+      }
 
       document.getElementById('mainDashboardView').classList.add('hidden');
       document.getElementById('supplierProfilePageView').classList.remove('hidden');
@@ -782,6 +820,10 @@
 
     window.backToMainDashboard = function() {
       currentSelectedSupplier = null;
+
+      // Clear the query parameters from URL when returning to dashboard
+      window.history.pushState({ path: window.location.pathname }, '', window.location.pathname);
+
       document.getElementById('supplierProfilePageView').classList.add('hidden');
       document.getElementById('mainDashboardView').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
