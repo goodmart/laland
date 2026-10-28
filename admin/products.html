@@ -111,7 +111,7 @@
 
           <!-- Camera Scanner View Container (Hidden by default) -->
           <div id="scannerContainer" class="md:col-span-2 hidden bg-black p-2 rounded-xl relative">
-            <div id="reader" class="w-full overflow-hidden rounded-lg"></div>
+            <div id="reader" class="w-full overflow-hidden rounded-lg bg-black"></div>
             <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-2 rounded-lg text-xs">
               Close Camera
             </button>
@@ -402,64 +402,50 @@
       document.getElementById('imgOptimizeStatus').innerText = "Product image or URL is mandatory.";
     };
 
-    // Mobile Camera Barcode Scanner Functions (Robust Multi-tier Fallback Initialization)
-    window.startCameraScanner = function() {
+    // Mobile Camera Barcode Scanner Functions (Fixed & Optimized)
+    window.startCameraScanner = async function() {
       const container = document.getElementById('scannerContainer');
       container.classList.remove('hidden');
 
-      if (!html5QrCode) {
-        html5QrCode = new Html5Qrcode("reader");
-      }
+      try {
+        if (!html5QrCode) {
+          html5QrCode = new Html5Qrcode("reader");
+        }
 
-      const config = { 
-        fps: 15, 
-        qrbox: { width: 280, height: 120 }
-      };
-      
-      // Step 1: Try starting with high resolution ideal settings on back camera
-      const hdConstraints = {
-        facingMode: "environment",
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      };
-
-      html5QrCode.start(
-        hdConstraints, 
-        config, 
-        (decodedText, decodedResult) => {
-          document.getElementById('prodBarcode').value = decodedText;
-          alert("Barcode scanned successfully: " + decodedText);
-          stopCameraScanner();
-        },
-        (errorMessage) => {}
-      ).catch((hdErr) => {
-        // Step 2: Fallback to standard environment camera if HD ideal constraint fails
-        html5QrCode.start(
-          { facingMode: "environment" },
-          config,
+        const config = { 
+          fps: 10, 
+          qrbox: { width: 250, height: 100 }
+        };
+        
+        // Start camera using simple environment facingMode for maximum compatibility
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
           (decodedText, decodedResult) => {
             document.getElementById('prodBarcode').value = decodedText;
             alert("Barcode scanned successfully: " + decodedText);
             stopCameraScanner();
           },
           (errorMessage) => {}
-        ).catch((envErr) => {
-          // Step 3: Final fallback to any available camera device
-          html5QrCode.start(
+        );
+      } catch (err) {
+        // Fallback to front camera or any available camera if back camera fails
+        try {
+          await html5QrCode.start(
             { facingMode: "user" },
-            config,
+            { fps: 10, qrbox: { width: 250, height: 100 } },
             (decodedText, decodedResult) => {
               document.getElementById('prodBarcode').value = decodedText;
               alert("Barcode scanned successfully: " + decodedText);
               stopCameraScanner();
             },
             (errorMessage) => {}
-          ).catch((finalErr) => {
-            alert("Could not start camera. Please check camera permissions in your browser: " + finalErr);
-            container.classList.add('hidden');
-          });
-        });
-      });
+          );
+        } catch (fallbackErr) {
+          alert("Could not start camera. Please check camera permissions in your browser settings: " + fallbackErr);
+          container.classList.add('hidden');
+        }
+      }
     };
 
     window.stopCameraScanner = function() {
