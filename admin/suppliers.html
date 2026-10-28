@@ -74,24 +74,42 @@
         
         <form id="addSupplierForm" class="space-y-3">
           <input type="hidden" id="editSupplierId">
+          
+          <!-- 1. Supplier Name -->
           <div>
             <label class="text-xs text-gray-600 block mb-1">কোম্পানির নাম (Company Name) *</label>
             <input type="text" id="suppName" required placeholder="যেমন: ACI Logistics / Dabur" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
+
+          <!-- 2. Supplier Type -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার টাইপ *</label>
+            <select id="suppCategory" onchange="toggleCategorySpecificFields()" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="Direct Company">Direct Company</option>
+              <option value="Dealer">Dealer</option>
+              <option value="Third Party">Third Party</option>
+            </select>
+          </div>
+
+          <!-- Dealer Name Field (Conditional) -->
+          <div id="dealerNameContainer" class="hidden">
+            <label class="text-xs text-gray-600 block mb-1">ডিলারের নাম (Dealer Name) *</label>
+            <input type="text" id="suppDealerName" placeholder="ডিলারের নাম লিখুন" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- Third Party Name Field (Conditional) -->
+          <div id="thirdPartyNameContainer" class="hidden">
+            <label class="text-xs text-gray-600 block mb-1">থার্ড পার্টির নাম (Third Party Name) *</label>
+            <input type="text" id="suppThirdPartyName" placeholder="থার্ড পার্টির নাম লিখুন" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
+          <!-- 3. Mobile Number -->
           <div>
             <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর *</label>
             <input type="tel" id="suppPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
-          <div>
-            <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার টাইপ *</label>
-            <select id="suppCategory" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="Direct Company">1. Direct Company</option>
-              <option value="Dealer">2. Dealer</option>
-              <option value="Third Party">3. Third Party</option>
-            </select>
-          </div>
 
-          <!-- Payment Method Selection (Cash / Bank) -->
+          <!-- 4. Payment Method Selection (Cash / Bank) -->
           <div>
             <label class="text-xs text-gray-600 block mb-1">পেমেন্ট মেথড *</label>
             <select id="suppPaymentMethod" onchange="toggleBankNameInput()" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
@@ -100,13 +118,19 @@
             </select>
           </div>
 
-          <!-- Bank Name Field -->
-          <div id="bankNameContainer" class="hidden">
-            <label class="text-xs text-gray-600 block mb-1">ব্যাংকের নাম ও অ্যাকাউন্ট বিবরণ *</label>
-            <input type="text" id="suppBankName" placeholder="যেমন: Dhaka Bank / BRAC Bank (A/C: XXXX)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <!-- Bank Name & Account Number Fields -->
+          <div id="bankNameContainer" class="hidden space-y-3 pt-1">
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">ব্যাংকের নাম *</label>
+              <input type="text" id="suppBankName" placeholder="যেমন: Dhaka Bank / BRAC Bank" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">ব্যাংক অ্যাকাউন্ট নম্বর *</label>
+              <input type="text" id="suppBankAccount" placeholder="যেমন: A/C: 1501XXXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
           </div>
 
-          <button type="submit" id="saveSupplierBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1">
+          <button type="submit" id="saveSupplierBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1 mt-2">
             <i class="fa-solid fa-plus"></i>
             <span>সাপ্লায়ার সেভ করুন</span>
           </button>
@@ -263,19 +287,6 @@
     </div>
   </div>
 
-  <!-- FULL SCREEN IMAGE PREVIEW MODAL -->
-  <div id="imagePreviewModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4">
-    <div class="relative max-w-3xl w-full bg-white rounded-2xl p-4 text-center">
-      <button onclick="closeImagePreview()" class="absolute top-3 right-3 text-gray-600 hover:text-black bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center font-bold">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-      <h3 class="font-bold text-sm text-emerald-700 mb-2">পেমেন্ট প্রুফ / ব্যাংক স্লিপ (ফুল ভিউ)</h3>
-      <div class="flex justify-center overflow-auto max-h-[80vh]">
-        <img id="fullPreviewImage" src="" alt="Proof Slip" class="max-w-full rounded-lg border shadow-md">
-      </div>
-    </div>
-  </div>
-
   <!-- Script Logic -->
   <script>
     let suppliersData = [];
@@ -340,7 +351,7 @@
             }
 
             document.getElementById('payProofBase64').value = dataUrl;
-            document.getElementById('proofStatusText').innerHTML = `<span class="text-emerald-600 font-bold">✓ প্রমাণ ছবি সফলভাবে অপ্টিমাইজ করা হয়েছে (< 50KB)।</span>`;
+            document.getElementById('proofStatusText').innerHTML = `<span class="text-emerald-600 font-bold">✓ প্রমাণ ছবি সফলভাবে অপ্টিমাইজ করা হয়েছে (< 50KB).</span>`;
           };
           img.src = e.target.result;
         };
@@ -354,15 +365,23 @@
         const { collection, addDoc, doc, updateDoc } = window.firebaseServices;
 
         const editId = document.getElementById('editSupplierId').value;
+        const category = document.getElementById('suppCategory').value;
         const payMethod = document.getElementById('suppPaymentMethod').value;
+        
+        const dealerName = category === 'Dealer' ? document.getElementById('suppDealerName').value.trim() : '';
+        const thirdPartyName = category === 'Third Party' ? document.getElementById('suppThirdPartyName').value.trim() : '';
         const bankName = payMethod === 'Bank' ? document.getElementById('suppBankName').value.trim() : 'Cash';
+        const bankAccount = payMethod === 'Bank' ? document.getElementById('suppBankAccount').value.trim() : '';
 
         const supplierData = {
           companyName: document.getElementById('suppName').value.trim(),
+          supplierCategory: category,
+          dealerName: dealerName,
+          thirdPartyName: thirdPartyName,
           contactNumber: document.getElementById('suppPhone').value.trim(),
-          supplierCategory: document.getElementById('suppCategory').value,
           paymentMethod: payMethod,
           bankName: bankName,
+          bankAccount: bankAccount,
           updatedAt: new Date().toISOString()
         };
 
@@ -376,6 +395,7 @@
             await addDoc(collection(db, "suppliers"), supplierData);
             alert("নতুন সাপ্লায়ার সফলভাবে সেভ করা হয়েছে!");
             document.getElementById('addSupplierForm').reset();
+            toggleCategorySpecificFields();
             toggleBankNameInput();
           }
           loadSuppliersData();
@@ -416,19 +436,48 @@
       });
     });
 
-    // Toggle Bank Name Input Field
+    // Toggle Category Specific Fields (Dealer / Third Party)
+    window.toggleCategorySpecificFields = function() {
+      const category = document.getElementById('suppCategory').value;
+      const dealerContainer = document.getElementById('dealerNameContainer');
+      const dealerInput = document.getElementById('suppDealerName');
+      const thirdPartyContainer = document.getElementById('thirdPartyNameContainer');
+      const thirdPartyInput = document.getElementById('suppThirdPartyName');
+
+      dealerContainer.classList.add('hidden');
+      dealerInput.required = false;
+      dealerInput.value = '';
+
+      thirdPartyContainer.classList.add('hidden');
+      thirdPartyInput.required = false;
+      thirdPartyInput.value = '';
+
+      if(category === 'Dealer') {
+        dealerContainer.classList.remove('hidden');
+        dealerInput.required = true;
+      } else if(category === 'Third Party') {
+        thirdPartyContainer.classList.remove('hidden');
+        thirdPartyInput.required = true;
+      }
+    };
+
+    // Toggle Bank Name & Account Input Fields
     window.toggleBankNameInput = function() {
       const method = document.getElementById('suppPaymentMethod').value;
       const bankContainer = document.getElementById('bankNameContainer');
       const bankInput = document.getElementById('suppBankName');
+      const bankAccountInput = document.getElementById('suppBankAccount');
 
       if(method === 'Bank') {
         bankContainer.classList.remove('hidden');
         bankInput.required = true;
+        bankAccountInput.required = true;
       } else {
         bankContainer.classList.add('hidden');
         bankInput.required = false;
         bankInput.value = '';
+        bankAccountInput.required = false;
+        bankAccountInput.value = '';
       }
     };
 
@@ -615,13 +664,18 @@
         const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
         const due = stats.totalBill - stats.totalPaid;
         const isSelected = activeSupplierFilter === sup.companyName;
-        const paymentDisplay = sup.paymentMethod === 'Bank' ? `ব্যাংক: ${sup.bankName}` : 'ক্যাশ (নগদ)';
+        
+        let subDetails = sup.supplierCategory;
+        if(sup.supplierCategory === 'Dealer' && sup.dealerName) subDetails = `ডিলার: ${sup.dealerName}`;
+        if(sup.supplierCategory === 'Third Party' && sup.thirdPartyName) subDetails = `থার্ড পার্টি: ${sup.thirdPartyName}`;
+
+        const paymentDisplay = sup.paymentMethod === 'Bank' ? `ব্যাংক: ${sup.bankName} (A/C: ${sup.bankAccount})` : 'ক্যাশ (নগদ)';
 
         html += `
           <div class="bg-gray-50 p-3.5 rounded-xl border transition hover:border-emerald-500 ${isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/40' : ''} text-xs space-y-1.5">
             <div class="flex justify-between items-center cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')">
               <span class="font-bold text-gray-800 text-sm">${sup.companyName}</span>
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${sup.supplierCategory || 'Company'}</span>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${subDetails}</span>
             </div>
             <p class="text-gray-500 text-[11px] cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | পেমেন্ট: <strong>${paymentDisplay}</strong></p>
             <p class="text-gray-400 text-[10px]">মোট চালান: <strong>${stats.count} টি</strong></p>
@@ -641,7 +695,12 @@
     // Filter Supplier Profiles via Search Bar
     window.filterSupplierProfiles = function() {
       const query = document.getElementById('supplierSearchInput').value.toLowerCase().trim();
-      const filtered = suppliersData.filter(s => s.companyName.toLowerCase().includes(query) || (s.contactNumber && s.contactNumber.includes(query)));
+      const filtered = suppliersData.filter(s => 
+        s.companyName.toLowerCase().includes(query) || 
+        (s.contactNumber && s.contactNumber.includes(query)) ||
+        (s.dealerName && s.dealerName.toLowerCase().includes(query)) ||
+        (s.thirdPartyName && s.thirdPartyName.toLowerCase().includes(query))
+      );
       renderSupplierProfiles(filtered);
     };
 
@@ -652,13 +711,22 @@
 
       document.getElementById('editSupplierId').value = sup.id;
       document.getElementById('suppName').value = sup.companyName;
+      document.getElementById('suppCategory').value = sup.supplierCategory || 'Direct Company';
+      
+      toggleCategorySpecificFields();
+      if(sup.supplierCategory === 'Dealer') {
+        document.getElementById('suppDealerName').value = sup.dealerName || '';
+      } else if(sup.supplierCategory === 'Third Party') {
+        document.getElementById('suppThirdPartyName').value = sup.thirdPartyName || '';
+      }
+
       document.getElementById('suppPhone').value = sup.contactNumber;
-      document.getElementById('suppCategory').value = sup.supplierCategory;
       document.getElementById('suppPaymentMethod').value = sup.paymentMethod || 'Cash';
       
       toggleBankNameInput();
       if(sup.paymentMethod === 'Bank') {
         document.getElementById('suppBankName').value = sup.bankName || '';
+        document.getElementById('suppBankAccount').value = sup.bankAccount || '';
       }
 
       document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> সাপ্লায়ার এডিট করুন`;
@@ -670,6 +738,7 @@
     window.resetSupplierForm = function() {
       document.getElementById('addSupplierForm').reset();
       document.getElementById('editSupplierId').value = "";
+      toggleCategorySpecificFields();
       toggleBankNameInput();
       document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন`;
       document.getElementById('saveSupplierBtn').innerText = "সাপ্লায়ার সেভ করুন";
