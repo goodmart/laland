@@ -9,51 +9,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Firebase SDKs (v10) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
-      authDomain: "laland-express.firebaseapp.com",
-      projectId: "laland-express",
-      storageBucket: "laland-express.firebasestorage.app",
-      messagingSenderId: "315462688826",
-      appId: "1:315462688826:web:a6b033e1ce664071201503",
-      measurementId: "G-J4S4EL5LE4"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // Expose direct safe global wrapper functions to prevent any scope/null issues
-    window.firebaseAuth = auth;
-    window.firebaseDb = db;
-    
-    window.FB_getDocs = async (colName) => {
-      return await getDocs(collection(db, colName));
-    };
-
-    window.FB_addDoc = async (colName, data) => {
-      return await addDoc(collection(db, colName), data);
-    };
-
-    window.FB_updateDoc = async (colName, docId, data) => {
-      const docRef = doc(db, colName, String(docId));
-      return await updateDoc(docRef, data);
-    };
-
-    window.FB_deleteDoc = async (colName, docId) => {
-      const docRef = doc(db, colName, String(docId));
-      return await deleteDoc(docRef);
-    };
-
-    window.FB_increment = (val) => increment(val);
-  </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
@@ -154,7 +109,7 @@
           Total Cost (TP): <strong id="totalStockCost" class="text-emerald-700">৳ 0</strong>
         </div>
 
-        <button id="submitStockBtn" onclick="finalizeStockIn()" class="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-2">
+        <button id="submitStockBtn" onclick="window.finalizeStockIn()" class="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-2">
           <i class="fa-solid fa-check-double"></i>
           <span>Confirm Stock-In & Generate Invoice</span>
         </button>
@@ -187,20 +142,38 @@
     </div>
   </div>
 
-  <!-- Script Logic -->
-  <script>
+  <!-- Firebase & Core App Logic (All inside a unified module to eliminate scope mismatch) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
     let productsList = [];
     let stockCart = [];
     let stockHistoryStore = {};
     let currentInvoiceNo = '';
 
-    document.addEventListener("DOMContentLoaded", () => {
+    window.addEventListener("DOMContentLoaded", () => {
       generateNewInvoiceNo();
       setTimeout(() => {
         loadSuppliers();
         loadProductsForSearch();
         loadStockInHistory();
-      }, 800);
+      }, 500);
 
       // Chalan Image Compression (< 100KB) Handler
       document.getElementById('chalanImageFile').addEventListener('change', function(event) {
@@ -260,10 +233,8 @@
     // Load Suppliers for Dropdown
     async function loadSuppliers() {
       const select = document.getElementById('stockSupplierSelect');
-      if(!window.FB_getDocs) return;
-
       try {
-        const querySnapshot = await window.FB_getDocs("suppliers");
+        const querySnapshot = await getDocs(collection(db, "suppliers"));
         let html = '<option value="">-- Select Supplier --</option>';
         querySnapshot.forEach(docSnap => {
           const sup = docSnap.data();
@@ -276,10 +247,8 @@
 
     // Load Products for Search
     async function loadProductsForSearch() {
-      if(!window.FB_getDocs) return;
-
       try {
-        const querySnapshot = await window.FB_getDocs("products");
+        const querySnapshot = await getDocs(collection(db, "products"));
         productsList = [];
         querySnapshot.forEach(docSnap => {
           productsList.push({ id: docSnap.id, ...docSnap.data() });
@@ -327,7 +296,7 @@
       let html = '';
       filtered.forEach(p => {
         html += `
-          <div onclick="selectProductFromSearch('${p.id}')" class="p-2.5 hover:bg-emerald-50 cursor-pointer border-b flex justify-between items-center">
+          <div onclick="window.selectProductFromSearch('${p.id}')" class="p-2.5 hover:bg-emerald-50 cursor-pointer border-b flex justify-between items-center">
             <div>
               <span class="font-bold text-gray-800">${p.name}</span>
               <span class="text-[10px] text-gray-400 block">Stock: ${p.stock || 0} | MRP: ৳${p.mrp}</span>
@@ -400,14 +369,14 @@
             <td class="p-2.5 text-gray-500">${item.category}</td>
             <td class="p-2.5 text-center font-semibold text-blue-600">${item.currentStock} pcs</td>
             <td class="p-2.5 text-center">
-              <input type="number" min="1" value="${item.qty}" onchange="updateCartItem(${index}, 'qty', this.value)" class="w-16 px-2 py-1 border rounded-lg text-center font-bold text-emerald-700 bg-white">
+              <input type="number" min="1" value="${item.qty}" onchange="window.updateCartItem(${index}, 'qty', this.value)" class="w-16 px-2 py-1 border rounded-lg text-center font-bold text-emerald-700 bg-white">
             </td>
             <td class="p-2.5 text-right">
-              <input type="number" min="0" value="${item.tp}" onchange="updateCartItem(${index}, 'tp', this.value)" class="w-20 px-2 py-1 border rounded-lg text-right font-semibold">
+              <input type="number" min="0" value="${item.tp}" onchange="window.updateCartItem(${index}, 'tp', this.value)" class="w-20 px-2 py-1 border rounded-lg text-right font-semibold">
             </td>
             <td class="p-2.5 text-right font-extrabold text-emerald-700">৳ ${subTotal}</td>
             <td class="p-2.5 text-center">
-              <button onclick="removeCartItem(${index})" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+              <button onclick="window.removeCartItem(${index})" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
             </td>
           </tr>
         `;
@@ -418,7 +387,7 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // Finalize Stock-In (Guaranteed 100% Safe Execution)
+    // Finalize Stock-In (Direct Native Firestore Execution)
     window.finalizeStockIn = async function() {
       const supplier = document.getElementById('stockSupplierSelect').value;
       if(!supplier) {
@@ -438,11 +407,6 @@
         return;
       }
 
-      if(!window.FB_updateDoc || !window.FB_addDoc) {
-        alert("Firebase helper is initializing. Please try again in 2 seconds.");
-        return;
-      }
-
       try {
         if (editId) {
           const existingRec = stockHistoryStore[editId];
@@ -456,18 +420,18 @@
             updatedAt: new Date().toISOString()
           };
 
-          await window.FB_updateDoc("stock_in_history", editId, stockInRecord);
+          await updateDoc(doc(db, "stock_in_history", String(editId)), stockInRecord);
 
           for (const item of stockCart) {
-            await window.FB_updateDoc("products", item.id, {
-              stock: window.FB_increment(item.qty),
+            await updateDoc(doc(db, "products", String(item.id)), {
+              stock: increment(item.qty),
               tp: item.tp
             });
           }
 
           alert("Stock-in chalan successfully updated!");
-          printStockInvoice(stockInRecord);
-          resetStockForm();
+          window.printStockInvoice(stockInRecord);
+          window.resetStockForm();
 
         } else {
           const stockInRecord = {
@@ -480,18 +444,18 @@
             createdAt: new Date().toISOString()
           };
 
-          await window.FB_addDoc("stock_in_history", stockInRecord);
+          await addDoc(collection(db, "stock_in_history"), stockInRecord);
 
           for (const item of stockCart) {
-            await window.FB_updateDoc("products", item.id, {
-              stock: window.FB_increment(item.qty),
+            await updateDoc(doc(db, "products", String(item.id)), {
+              stock: increment(item.qty),
               tp: item.tp
             });
           }
 
           alert(`Stock-in successfully completed!\nChalan ID: ${currentInvoiceNo}`);
-          printStockInvoice(stockInRecord);
-          resetStockForm();
+          window.printStockInvoice(stockInRecord);
+          window.resetStockForm();
         }
 
         loadProductsForSearch();
@@ -545,7 +509,7 @@
       if(!confirm("Are you sure you want to delete this stock-in chalan?")) return;
 
       try {
-        await window.FB_deleteDoc("stock_in_history", id);
+        await deleteDoc(doc(db, "stock_in_history", String(id)));
         alert("Stock-in chalan deleted!");
         loadStockInHistory();
       } catch(err) {
@@ -556,10 +520,8 @@
     // Load Stock-In History
     async function loadStockInHistory() {
       const container = document.getElementById('stockInHistoryContainer');
-      if(!window.FB_getDocs) return;
-
       try {
-        const querySnapshot = await window.FB_getDocs("stock_in_history");
+        const querySnapshot = await getDocs(collection(db, "stock_in_history"));
         if(querySnapshot.empty) {
           container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No previous stock-in chalans found.</p>`;
           return;
@@ -588,20 +550,19 @@
               <div class="flex items-center space-x-1.5">
                 <span class="font-extrabold text-emerald-700 mr-1">৳ ${rec.totalCost}</span>
                 
-                <!-- View Chalan Memo Button -->
                 ${rec.chalanImage ? `
-                  <button onclick="viewMemoModal('${rec.chalanImage}')" class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg font-bold hover:bg-amber-100" title="View Chalan Memo">
+                  <button onclick="window.viewMemoModal('${rec.chalanImage}')" class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg font-bold hover:bg-amber-100" title="View Chalan Memo">
                     <i class="fa-solid fa-image"></i> Memo
                   </button>
                 ` : ''}
 
-                <button onclick='printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100" title="Print/View Invoice">
+                <button onclick='window.printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100" title="Print/View Invoice">
                   <i class="fa-solid fa-print"></i>
                 </button>
-                <button onclick="editStockIn('${rec.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg font-bold hover:bg-blue-100" title="Edit">
+                <button onclick="window.editStockIn('${rec.id}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-2 py-1 rounded-lg font-bold hover:bg-blue-100" title="Edit">
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>
-                <button onclick="deleteStockIn('${rec.id}')" class="bg-red-50 text-red-500 border border-red-200 px-2 py-1 rounded-lg font-bold hover:bg-red-100" title="Delete">
+                <button onclick="window.deleteStockIn('${rec.id}')" class="bg-red-50 text-red-500 border border-red-200 px-2 py-1 rounded-lg font-bold hover:bg-red-100" title="Delete">
                   <i class="fa-solid fa-trash"></i>
                 </button>
               </div>
@@ -622,7 +583,7 @@
       document.getElementById('memoModal').classList.add('hidden');
     };
 
-    // Print Stock-In Invoice / Memo (Including Supplier Chalan Image Preview)
+    // Print Stock-In Invoice / Memo
     window.printStockInvoice = function(rec) {
       const printWin = window.open('', '_blank');
       const itemsRows = rec.items.map(i => `
