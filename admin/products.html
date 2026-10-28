@@ -151,14 +151,26 @@
             <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Product Picture Upload (Auto Resizing for Low KB) -->
-          <div class="md:col-span-2">
-            <label class="text-xs text-gray-600 block mb-1">৭. পণ্যের ছবি আপলোড করুন (স্বয়ংক্রিয়ভাবে সেরা সাইজে কিলোবাইটে অপ্টিমাইজ হবে)</label>
-            <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-50 focus:outline-none">
-            <p id="imgOptimizeStatus" class="text-[10px] text-gray-400 mt-1">ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।</p>
+          <!-- Product Picture Input Options (File Upload OR Image URL) -->
+          <div class="md:col-span-2 space-y-2 border p-3 rounded-xl bg-gray-50">
+            <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-image"></i> ৭. পণ্যের ছবি (ফাইল আপলোড অথবা ছবির লিংক দিন)</label>
+            
+            <!-- Option A: File Upload -->
+            <div>
+              <label class="text-[11px] text-gray-600 block mb-0.5">অপশন ক: কম্পিউটার/মোবাইল থেকে ফাইল আপলোড (অটো অপ্টিমাইজ হবে)</label>
+              <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none">
+            </div>
+
+            <!-- Option B: Image URL -->
+            <div>
+              <label class="text-[11px] text-gray-600 block mb-0.5">অপশন খ: অথবা ছবির সরাসরি লিংক (Image URL) পেস্ট করুন</label>
+              <input type="url" id="prodImageUrl" placeholder="https://example.com/product-image.jpg" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+
+            <p id="imgOptimizeStatus" class="text-[10px] text-gray-400">ফাইল সিলেক্ট করলে অপ্টিমাইজ হবে অথবা সরাসরি লিংক দিতে পারেন।</p>
           </div>
 
-          <!-- Hidden field for processed base64 image -->
+          <!-- Hidden field for processed base64 or final image URL -->
           <input type="hidden" id="processedImageBase64">
 
           <div class="md:col-span-2 pt-2">
@@ -194,17 +206,20 @@
         loadProducts();
       }, 600);
 
-      // Image Resizing and Compression Handler (Optimizing to lowest KB with good quality)
+      // Image File Resizing and Compression Handler
       document.getElementById('prodImageFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
+
+        // Clear URL input if file is chosen
+        document.getElementById('prodImageUrl').value = '';
 
         const reader = new FileReader();
         reader.onload = function(e) {
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 400;  // Optimized dimension for fast web load
+            const MAX_WIDTH = 400;  
             const MAX_HEIGHT = 400;
             let width = img.width;
             let height = img.height;
@@ -220,22 +235,32 @@
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Compress to low KB JPEG format (quality 0.6)
             let quality = 0.6;
             let dataUrl = canvas.toDataURL('image/jpeg', quality);
             
-            // Further reduce if size is large
             while (dataUrl.length > 50000 && quality > 0.2) {
               quality -= 0.1;
               dataUrl = canvas.toDataURL('image/jpeg', quality);
             }
 
             document.getElementById('processedImageBase64').value = dataUrl;
-            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ছবি সফলভাবে অপ্টিমাইজ ও সাইজ ছোট করা হয়েছে।</span>`;
+            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ফাইল সফলভাবে অপ্টিমাইজ করা হয়েছে।</span>`;
           }
           img.src = e.target.result;
         }
         reader.readAsDataURL(file);
+      });
+
+      // Clear File input if URL is typed
+      document.getElementById('prodImageUrl').addEventListener('input', function() {
+        if(this.value.trim() !== '') {
+          document.getElementById('prodImageFile').value = '';
+          document.getElementById('processedImageBase64').value = this.value.trim();
+          document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ছবির লিংক (URL) যুক্ত করা হয়েছে।</span>`;
+        } else {
+          document.getElementById('processedImageBase64').value = '';
+          document.getElementById('imgOptimizeStatus').innerText = "ফাইল সিলেক্ট করলে অপ্টিমাইজ হবে অথবা সরাসরি লিংক দিতে পারেন।";
+        }
       });
 
       // Add / Update Product Form Submit
@@ -246,10 +271,15 @@
         const { collection, addDoc, updateDoc, doc } = window.firebaseServices;
 
         const editId = document.getElementById('editProductId').value;
-        const imageBase64 = document.getElementById('processedImageBase64').value;
+        let imageValue = document.getElementById('processedImageBase64').value;
+        const imageUrlInput = document.getElementById('prodImageUrl').value.trim();
 
-        if(!editId && !imageBase64) {
-          alert("অনুগ্রহ করে একটি ছবি সিলেক্ট করুন এবং প্রসেস হওয়ার জন্য কিছুক্ষণ অপেক্ষা করুন।");
+        if(imageUrlInput) {
+          imageValue = imageUrlInput;
+        }
+
+        if(!editId && !imageValue) {
+          alert("অনুগ্রহ করে ছবি ফাইল আপলোড করুন অথবা ছবির সরাসরি লিংক (URL) দিন।");
           return;
         }
 
@@ -265,8 +295,8 @@
           updatedAt: new Date().toISOString()
         };
 
-        if (imageBase64) {
-          productData.image = imageBase64;
+        if (imageValue) {
+          productData.image = imageValue;
         }
 
         try {
@@ -280,7 +310,7 @@
             alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
             document.getElementById('addProductForm').reset();
             document.getElementById('processedImageBase64').value = "";
-            document.getElementById('imgOptimizeStatus').innerText = "ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।";
+            document.getElementById('imgOptimizeStatus').innerText = "ফাইল সিলেক্ট করলে অপ্টিমাইজ হবে অথবা সরাসরি লিংক দিতে পারেন।";
           }
           loadProducts();
         } catch (err) { alert("ত্রুটি: " + err.message); }
@@ -301,6 +331,14 @@
       document.getElementById('prodMRP').value = prod.mrp || "";
       document.getElementById('prodDiscountPrice').value = prod.discountPrice || "";
       
+      // Check if image is URL or Base64
+      if(prod.image && prod.image.startsWith('http')) {
+        document.getElementById('prodImageUrl').value = prod.image;
+        document.getElementById('processedImageBase64').value = prod.image;
+      } else {
+        document.getElementById('processedImageBase64').value = prod.image || "";
+      }
+      
       document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> পণ্য এডিট করুন`;
       document.getElementById('submitBtn').innerText = "পরিবর্তন সংরক্ষণ করুন (Update)";
       document.getElementById('cancelEditBtn').classList.remove('hidden');
@@ -316,7 +354,7 @@
       document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন`;
       document.getElementById('submitBtn').innerText = "পণ্য সংরক্ষণ করুন";
       document.getElementById('cancelEditBtn').classList.add('hidden');
-      document.getElementById('imgOptimizeStatus').innerText = "ছবি পরিবর্তন না করতে চাইলে এটি খালি রাখুন। নতুন ছবি দিলে পূর্বের ছবি আপডেট হয়ে যাবে।";
+      document.getElementById('imgOptimizeStatus').innerText = "ফাইল সিলেক্ট করলে অপ্টিমাইজ হবে অথবা সরাসরি লিংক দিতে পারেন।";
     };
 
     // Mobile Camera Barcode Scanner Functions
@@ -359,7 +397,7 @@
       }
     };
 
-    // Load Suppliers for Dropdown without Dealer/Third Party tags
+    // Load Suppliers for Dropdown
     async function loadSuppliersDropdown() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
