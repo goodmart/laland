@@ -151,23 +151,35 @@
             <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Product Picture Input Options (Mandatory File Upload OR Image URL) -->
-          <div class="md:col-span-2 space-y-2 border p-3 rounded-xl bg-gray-50">
+          <!-- Product Picture Input Options (Mandatory File Upload OR Image URL with Live Preview) -->
+          <div class="md:col-span-2 space-y-3 border p-3 rounded-xl bg-gray-50">
             <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-image"></i> ৭. পণ্যের ছবি (ফাইল আপলোড অথবা ছবির লিংক দিন) *</label>
             
-            <!-- Option A: File Upload -->
-            <div>
-              <label class="text-[11px] text-gray-600 block mb-0.5">অপশন ক: কম্পিউটার/মোবাইল থেকে ফাইল আপলোড (অটো অপ্টিমাইজ হবে)</label>
-              <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <!-- Option A: File Upload -->
+              <div>
+                <label class="text-[11px] text-gray-600 block mb-0.5">অপশন ক: ডিভাইস থেকে ফাইল আপলোড</label>
+                <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none">
+              </div>
+
+              <!-- Option B: Image URL -->
+              <div>
+                <label class="text-[11px] text-gray-600 block mb-0.5">অপশন খ: ছবির সরাসরি লিংক (Image URL)</label>
+                <input type="url" id="prodImageUrl" placeholder="https://example.com/image.jpg" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              </div>
             </div>
 
-            <!-- Option B: Image URL -->
-            <div>
-              <label class="text-[11px] text-gray-600 block mb-0.5">অপশন খ: অথবা ছবির সরাসরি লিংক (Image URL) পেস্ট করুন</label>
-              <input type="url" id="prodImageUrl" placeholder="https://example.com/product-image.jpg" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <!-- Live Image Preview Box -->
+            <div class="flex items-center space-x-3 pt-1 border-t mt-2">
+              <div class="w-12 h-12 border rounded-lg bg-white flex items-center justify-center overflow-hidden shadow-inner">
+                <img id="imagePreview" src="" class="w-full h-full object-cover hidden" alt="Preview">
+                <i id="previewPlaceholder" class="fa-solid fa-image text-gray-300 text-lg"></i>
+              </div>
+              <div>
+                <p id="imgOptimizeStatus" class="text-[11px] text-gray-500 font-semibold">পণ্যের ছবি বা লিংক দেওয়া বাধ্যতামূলক।</p>
+                <p class="text-[10px] text-gray-400">লিংক দিলে পাশের বক্সে ছবি প্রিভিউ দেখতে পাবেন।</p>
+              </div>
             </div>
-
-            <p id="imgOptimizeStatus" class="text-[10px] text-gray-500 font-semibold">পণ্য সংরক্ষণের জন্য ছবি বা ছবির লিংক দেওয়া বাধ্যতামূলক।</p>
           </div>
 
           <!-- Hidden field for processed base64 or final image URL -->
@@ -184,7 +196,7 @@
       <!-- SUPPLIER-WISE PRODUCTS LIST SECTION -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
         <h4 class="text-xs font-bold text-emerald-700 border-b pb-2">
-          <i class="fa-solid fa-layer-group"></i> সাপ্লায়ার ওয়াইজ পণ্যের তালিকা (এডিট ও ডিলিট অপশনসহ):
+          <i class="fa-solid fa-layer-group"></i> সাপ্লায়ার ওয়াইজ পণ্যের তালিকা (এডিট ও ডিলিট অপشنসহ):
         </h4>
         <div id="adminProductList" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
           <!-- Loaded by JS -->
@@ -205,6 +217,21 @@
         loadSuppliersDropdown();
         loadProducts();
       }, 600);
+
+      // Helper function to show live preview
+      function showPreview(srcText) {
+        const previewImg = document.getElementById('imagePreview');
+        const placeholder = document.getElementById('previewPlaceholder');
+        if(srcText) {
+          previewImg.src = srcText;
+          previewImg.classList.remove('hidden');
+          placeholder.classList.add('hidden');
+        } else {
+          previewImg.src = '';
+          previewImg.classList.add('hidden');
+          placeholder.classList.remove('hidden');
+        }
+      }
 
       // Image File Resizing and Compression Handler
       document.getElementById('prodImageFile').addEventListener('change', function(event) {
@@ -244,21 +271,25 @@
             }
 
             document.getElementById('processedImageBase64').value = dataUrl;
-            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ফাইল সফলভাবে অপ্টিমাইজ করা হয়েছে।</span>`;
+            showPreview(dataUrl);
+            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ফাইল সফলভাবে অপ্টিমাইজ ও প্রিভিউ লোড হয়েছে।</span>`;
           }
           img.src = e.target.result;
         }
         reader.readAsDataURL(file);
       });
 
-      // Clear File input if URL is typed
+      // Handle Image URL input & Live Preview
       document.getElementById('prodImageUrl').addEventListener('input', function() {
-        if(this.value.trim() !== '') {
+        const urlVal = this.value.trim();
+        if(urlVal !== '') {
           document.getElementById('prodImageFile').value = '';
-          document.getElementById('processedImageBase64').value = this.value.trim();
-          document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ছবির লিংক (URL) যুক্ত করা হয়েছে।</span>`;
+          document.getElementById('processedImageBase64').value = urlVal;
+          showPreview(urlVal);
+          document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ ছবির লিংক (URL) সফলভাবে যুক্ত হয়েছে।</span>`;
         } else {
           document.getElementById('processedImageBase64').value = '';
+          showPreview('');
           document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-red-500 font-bold">⚠ পণ্যের ছবি বা লিংক দেওয়া বাধ্যতামূলক।</span>`;
         }
       });
@@ -311,6 +342,7 @@
             alert("পণ্য সফলভাবে যুক্ত হয়েছে!");
             document.getElementById('addProductForm').reset();
             document.getElementById('processedImageBase64').value = "";
+            showPreview('');
             document.getElementById('imgOptimizeStatus').innerText = "পণ্য সংরক্ষণের জন্য ছবি বা ছবির লিংক দেওয়া বাধ্যতামূলক।";
           }
           loadProducts();
@@ -340,6 +372,15 @@
         document.getElementById('processedImageBase64').value = prod.image || "";
       }
       
+      // Show preview for existing product image
+      if(prod.image) {
+        const previewImg = document.getElementById('imagePreview');
+        const placeholder = document.getElementById('previewPlaceholder');
+        previewImg.src = prod.image;
+        previewImg.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+      }
+
       document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> পণ্য এডিট করুন`;
       document.getElementById('submitBtn').innerText = "পরিবর্তন সংরক্ষণ করুন (Update)";
       document.getElementById('cancelEditBtn').classList.remove('hidden');
@@ -352,6 +393,13 @@
       document.getElementById('addProductForm').reset();
       document.getElementById('editProductId').value = "";
       document.getElementById('processedImageBase64').value = "";
+      
+      const previewImg = document.getElementById('imagePreview');
+      const placeholder = document.getElementById('previewPlaceholder');
+      previewImg.src = '';
+      previewImg.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+
       document.getElementById('formTitle').innerHTML = `<i class="fa-solid fa-plus"></i> নতুন পণ্য যোগ করুন`;
       document.getElementById('submitBtn').innerText = "পণ্য সংরক্ষণ করুন";
       document.getElementById('cancelEditBtn').classList.add('hidden');
@@ -435,7 +483,7 @@
         const slug = newCatName.toLowerCase().replace(/\s+/g, '_');
         
         let exists = false;
-        for(let i=0; i<selectEl.options.length; i++) {
+        for(let i=0; i<select-el.options.length; i++) {
           if(selectEl.options[i].value === slug) { exists = true; break; }
         }
 
