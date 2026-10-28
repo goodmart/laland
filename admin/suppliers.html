@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>সাপ্লায়ার প্রোফাইল ও পেমেন্ট - Laland Express Admin</title>
+  <title>সাপ্লায়ার প্রফাইল ও হিসাব - Laland Express Admin</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-2">
         <i class="fa-solid fa-truck-field text-xl"></i>
-        <h1 class="font-bold text-lg">সাপ্লায়ার প্রোফাইল ও হিসাব - Laland Express</h1>
+        <h1 class="font-bold text-lg">সাপ্লায়ার প্রফাইল ও হিসাব - Laland Express</h1>
       </div>
       <nav class="space-x-3 text-xs">
         <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
@@ -61,7 +61,7 @@
   <main class="max-w-6xl mx-auto p-4 space-y-6">
 
     <!-- TOP SECTION: ADD NEW SUPPLIER & SUPPLIER LIST -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div id="mainDashboardView" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       
       <!-- Add / Edit Supplier Form -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3 lg:col-span-1">
@@ -75,6 +75,12 @@
         <form id="addSupplierForm" class="space-y-3">
           <input type="hidden" id="editSupplierId">
           
+          <!-- Auto Generated Unique Supplier ID -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার ইউনিক আইডি (Auto ID) *</label>
+            <input type="text" id="suppUniqueId" readonly class="w-full px-3 py-2 border rounded-xl text-sm bg-gray-100 font-mono font-bold text-emerald-700 focus:outline-none" placeholder="SUP-001">
+          </div>
+
           <!-- 1. Supplier Name -->
           <div>
             <label class="text-xs text-gray-600 block mb-1">কোম্পানির নাম (Company Name) *</label>
@@ -121,12 +127,12 @@
           <!-- Bank Name & Account Number Fields -->
           <div id="bankNameContainer" class="hidden space-y-3 pt-1">
             <div>
-              <label class="text-xs text-gray-600 block mb-1">ব্যাংকের নাম *</label>
-              <input type="text" id="suppBankName" placeholder="যেমন: Dhaka Bank / BRAC Bank" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <label class="text-xs text-gray-600 block mb-1">ব্যাংকের নাম (যেমন: BRAC Bank) *</label>
+              <input type="text" id="suppBankName" placeholder="BRAC Bank PLC" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
             <div>
               <label class="text-xs text-gray-600 block mb-1">ব্যাংক অ্যাকাউন্ট নম্বর *</label>
-              <input type="text" id="suppBankAccount" placeholder="যেমন: A/C: 1501XXXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <input type="text" id="suppBankAccount" placeholder="A/C: 1501XXXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
           </div>
 
@@ -141,7 +147,7 @@
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4 lg:col-span-2">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
           <h3 class="font-bold text-sm text-emerald-700">
-            <i class="fa-solid fa-id-card mr-1"></i> সাপ্লায়ার প্রোফাইলসমূহ (প্রোফাইলে ক্লিক করে চালান দেখুন)
+            <i class="fa-solid fa-id-card mr-1"></i> সাপ্লায়ার প্রফাইলসমূহ (প্রোফাইলে ক্লিক করে বিস্তারিত দেখুন)
           </h3>
           <!-- Search Bar -->
           <div class="w-full sm:w-auto">
@@ -149,80 +155,98 @@
           </div>
         </div>
         
-        <div id="supplierProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
-          <p class="text-xs text-gray-400 col-span-2 text-center py-4">সাপ্লায়ার প্রোফাইল লোড হচ্ছে...</p>
+        <div id="supplierProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+          <p class="text-xs text-gray-400 col-span-2 text-center py-4">সাপ্লায়ার প্রফাইল লোড হচ্ছে...</p>
         </div>
       </div>
 
     </div>
 
-    <!-- SUPPLIER SPECIFIC INVOICES & PAYMENT RELEASE SECTION -->
-    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 gap-2">
-        <div>
-          <h3 id="selectedSupplierTitle" class="font-bold text-sm text-emerald-700">
-            <i class="fa-solid fa-receipt mr-1"></i> স্টক-ইন চালানের তালিকা ও পেমেন্ট রিলিজ (সকল সাপ্লায়ার)
-          </h3>
-          <p class="text-[11px] text-gray-400">স্টক-ইন পেজে চালান তৈরি হলে তা এখানে অটোমেটিক চলে আসবে। যে চালানের পেমেন্ট দেবেন সেটিতে ক্লিক করুন।</p>
-        </div>
-        
-        <!-- Filter / Reset Supplier View -->
-        <div>
-          <button onclick="resetSupplierFilter()" class="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-200">
-            <i class="fa-solid fa-rotate-left mr-1"></i> সকল সাপ্লায়ার দেখান
+    <!-- SUPPLIER PROFILE VIEW CONTAINER (HIDDEN BY DEFAULT, SHOWN ON CLICK) -->
+    <div id="supplierProfilePageView" class="hidden space-y-6">
+      <div class="bg-emerald-800 text-white p-5 rounded-2xl shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="space-y-1">
+          <button onclick="backToMainDashboard()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-xs font-bold mb-2 inline-flex items-center">
+            <i class="fa-solid fa-arrow-left mr-1"></i> ড্যাশবোর্ডে ফিরে যান
           </button>
+          <h2 id="profileCompanyName" class="text-xl font-extrabold">সাপ্লায়ার নাম</h2>
+          <p id="profileMetaInfo" class="text-xs text-emerald-200">ইউনিক আইডি: SUP-001 | টাইপ: Direct Company | ফোন: 017XXXXXXXX</p>
+        </div>
+        <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right">
+          <p class="text-[11px] text-emerald-200">বর্তমান মোট বকেয়া</p>
+          <p id="profileTotalDueAmount" class="text-lg font-extrabold text-white">৳ 0</p>
         </div>
       </div>
 
-      <!-- Invoices Table -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="bg-gray-50 border-b text-gray-500">
-              <th class="p-2.5">চালান নম্বর</th>
-              <th class="p-2.5">তারিখ</th>
-              <th class="p-2.5">সাপ্লায়ার</th>
-              <th class="p-2.5 text-right">মোট বিল</th>
-              <th class="p-2.5 text-right">পরিশোধিত</th>
-              <th class="p-2.5 text-right">বকেয়া</th>
-              <th class="p-2.5 text-center">স্ট্যাটাস</th>
-              <th class="p-2.5 text-center">অ্যাকশন (পেমেন্ট দিন)</th>
-            </tr>
-          </thead>
-          <tbody id="invoicesTableBody">
-            <tr>
-              <td colspan="8" class="text-center py-6 text-gray-400">চালানের তথ্য লোড হচ্ছে...</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Profile Grid Details -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Bank Details Card -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2">
+          <h4 class="font-bold text-xs text-emerald-700 border-b pb-1.5"><i class="fa-solid fa-building-columns mr-1"></i> ব্যাংক ও পেমেন্ট ডিটেইলস</h4>
+          <div id="profileBankDetails" class="text-xs text-gray-600 space-y-1">
+            <p>মেথড: নগদ (Cash)</p>
+          </div>
+        </div>
+        <!-- Contact & General Info -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2 md:col-span-2">
+          <h4 class="font-bold text-xs text-emerald-700 border-b pb-1.5"><i class="fa-solid fa-address-book mr-1"></i> সাপ্লায়ার ইনফরমেশন</h4>
+          <div id="profileGeneralInfo" class="text-xs text-gray-600 grid grid-cols-2 gap-2">
+            <p>মোবাইল: <strong>N/A</strong></p>
+            <p>রেজিস্ট্রেশন তারিখ: <strong>N/A</strong></p>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <!-- SUPPLIER PAYMENT HISTORY & INVOICES SECTION -->
-    <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-      <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">
-        <i class="fa-solid fa-file-invoice-dollar mr-1"></i> সাপ্লায়ার পেমেন্ট ইতিহাস ও ইনভয়েসসমূহ (Payment Vouchers)
-      </h3>
+      <!-- Supplier's Products List -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+        <h4 class="font-bold text-xs text-emerald-700 border-b pb-2"><i class="fa-solid fa-boxes-stacked mr-1"></i> এই সাপ্লায়ারের আওতাধীন পণ্যসমূহ (Products List)</h4>
+        <div id="profileProductsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto pr-1">
+          <p class="text-xs text-gray-400 col-span-3 text-center py-4">কোনো পণ্য পাওয়া যায়নি।</p>
+        </div>
+      </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="bg-gray-50 border-b text-gray-500">
-              <th class="p-2.5">ভাউচার আইডি</th>
-              <th class="p-2.5">তারিখ</th>
-              <th class="p-2.5">সাপ্লায়ার নাম</th>
-              <th class="p-2.5">চালান আইডি</th>
-              <th class="p-2.5 text-center">মেথড</th>
-              <th class="p-2.5 text-right">পরিমাণ</th>
-              <th class="p-2.5 text-center">ইনভয়েস / প্রমাণ ভিউ</th>
-            </tr>
-          </thead>
-          <tbody id="paymentHistoryTableBody">
-            <tr>
-              <td colspan="7" class="text-center py-6 text-gray-400">পেমেন্ট ইতিহাস লোড হচ্ছে...</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Unpaid Invoices List -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+        <h4 class="font-bold text-xs text-emerald-700 border-b pb-2"><i class="fa-solid fa-file-invoice-dollar mr-1"></i> সকল বকেয়া চালানসমূহ (Unpaid Invoices)</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-50 border-b text-gray-500">
+                <th class="p-2.5">চালান নম্বর</th>
+                <th class="p-2.5">তারিখ</th>
+                <th class="p-2.5 text-right">মোট বিল</th>
+                <th class="p-2.5 text-right">পরিশোধিত</th>
+                <th class="p-2.5 text-right">বকেয়া</th>
+                <th class="p-2.5 text-center">অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="profileUnpaidTableBody">
+              <tr><td colspan="6" class="text-center py-4 text-gray-400">বকেয়া চালান নেই।</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Last 6 Months Paid Invoices -->
+      <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
+        <h4 class="font-bold text-xs text-emerald-700 border-b pb-2"><i class="fa-solid fa-clock-rotate-left mr-1"></i> গত ৬ মাসের পরিশোধিত পেমেন্ট ও ইনভয়েসসমূহ (Last 6 Months Paid Invoices)</h4>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-50 border-b text-gray-500">
+                <th class="p-2.5">ভাউচার আইডি</th>
+                <th class="p-2.5">তারিখ</th>
+                <th class="p-2.5">চালান আইডি</th>
+                <th class="p-2.5 text-center">মেথড</th>
+                <th class="p-2.5 text-right">পরিমাণ</th>
+                <th class="p-2.5 text-center">ইনভয়েস ভিউ</th>
+              </tr>
+            </thead>
+            <tbody id="profilePaidTableBody">
+              <tr><td colspan="6" class="text-center py-4 text-gray-400">কোনো পরিশোধিত পেমেন্ট রেকর্ড নেই।</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -255,12 +279,19 @@
 
         <div>
           <label class="text-xs text-gray-600 block mb-1">পেমেন্ট মেথড (Payment Method) *</label>
-          <select id="payModalMethod" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <select id="payModalMethod" onchange="onPaymentMethodModalChange()" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             <option value="Cash">Cash (নগদ)</option>
             <option value="Bank Transfer">Bank Transfer (ব্যাংক ডিরেক্ট)</option>
             <option value="Mobile Banking">Mobile Banking (বিকাশ/নগদ)</option>
             <option value="Cheque">Cheque (চেক)</option>
           </select>
+        </div>
+
+        <!-- Automatic Bank Details Box when Bank Transfer is selected -->
+        <div id="modalBankInfoBox" class="hidden bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs space-y-1">
+          <p class="font-bold text-blue-800"><i class="fa-solid fa-building-columns mr-1"></i> সাপ্লায়ারের ব্যাংক অ্যাকাউন্ট (BRAC / Bank):</p>
+          <p id="modalBankNameDisplay" class="text-gray-700 font-semibold">ব্যাংক: N/A</p>
+          <p id="modalBankAccountDisplay" class="text-gray-700 font-mono">অ্যাকাউন্ট: N/A</p>
         </div>
 
         <div>
@@ -292,13 +323,12 @@
     let suppliersData = [];
     let invoicesData = [];
     let paymentsData = [];
-    let activeSupplierFilter = 'ALL';
+    let productsData = [];
+    let currentSelectedSupplier = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
-        loadSuppliersData();
-        loadInvoicesAndPayments();
-        loadPaymentHistory();
+        loadAllData();
       }, 600);
 
       // Payment Proof Compression (< 50KB) Handler
@@ -372,8 +402,10 @@
         const thirdPartyName = category === 'Third Party' ? document.getElementById('suppThirdPartyName').value.trim() : '';
         const bankName = payMethod === 'Bank' ? document.getElementById('suppBankName').value.trim() : 'Cash';
         const bankAccount = payMethod === 'Bank' ? document.getElementById('suppBankAccount').value.trim() : '';
+        const uniqueId = document.getElementById('suppUniqueId').value.trim();
 
         const supplierData = {
+          uniqueId: uniqueId,
           companyName: document.getElementById('suppName').value.trim(),
           supplierCategory: category,
           dealerName: dealerName,
@@ -398,7 +430,7 @@
             toggleCategorySpecificFields();
             toggleBankNameInput();
           }
-          loadSuppliersData();
+          loadAllData();
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
 
@@ -430,11 +462,26 @@
           await addDoc(collection(db, "supplier_payments"), paymentRecord);
           alert(`৳ ${amount} পেমেন্ট সফলভাবে প্রদান করা হয়েছে! ইনভয়েস জেনারেট হয়েছে।`);
           closePaymentModal();
-          loadInvoicesAndPayments();
-          loadPaymentHistory();
+          loadAllData();
+          if(currentSelectedSupplier) {
+            openSupplierProfile(currentSelectedSupplier.id);
+          }
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
     });
+
+    // Auto Generate Unique Sequential Supplier ID (SUP-001, SUP-002...)
+    function generateUniqueSupplierId() {
+      let maxNum = 0;
+      suppliersData.forEach(s => {
+        if(s.uniqueId && s.uniqueId.startsWith('SUP-')) {
+          let num = parseInt(s.uniqueId.replace('SUP-', ''), 10);
+          if(!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+      let nextId = maxNum + 1;
+      return 'SUP-' + String(nextId).padStart(3, '0');
+    }
 
     // Toggle Category Specific Fields (Dealer / Third Party)
     window.toggleCategorySpecificFields = function() {
@@ -481,41 +528,22 @@
       }
     };
 
-    // Fetch Suppliers
-    async function loadSuppliersData() {
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
-      const container = document.getElementById('supplierProfilesGrid');
-      if(!db) return;
-
-      try {
-        const querySnapshot = await getDocs(collection(db, "suppliers"));
-        suppliersData = [];
-
-        querySnapshot.forEach(docSnap => {
-          suppliersData.push({ id: docSnap.id, ...docSnap.data() });
-        });
-
-        if (suppliersData.length === 0) {
-          container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-4">কোনো সাপ্লায়ার প্রোফাইল পাওয়া যায়নি।</p>`;
-          return;
-        }
-
-        renderSupplierProfiles(suppliersData);
-      } catch (err) { console.error(err); }
-    }
-
-    // Fetch Stock-In Invoices and Payments
-    async function loadInvoicesAndPayments() {
+    // Fetch All Data (Suppliers, Invoices, Payments, Products)
+    async function loadAllData() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
       if(!db) return;
 
       try {
-        const [stockSnap, paySnap] = await Promise.all([
+        const [supSnap, stockSnap, paySnap, prodSnap] = await Promise.all([
+          getDocs(collection(db, "suppliers")),
           getDocs(collection(db, "stock_in_history")),
-          getDocs(collection(db, "supplier_payments"))
+          getDocs(collection(db, "supplier_payments")),
+          getDocs(collection(db, "products"))
         ]);
+
+        suppliersData = [];
+        supSnap.forEach(d => suppliersData.push({ id: d.id, ...d.data() }));
 
         invoicesData = [];
         stockSnap.forEach(d => invoicesData.push({ id: d.id, ...d.data() }));
@@ -523,54 +551,286 @@
         paymentsData = [];
         paySnap.forEach(d => paymentsData.push({ id: d.id, ...d.data() }));
 
+        productsData = [];
+        prodSnap.forEach(d => productsData.push({ id: d.id, ...d.data() }));
+
+        // Set auto ID for new form
+        document.getElementById('suppUniqueId').value = generateUniqueSupplierId();
+
         renderSupplierProfiles(suppliersData);
-        renderInvoicesTable(activeSupplierFilter);
       } catch (err) { console.error(err); }
     }
 
-    // Load Payment History Table
-    async function loadPaymentHistory() {
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
-      const tbody = document.getElementById('paymentHistoryTableBody');
-      if(!db) return;
+    // Render Supplier Profile Cards
+    function renderSupplierProfiles(list) {
+      const container = document.getElementById('supplierProfilesGrid');
+      if(list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-4">কোনো সাপ্লায়ার পাওয়া যায়নি।</p>`;
+        return;
+      }
 
-      try {
-        const querySnapshot = await getDocs(collection(db, "supplier_payments"));
-        paymentsData = [];
-        querySnapshot.forEach(docSnap => {
-          paymentsData.push({ id: docSnap.id, ...docSnap.data() });
-        });
+      let supplierStats = {};
+      suppliersData.forEach(s => {
+        supplierStats[s.companyName] = { totalBill: 0, totalPaid: 0, count: 0 };
+      });
 
-        if(paymentsData.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-gray-400">কোনো পেমেন্ট রেকর্ড পাওয়া যায়নি।</td></tr>`;
-          return;
+      invoicesData.forEach(inv => {
+        if(supplierStats[inv.supplier]) {
+          supplierStats[inv.supplier].totalBill += Number(inv.totalCost || 0);
+          supplierStats[inv.supplier].count += 1;
         }
+      });
 
-        paymentsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      paymentsData.forEach(p => {
+        if(supplierStats[p.supplier]) {
+          supplierStats[p.supplier].totalPaid += Number(p.amount || 0);
+        }
+      });
 
-        let html = '';
-        paymentsData.forEach(p => {
+      let html = '';
+      list.forEach(sup => {
+        const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
+        const due = stats.totalBill - stats.totalPaid;
+        const supCode = sup.uniqueId || 'SUP-000';
+        
+        let subDetails = sup.supplierCategory;
+        if(sup.supplierCategory === 'Dealer' && sup.dealerName) subDetails = `ডিলার: ${sup.dealerName}`;
+        if(sup.supplierCategory === 'Third Party' && sup.thirdPartyName) subDetails = `থার্ড পার্টি: ${sup.thirdPartyName}`;
+
+        const paymentDisplay = sup.paymentMethod === 'Bank' ? `ব্যাংক: ${sup.bankName} (A/C: ${sup.bankAccount})` : 'ক্যাশ (নগদ)';
+
+        html += `
+          <div class="bg-gray-50 p-3.5 rounded-xl border transition hover:border-emerald-500 hover:shadow-sm text-xs space-y-1.5">
+            <div class="flex justify-between items-center cursor-pointer" onclick="openSupplierProfile('${sup.id}')">
+              <span class="font-bold text-gray-800 text-sm hover:text-emerald-700 underline">${sup.companyName}</span>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${supCode}</span>
+            </div>
+            <p class="text-gray-500 text-[11px] cursor-pointer" onclick="openSupplierProfile('${sup.id}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | পেমেন্ট: <strong>${paymentDisplay}</strong></p>
+            <p class="text-gray-400 text-[10px]">টাইপ: <strong>${subDetails}</strong> | মোট চালান: <strong>${stats.count} টি</strong></p>
+            <div class="pt-1.5 border-t flex justify-between font-bold items-center">
+              <span class="text-gray-500">মোট বকেয়া: <strong class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</strong></span>
+              <div class="space-x-1">
+                <button onclick="openSupplierProfile('${sup.id}')" class="bg-emerald-600 text-white px-2 py-1 rounded font-bold hover:bg-emerald-700" title="প্রোফাইল দেখুন"><i class="fa-solid fa-eye"></i> প্রফাইল</button>
+                <button onclick="editSupplier('${sup.id}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100" title="এডিট"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button onclick="deleteSupplier('${sup.id}')" class="bg-red-50 text-red-500 px-2 py-1 rounded font-bold hover:bg-red-100" title="ডিলিট"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // Open Supplier Profile Page
+    window.openSupplierProfile = function(supId) {
+      const sup = suppliersData.find(s => s.id === supId);
+      if(!sup) return;
+      currentSelectedSupplier = sup;
+
+      document.getElementById('mainDashboardView').classList.add('hidden');
+      document.getElementById('supplierProfilePageView').classList.remove('hidden');
+
+      document.getElementById('profileCompanyName').innerText = sup.companyName;
+      document.getElementById('profileMetaInfo').innerText = `ইউনিক আইডি: ${sup.uniqueId || 'SUP-001'} | টাইপ: ${sup.supplierCategory} | ফোন: ${sup.contactNumber || 'N/A'}`;
+
+      // Bank Details
+      let bankHtml = `<p>মেথড: <strong>${sup.paymentMethod}</strong></p>`;
+      if(sup.paymentMethod === 'Bank') {
+        bankHtml += `
+          <p>ব্যাংকের নাম: <strong class="text-emerald-700">${sup.bankName}</strong></p>
+          <p>অ্যাকাউন্ট নম্বর: <strong class="font-mono text-blue-700">${sup.bankAccount}</strong></p>
+        `;
+      } else {
+        bankHtml += `<p class="text-gray-400">কোনো ব্যাংক অ্যাকাউন্ট যুক্ত করা নেই (ক্যাশ লেনদেন)।</p>`;
+      }
+      document.getElementById('profileBankDetails').innerHTML = bankHtml;
+
+      // General Info
+      let subInfo = sup.supplierCategory;
+      if(sup.supplierCategory === 'Dealer' && sup.dealerName) subInfo += ` (${sup.dealerName})`;
+      if(sup.supplierCategory === 'Third Party' && sup.thirdPartyName) subInfo += ` (${sup.thirdPartyName})`;
+      
+      const regDate = sup.createdAt ? new Date(sup.createdAt).toLocaleDateString('bn-BD') : 'N/A';
+      document.getElementById('profileGeneralInfo').innerHTML = `
+        <p>মোবাইল নম্বর: <strong>${sup.contactNumber || 'N/A'}</strong></p>
+        <p>সাপ্লায়ার ক্যাটাগরি: <strong>${subInfo}</strong></p>
+        <p>রেজিস্ট্রেশন তারিখ: <strong>${regDate}</strong></p>
+        <p>পেমেন্ট মেথড: <strong>${sup.paymentMethod}</strong></p>
+      `;
+
+      // Products List for this Supplier
+      const supProducts = productsData.filter(p => p.supplier === sup.companyName);
+      const prodContainer = document.getElementById('profileProductsContainer');
+      if(supProducts.length === 0) {
+        prodContainer.innerHTML = `<p class="text-xs text-gray-400 col-span-3 text-center py-4">এই সাপ্লায়ারের কোনো পণ্য তালিকাভুক্ত নেই।</p>`;
+      } else {
+        let pHtml = '';
+        supProducts.forEach(prod => {
+          pHtml += `
+            <div class="flex items-center space-x-2.5 bg-gray-50 p-2.5 rounded-xl border">
+              <img src="${prod.image}" class="w-10 h-10 object-cover rounded-lg border">
+              <div>
+                <p class="font-bold text-gray-800 text-xs">${prod.name}</p>
+                <p class="text-[10px] text-gray-500">MRP: ৳${prod.mrp} | TP: ৳${prod.tp} | Stock: ${prod.stock || 0}</p>
+              </div>
+            </div>
+          `;
+        });
+        prodContainer.innerHTML = pHtml;
+      }
+
+      // Invoice & Payment Calculations
+      let invoicePaidMap = {};
+      paymentsData.forEach(p => {
+        invoicePaidMap[p.invoiceNo] = (invoicePaidMap[p.invoiceNo] || 0) + Number(p.amount || 0);
+      });
+
+      const supInvoices = invoicesData.filter(i => i.supplier === sup.companyName);
+      let totalDueSum = 0;
+
+      let unpaidHtml = '';
+      let hasUnpaid = false;
+
+      supInvoices.forEach(inv => {
+        const totalBill = Number(inv.totalCost || 0);
+        const paid = invoicePaidMap[inv.invoiceNo] || 0;
+        const due = totalBill - paid;
+        const dateStr = inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('bn-BD') : 'N/A';
+
+        if(due > 0) {
+          hasUnpaid = true;
+          totalDueSum += due;
+          unpaidHtml += `
+            <tr class="border-b hover:bg-gray-50">
+              <td class="p-2.5 font-bold text-emerald-700">${inv.invoiceNo}</td>
+              <td class="p-2.5 text-gray-500">${dateStr}</td>
+              <td class="p-2.5 text-right font-bold">৳ ${totalBill}</td>
+              <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}</td>
+              <td class="p-2.5 text-right text-red-600 font-bold">৳ ${due}</td>
+              <td class="p-2.5 text-center">
+                <button onclick="openPaymentModal('${inv.invoiceNo}', '${sup.companyName}', ${due})" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow">
+                  <i class="fa-solid fa-dollar-sign mr-1"></i> পেমেন্ট দিন
+                </button>
+              </td>
+            </tr>
+          `;
+        }
+      });
+
+      if(!hasUnpaid) {
+        unpaidHtml = `<tr><td colspan="6" class="text-center py-4 text-emerald-600 font-bold">কোনো বকেয়া চালান নেই (সব পরিশোধিত)।</td></tr>`;
+      }
+      document.getElementById('profileUnpaidTableBody').innerHTML = unpaidHtml;
+      document.getElementById('profileTotalDueAmount').innerText = `৳ ${totalDueSum}`;
+
+      // Last 6 Months Paid Invoices (Payment Vouchers)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const supPayments = paymentsData.filter(p => p.supplier === sup.companyName && new Date(p.createdAt) >= sixMonthsAgo);
+      supPayments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      let paidHtml = '';
+      if(supPayments.length === 0) {
+        paidHtml = `<tr><td colspan="6" class="text-center py-4 text-gray-400">গত ৬ মাসের মধ্যে কোনো পেমেন্ট রেকর্ড নেই।</td></tr>`;
+      } else {
+        supPayments.forEach(p => {
           const dateStr = new Date(p.createdAt).toLocaleString('bn-BD');
-          html += `
+          paidHtml += `
             <tr class="border-b hover:bg-gray-50">
               <td class="p-2.5 font-bold text-emerald-700">${p.voucherNo}</td>
               <td class="p-2.5 text-gray-500">${dateStr}</td>
-              <td class="p-2.5 font-semibold text-gray-800">${p.supplier}</td>
               <td class="p-2.5 font-mono text-blue-600">${p.invoiceNo}</td>
               <td class="p-2.5 text-center">${p.method}</td>
               <td class="p-2.5 text-right font-extrabold text-emerald-700">৳ ${p.amount}</td>
               <td class="p-2.5 text-center">
-                <button onclick='viewPaymentInvoice(${JSON.stringify(p)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100" title="ইনভয়েস দেখুন ও প্রিন্ট করুন">
+                <button onclick='viewPaymentInvoice(${JSON.stringify(p)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100">
                   <i class="fa-solid fa-print"></i> ইনভয়েস ভিউ
                 </button>
               </td>
             </tr>
           `;
         });
-        tbody.innerHTML = html;
-      } catch(err) { console.error(err); }
-    }
+      }
+      document.getElementById('profilePaidTableBody').innerHTML = paidHtml;
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.backToMainDashboard = function() {
+      currentSelectedSupplier = null;
+      document.getElementById('supplierProfilePageView').classList.add('hidden');
+      document.getElementById('mainDashboardView').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Filter Supplier Profiles via Search Bar
+    window.filterSupplierProfiles = function() {
+      const query = document.getElementById('supplierSearchInput').value.toLowerCase().trim();
+      const filtered = suppliersData.filter(s => 
+        s.companyName.toLowerCase().includes(query) || 
+        (s.uniqueId && s.uniqueId.toLowerCase().includes(query)) ||
+        (s.contactNumber && s.contactNumber.includes(query)) ||
+        (s.dealerName && s.dealerName.toLowerCase().includes(query)) ||
+        (s.thirdPartyName && s.thirdPartyName.toLowerCase().includes(query))
+      );
+      renderSupplierProfiles(filtered);
+    };
+
+    // Edit Supplier
+    window.editSupplier = function(id) {
+      const sup = suppliersData.find(s => s.id === id);
+      if(!sup) return;
+
+      document.getElementById('editSupplierId').value = sup.id;
+      document.getElementById('suppUniqueId').value = sup.uniqueId || generateUniqueSupplierId();
+      document.getElementById('suppName').value = sup.companyName;
+      document.getElementById('suppCategory').value = sup.supplierCategory || 'Direct Company';
+      
+      toggleCategorySpecificFields();
+      if(sup.supplierCategory === 'Dealer') {
+        document.getElementById('suppDealerName').value = sup.dealerName || '';
+      } else if(sup.supplierCategory === 'Third Party') {
+        document.getElementById('suppThirdPartyName').value = sup.thirdPartyName || '';
+      }
+
+      document.getElementById('suppPhone').value = sup.contactNumber;
+      document.getElementById('suppPaymentMethod').value = sup.paymentMethod || 'Cash';
+      
+      toggleBankNameInput();
+      if(sup.paymentMethod === 'Bank') {
+        document.getElementById('suppBankName').value = sup.bankName || '';
+        document.getElementById('suppBankAccount').value = sup.bankAccount || '';
+      }
+
+      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> সাপ্লায়ার এডিট করুন`;
+      document.getElementById('saveSupplierBtn').innerText = "পরিবর্তন সংরক্ষণ করুন";
+      document.getElementById('cancelSupplierEditBtn').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.resetSupplierForm = function() {
+      document.getElementById('addSupplierForm').reset();
+      document.getElementById('editSupplierId').value = "";
+      document.getElementById('suppUniqueId').value = generateUniqueSupplierId();
+      toggleCategorySpecificFields();
+      toggleBankNameInput();
+      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন`;
+      document.getElementById('saveSupplierBtn').innerText = "সাপ্লায়ার সেভ করুন";
+      document.getElementById('cancelSupplierEditBtn').classList.add('hidden');
+    };
+
+    // Delete Supplier
+    window.deleteSupplier = async function(id) {
+      if(!confirm("সাপ্লায়ারটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+      try {
+        await deleteDoc(doc(db, "suppliers", id));
+        alert("সাপ্লায়ার সফলভাবে ডিলিট করা হয়েছে!");
+        loadAllData();
+      } catch(err) { alert("ত্রুটি: " + err.message); }
+    };
 
     // View Payment Invoice with Full-View Proof Slip Option
     window.viewPaymentInvoice = function(p) {
@@ -633,215 +893,42 @@
       printWin.document.close();
     };
 
-    // Render Supplier Profile Cards
-    function renderSupplierProfiles(list) {
-      const container = document.getElementById('supplierProfilesGrid');
-      if(list.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-4">কোনো সাপ্লায়ার পাওয়া যায়নি।</p>`;
-        return;
-      }
-
-      let supplierStats = {};
-      suppliersData.forEach(s => {
-        supplierStats[s.companyName] = { totalBill: 0, totalPaid: 0, count: 0 };
-      });
-
-      invoicesData.forEach(inv => {
-        if(supplierStats[inv.supplier]) {
-          supplierStats[inv.supplier].totalBill += Number(inv.totalCost || 0);
-          supplierStats[inv.supplier].count += 1;
-        }
-      });
-
-      paymentsData.forEach(p => {
-        if(supplierStats[p.supplier]) {
-          supplierStats[p.supplier].totalPaid += Number(p.amount || 0);
-        }
-      });
-
-      let html = '';
-      list.forEach(sup => {
-        const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
-        const due = stats.totalBill - stats.totalPaid;
-        const isSelected = activeSupplierFilter === sup.companyName;
-        
-        let subDetails = sup.supplierCategory;
-        if(sup.supplierCategory === 'Dealer' && sup.dealerName) subDetails = `ডিলার: ${sup.dealerName}`;
-        if(sup.supplierCategory === 'Third Party' && sup.thirdPartyName) subDetails = `থার্ড পার্টি: ${sup.thirdPartyName}`;
-
-        const paymentDisplay = sup.paymentMethod === 'Bank' ? `ব্যাংক: ${sup.bankName} (A/C: ${sup.bankAccount})` : 'ক্যাশ (নগদ)';
-
-        html += `
-          <div class="bg-gray-50 p-3.5 rounded-xl border transition hover:border-emerald-500 ${isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/40' : ''} text-xs space-y-1.5">
-            <div class="flex justify-between items-center cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')">
-              <span class="font-bold text-gray-800 text-sm">${sup.companyName}</span>
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${subDetails}</span>
-            </div>
-            <p class="text-gray-500 text-[11px] cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | পেমেন্ট: <strong>${paymentDisplay}</strong></p>
-            <p class="text-gray-400 text-[10px]">মোট চালান: <strong>${stats.count} টি</strong></p>
-            <div class="pt-1.5 border-t flex justify-between font-bold items-center">
-              <span class="text-gray-500">মোট বকেয়া: <strong class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</strong></span>
-              <div class="space-x-1">
-                <button onclick="editSupplier('${sup.id}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100" title="এডিট"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="deleteSupplier('${sup.id}')" class="bg-red-50 text-red-500 px-2 py-1 rounded font-bold hover:bg-red-100" title="ডিলিট"><i class="fa-solid fa-trash"></i></button>
-              </div>
-            </div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
-    }
-
-    // Filter Supplier Profiles via Search Bar
-    window.filterSupplierProfiles = function() {
-      const query = document.getElementById('supplierSearchInput').value.toLowerCase().trim();
-      const filtered = suppliersData.filter(s => 
-        s.companyName.toLowerCase().includes(query) || 
-        (s.contactNumber && s.contactNumber.includes(query)) ||
-        (s.dealerName && s.dealerName.toLowerCase().includes(query)) ||
-        (s.thirdPartyName && s.thirdPartyName.toLowerCase().includes(query))
-      );
-      renderSupplierProfiles(filtered);
-    };
-
-    // Edit Supplier
-    window.editSupplier = function(id) {
-      const sup = suppliersData.find(s => s.id === id);
-      if(!sup) return;
-
-      document.getElementById('editSupplierId').value = sup.id;
-      document.getElementById('suppName').value = sup.companyName;
-      document.getElementById('suppCategory').value = sup.supplierCategory || 'Direct Company';
-      
-      toggleCategorySpecificFields();
-      if(sup.supplierCategory === 'Dealer') {
-        document.getElementById('suppDealerName').value = sup.dealerName || '';
-      } else if(sup.supplierCategory === 'Third Party') {
-        document.getElementById('suppThirdPartyName').value = sup.thirdPartyName || '';
-      }
-
-      document.getElementById('suppPhone').value = sup.contactNumber;
-      document.getElementById('suppPaymentMethod').value = sup.paymentMethod || 'Cash';
-      
-      toggleBankNameInput();
-      if(sup.paymentMethod === 'Bank') {
-        document.getElementById('suppBankName').value = sup.bankName || '';
-        document.getElementById('suppBankAccount').value = sup.bankAccount || '';
-      }
-
-      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> সাপ্লায়ার এডিট করুন`;
-      document.getElementById('saveSupplierBtn').innerText = "পরিবর্তন সংরক্ষণ করুন";
-      document.getElementById('cancelSupplierEditBtn').classList.remove('hidden');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    window.resetSupplierForm = function() {
-      document.getElementById('addSupplierForm').reset();
-      document.getElementById('editSupplierId').value = "";
-      toggleCategorySpecificFields();
-      toggleBankNameInput();
-      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন`;
-      document.getElementById('saveSupplierBtn').innerText = "সাপ্লায়ার সেভ করুন";
-      document.getElementById('cancelSupplierEditBtn').classList.add('hidden');
-    };
-
-    // Delete Supplier
-    window.deleteSupplier = async function(id) {
-      if(!confirm("সাপ্লায়ারটি ডিলিট করতে চান?")) return;
-      const db = window.firebaseDb;
-      const { doc, deleteDoc } = window.firebaseServices;
-      try {
-        await deleteDoc(doc(db, "suppliers", id));
-        alert("সাপ্লায়ার সফলভাবে ডিলিট করা হয়েছে!");
-        loadSuppliersData();
-      } catch(err) { alert("ত্রুটি: " + err.message); }
-    };
-
-    // Filter Invoices when clicking a Supplier Profile Card
-    window.filterInvoicesBySupplierProfile = function(supplierName) {
-      activeSupplierFilter = supplierName;
-      document.getElementById('selectedSupplierTitle').innerHTML = `<i class="fa-solid fa-receipt mr-1"></i> ${supplierName} - এর স্টক-ইন চালান ও পেমেন্ট`;
-      renderSupplierProfiles(suppliersData);
-      renderInvoicesTable(supplierName);
-    };
-
-    window.resetSupplierFilter = function() {
-      activeSupplierFilter = 'ALL';
-      document.getElementById('selectedSupplierTitle').innerHTML = `<i class="fa-solid fa-receipt mr-1"></i> স্টক-ইন চালানের তালিকা ও পেমেন্ট রিলিজ (সকল সাপ্লায়ার)`;
-      renderSupplierProfiles(suppliersData);
-      renderInvoicesTable('ALL');
-    };
-
-    // Render Invoices Table
-    function renderInvoicesTable(filterName = 'ALL') {
-      const tbody = document.getElementById('invoicesTableBody');
-      
-      let list = invoicesData;
-      if(filterName !== 'ALL') {
-        list = list.filter(i => i.supplier === filterName);
-      }
-
-      if(list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">এই সাপ্লায়ারের কোনো চালান পাওয়া যায়নি।</td></tr>`;
-        return;
-      }
-
-      let invoicePaidMap = {};
-      paymentsData.forEach(p => {
-        invoicePaidMap[p.invoiceNo] = (invoicePaidMap[p.invoiceNo] || 0) + Number(p.amount || 0);
-      });
-
-      list.sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-      let html = '';
-      list.forEach(inv => {
-        const totalBill = Number(inv.totalCost || 0);
-        const paid = invoicePaidMap[inv.invoiceNo] || 0;
-        const due = totalBill - paid;
-        const dateStr = inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('bn-BD') : 'N/A';
-
-        let badge = '<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Unpaid</span>';
-        if(due <= 0) badge = '<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Paid</span>';
-        else if(paid > 0) badge = '<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold">Partial</span>';
-
-        html += `
-          <tr class="border-b hover:bg-gray-50">
-            <td class="p-2.5 font-bold text-emerald-700">${inv.invoiceNo}</td>
-            <td class="p-2.5 text-gray-500">${dateStr}</td>
-            <td class="p-2.5 font-semibold text-gray-800">${inv.supplier}</td>
-            <td class="p-2.5 text-right font-bold">৳ ${totalBill}</td>
-            <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}</td>
-            <td class="p-2.5 text-right text-red-600 font-bold">৳ ${due > 0 ? due : 0}</td>
-            <td class="p-2.5 text-center">${badge}</td>
-            <td class="p-2.5 text-center">
-              ${due > 0 ? `
-                <button onclick="openPaymentModal('${inv.invoiceNo}', '${inv.supplier}', ${due})" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow">
-                  <i class="fa-solid fa-dollar-sign mr-1"></i> পেমেন্ট দিন
-                </button>
-              ` : `
-                <span class="text-emerald-600 font-bold text-xs"><i class="fa-solid fa-circle-check"></i> সম্পূর্ণ পরিশোধিত</span>
-              `}
-            </td>
-          </tr>
-        `;
-      });
-
-      tbody.innerHTML = html;
-    }
-
-    window.openPaymentModal = function(invoiceNo, supplier, due) {
+    // Payment Modal handling with Automatic Bank Details Display
+    window.openPaymentModal = function(invoiceNo, supplierName, due) {
       document.getElementById('payModalInvoiceNo').value = invoiceNo;
-      document.getElementById('payModalSupplier').value = supplier;
+      document.getElementById('payModalSupplier').value = supplierName;
       document.getElementById('modalInvoiceId').innerText = `চালান আইডি: ${invoiceNo}`;
-      document.getElementById('modalSupplierName').innerText = `সাপ্লায়ার: ${supplier}`;
+      document.getElementById('modalSupplierName').innerText = `সাপ্লায়ার: ${supplierName}`;
       document.getElementById('modalDueAmount').innerText = `বর্তমান বকেয়া: ৳ ${due}`;
       document.getElementById('payModalAmount').value = due;
       document.getElementById('payModalAmount').max = due;
+      document.getElementById('payModalMethod').value = "Cash";
       document.getElementById('payProofFile').value = "";
       document.getElementById('payProofBase64').value = "";
       document.getElementById('proofStatusText').innerText = "ছবি সিলেক্ট করলে স্বয়ংক্রিয়ভাবে ৫০ KB এর নিচে রিসাইজ হবে।";
 
+      // Check supplier's saved bank profile
+      const sup = suppliersData.find(s => s.companyName === supplierName);
+      if(sup && sup.paymentMethod === 'Bank' && sup.bankName) {
+        document.getElementById('modalBankNameDisplay').innerText = `ব্যাংক: ${sup.bankName}`;
+        document.getElementById('modalBankAccountDisplay').innerText = `অ্যাকাউন্ট: ${sup.bankAccount || 'N/A'}`;
+      } else {
+        document.getElementById('modalBankNameDisplay').innerText = `ব্যাংক: (এই সাপ্লায়ারের ব্যাংক অ্যাকাউন্ট যুক্ত করা নেই)`;
+        document.getElementById('modalBankAccountDisplay').innerText = `অ্যাকাউন্ট: N/A`;
+      }
+
+      onPaymentMethodModalChange();
       document.getElementById('paymentModal').classList.remove('hidden');
+    };
+
+    window.onPaymentMethodModalChange = function() {
+      const method = document.getElementById('payModalMethod').value;
+      const box = document.getElementById('modalBankInfoBox');
+      if(method === 'Bank Transfer') {
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+      }
     };
 
     window.closePaymentModal = function() {
