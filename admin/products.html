@@ -111,8 +111,8 @@
 
           <!-- Camera Scanner View Container (Hidden by default) -->
           <div id="scannerContainer" class="md:col-span-2 hidden bg-black p-2 rounded-xl relative">
-            <div id="reader" class="w-full"></div>
-            <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-1.5 rounded-lg text-xs">
+            <div id="reader" class="w-full overflow-hidden rounded-lg"></div>
+            <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-2 rounded-lg text-xs">
               Close Camera
             </button>
           </div>
@@ -402,7 +402,7 @@
       document.getElementById('imgOptimizeStatus').innerText = "Product image or URL is mandatory.";
     };
 
-    // Mobile Camera Barcode Scanner Functions (Updated with HD resolution & Autofocus)
+    // Mobile Camera Barcode Scanner Functions (Fixed Camera Initialization)
     window.startCameraScanner = function() {
       const container = document.getElementById('scannerContainer');
       container.classList.remove('hidden');
@@ -412,28 +412,26 @@
       }
 
       const config = { 
-        fps: 15, 
-        qrbox: { width: 280, height: 120 },
-        aspectRatio: 1.777778
+        fps: 10, 
+        qrbox: { width: 250, height: 100 }
       };
       
-      const cameraConfig = {
-        facingMode: "environment",
-        advanced: [{ focusMode: "continuous" }]
-      };
-
+      // Use standard environment facingMode configuration for wider device compatibility
       html5QrCode.start(
-        cameraConfig, 
+        { facingMode: "environment" }, 
         config, 
         (decodedText, decodedResult) => {
           document.getElementById('prodBarcode').value = decodedText;
           alert("Barcode scanned successfully: " + decodedText);
           stopCameraScanner();
         },
-        (errorMessage) => {}
+        (errorMessage) => {
+          // Scanning frame errors can be ignored silently
+        }
       ).catch((err) => {
+        // Fallback: Try starting with any available camera if environment camera fails
         html5QrCode.start(
-          { facingMode: "environment" },
+          { facingMode: "user" },
           config,
           (decodedText, decodedResult) => {
             document.getElementById('prodBarcode').value = decodedText;
@@ -442,7 +440,7 @@
           },
           (errorMessage) => {}
         ).catch((fallbackErr) => {
-          alert("Could not start camera: " + fallbackErr);
+          alert("Could not start camera. Please ensure camera permissions are allowed in your browser settings: " + fallbackErr);
           container.classList.add('hidden');
         });
       });
@@ -587,7 +585,7 @@
     }
 
     window.deleteProduct = async function(id) {
-      if(!confirm("Are you sure you want to delete this product?")) return;
+    if(!confirm("Are you sure you want to delete this product?")) return;
       const db = window.firebaseDb;
       const { doc, deleteDoc } = window.firebaseServices;
       try {
