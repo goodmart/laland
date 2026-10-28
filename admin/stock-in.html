@@ -153,6 +153,22 @@
 
   </main>
 
+  <!-- MEMO PREVIEW MODAL -->
+  <div id="memoModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-4 space-y-3 shadow-2xl relative">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-image mr-1"></i> Supplier Chalan / Memo Preview</h3>
+        <button onclick="closeMemoModal()" class="text-gray-500 hover:text-red-500 text-lg font-bold px-2">&times;</button>
+      </div>
+      <div class="text-center bg-gray-50 p-2 rounded-xl border max-h-[450px] overflow-auto flex items-center justify-center">
+        <img id="memoModalImg" src="" class="max-w-full rounded-lg shadow-inner object-contain" alt="Chalan Memo">
+      </div>
+      <div class="flex justify-end pt-2 border-t">
+        <button onclick="closeMemoModal()" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-300">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Script Logic -->
   <script>
     let productsList = [];
@@ -223,7 +239,7 @@
       document.getElementById('invoiceBadge').innerText = `Chalan ID: ${currentInvoiceNo}`;
     }
 
-    // Load Suppliers for Dropdown (Replacing 'Dealer' text with dealerName)
+    // Load Suppliers for Dropdown
     async function loadSuppliers() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -235,7 +251,6 @@
         let html = '<option value="">-- Select Supplier --</option>';
         querySnapshot.forEach(docSnap => {
           const sup = docSnap.data();
-          // Showing dealerName instead of 'Dealer'
           let dealerInfo = sup.dealerName ? ` [${sup.dealerName}]` : '';
           html += `<option value="${sup.companyName}">${sup.companyName}${dealerInfo}</option>`;
         });
@@ -264,7 +279,7 @@
       document.getElementById('productSuggestions').classList.add('hidden');
     };
 
-    // Live Search Filter for Products (Restricted to Selected Supplier and removing added items)
+    // Live Search Filter for Products
     window.filterProductDropdown = function() {
       const selectedSupplier = document.getElementById('stockSupplierSelect').value;
       if (!selectedSupplier) {
@@ -281,7 +296,6 @@
         return;
       }
 
-      // Filter products by selected supplier AND exclude items already present in the stockCart
       const addedProductIds = stockCart.map(item => item.id);
       const filtered = productsList.filter(p => {
         const matchSupplier = (p.supplier === selectedSupplier);
@@ -321,7 +335,6 @@
       document.getElementById('productSearchInput').value = '';
       document.getElementById('productSuggestions').classList.add('hidden');
 
-      // Add to cart directly
       stockCart.push({
         id: product.id,
         name: product.name,
@@ -562,8 +575,16 @@
                 <span class="text-gray-500">(Supplier: ${rec.supplier})</span>
                 <p class="text-[10px] text-gray-400">Date: ${dateStr}</p>
               </div>
-              <div class="flex items-center space-x-2">
-                <span class="font-extrabold text-emerald-700">৳ ${rec.totalCost}</span>
+              <div class="flex items-center space-x-1.5">
+                <span class="font-extrabold text-emerald-700 mr-1">৳ ${rec.totalCost}</span>
+                
+                <!-- View Chalan Memo Button -->
+                ${rec.chalanImage ? `
+                  <button onclick="viewMemoModal('${rec.chalanImage}')" class="bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 rounded-lg font-bold hover:bg-amber-100" title="View Chalan Memo">
+                    <i class="fa-solid fa-image"></i> Memo
+                  </button>
+                ` : ''}
+
                 <button onclick='printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-bold hover:bg-emerald-100" title="Print/View Invoice">
                   <i class="fa-solid fa-print"></i>
                 </button>
@@ -581,7 +602,17 @@
       } catch(err) { console.error(err); }
     }
 
-    // Print Stock-In Invoice / Memo
+    // View Memo Modal Functions
+    window.viewMemoModal = function(base64Img) {
+      document.getElementById('memoModalImg').src = base64Img;
+      document.getElementById('memoModal').classList.remove('hidden');
+    };
+
+    window.closeMemoModal = function() {
+      document.getElementById('memoModal').classList.add('hidden');
+    };
+
+    // Print Stock-In Invoice / Memo (Including Supplier Chalan Image Preview)
     window.printStockInvoice = function(rec) {
       const printWin = window.open('', '_blank');
       const itemsRows = rec.items.map(i => `
@@ -604,6 +635,8 @@
               table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
               th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
               .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
+              .memo-section { margin-top: 25px; text-align: center; page-break-inside: avoid; }
+              .memo-section img { max-width: 350px; max-height: 400px; border: 1px solid #ddd; padding: 5px; border-radius: 8px; }
             </style>
           </head>
           <body>
@@ -632,6 +665,13 @@
             <div class="total">
               Total Chalan Amount: ৳ ${rec.totalCost}
             </div>
+
+            ${rec.chalanImage ? `
+              <div class="memo-section">
+                <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Supplier Chalan / Memo Image:</p>
+                <img src="${rec.chalanImage}" alt="Supplier Chalan Memo">
+              </div>
+            ` : ''}
           </body>
         </html>
       `);
