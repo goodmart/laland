@@ -263,6 +263,19 @@
     </div>
   </div>
 
+  <!-- FULL SCREEN IMAGE PREVIEW MODAL -->
+  <div id="imagePreviewModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4">
+    <div class="relative max-w-3xl w-full bg-white rounded-2xl p-4 text-center">
+      <button onclick="closeImagePreview()" class="absolute top-3 right-3 text-gray-600 hover:text-black bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center font-bold">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h3 class="font-bold text-sm text-emerald-700 mb-2">পেমেন্ট প্রুফ / ব্যাংক স্লিপ (ফুল ভিউ)</h3>
+      <div class="flex justify-center overflow-auto max-h-[80vh]">
+        <img id="fullPreviewImage" src="" alt="Proof Slip" class="max-w-full rounded-lg border shadow-md">
+      </div>
+    </div>
+  </div>
+
   <!-- Script Logic -->
   <script>
     let suppliersData = [];
@@ -302,8 +315,8 @@
           const img = new Image();
           img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 400;
-            const MAX_HEIGHT = 400;
+            const MAX_WIDTH = 500;
+            const MAX_HEIGHT = 500;
             let width = img.width;
             let height = img.height;
 
@@ -510,16 +523,23 @@
       } catch(err) { console.error(err); }
     }
 
-    // View Payment Invoice with Proof Slip
+    // View Payment Invoice with Full-View Proof Slip Option
     window.viewPaymentInvoice = function(p) {
       const printWin = window.open('', '_blank');
       
       let proofHTML = '';
       if(p.proof) {
         if(p.proof.startsWith('data:application/pdf')) {
-          proofHTML = `<div style="margin-top:20px;"><p><strong>ব্যাংক স্লিপ / প্রমাণ (PDF):</strong></p><a href="${p.proof}" target="_blank" style="color: #047857; font-weight: bold;">ডাউনলোড বা ভিউ করুন (PDF ফাইল)</a></div>`;
+          proofHTML = `<div style="margin-top:20px;"><p><strong>ব্যাংক স্লিপ / প্রমাণ (PDF):</strong></p><a href="${p.proof}" target="_blank" style="color: #047857; font-weight: bold; font-size: 14px;">ডাউনলোড বা ভিউ করুন (PDF ফাইল)</a></div>`;
         } else {
-          proofHTML = `<div style="margin-top:20px;"><p><strong>ব্যাংক স্লিপ / পেমেন্টের প্রমাণ (Proof Slip):</strong></p><img src="${p.proof}" style="max-width:280px; border:1px solid #ccc; border-radius:6px; display:block; margin-top:5px;" /></div>`;
+          proofHTML = `
+            <div style="margin-top:20px;">
+              <p><strong>ব্যাংক স্লিপ / পেমেন্টের প্রমাণ (Proof Slip):</strong></p>
+              <div style="margin-top: 8px;">
+                <img src="${p.proof}" style="max-width:320px; border:1px solid #ccc; border-radius:6px; display:block; cursor:pointer;" onclick="const w=window.open('');w.document.write('<img src=\\'${p.proof}\\' style=\\'width:100%\\'/>');" title="ফটোতে ক্লিক করে বড় করুন" />
+                <span style="font-size: 11px; color: #047857; margin-top: 4px; display: inline-block;">*(ছবির উপর ক্লিক করলে ফুল সাইজে দেখতে পাবেন)*</span>
+              </div>
+            </div>`;
         }
       } else {
         proofHTML = `<div style="margin-top:20px; color: #777; font-style: italic;">এই পেমেন্টে কোনো ফাইল বা স্লিপ আপলোড করা হয়নি।</div>`;
