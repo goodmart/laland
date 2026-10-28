@@ -36,6 +36,16 @@
       collection, addDoc, getDocs, doc, updateDoc, deleteDoc
     };
   </script>
+
+  <!-- Immediate URL check script to hide dashboard instantly if profile URL is refreshed -->
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('id')) {
+        document.write('<style>#mainDashboardView { display: none !important; }</style>');
+      }
+    })();
+  </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
@@ -162,7 +172,7 @@
 
     </div>
 
-    <!-- SUPPLIER PROFILE VIEW CONTAINER (HIDDEN BY DEFAULT, SHOWN ON CLICK) -->
+    <!-- SUPPLIER PROFILE VIEW CONTAINER -->
     <div id="supplierProfilePageView" class="hidden space-y-6">
       <div class="bg-emerald-800 text-white p-5 rounded-2xl shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div class="space-y-1">
@@ -172,9 +182,16 @@
           <h2 id="profileCompanyName" class="text-xl font-extrabold">Supplier Name</h2>
           <p id="profileMetaInfo" class="text-xs text-emerald-200">ID: SUP-001 | Type: Direct Company | Phone: 017XXXXXXXX</p>
         </div>
-        <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right">
-          <p class="text-[11px] text-emerald-200">Current Total Due</p>
-          <p id="profileTotalDueAmount" class="text-lg font-extrabold text-white">৳ 0</p>
+        <div class="flex items-center gap-3">
+          <!-- Profile-Level Edit & Delete Buttons -->
+          <div class="space-x-1">
+            <button id="profileEditBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow" title="Edit Supplier"><i class="fa-solid fa-pen-to-square mr-1"></i> Edit</button>
+            <button id="profileDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow" title="Delete Supplier"><i class="fa-solid fa-trash mr-1"></i> Delete</button>
+          </div>
+          <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right">
+            <p class="text-[11px] text-emerald-200">Current Total Due</p>
+            <p id="profileTotalDueAmount" class="text-lg font-extrabold text-white">৳ 0</p>
+          </div>
         </div>
       </div>
 
@@ -335,7 +352,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
         loadAllData();
-      }, 600);
+      }, 400);
 
       // Handle browser back/forward buttons for URL query states
       window.addEventListener('popstate', () => {
@@ -581,7 +598,7 @@
 
         renderSupplierProfiles(suppliersData);
 
-        // Check if URL has a supplier ID parameter on load
+        // Check URL parameter right after data loads to open the profile immediately
         checkUrlParameterForProfile();
 
       } catch (err) { console.error(err); }
@@ -595,11 +612,16 @@
         const sup = suppliersData.find(s => s.uniqueId === supId || s.id === supId);
         if (sup) {
           openSupplierProfile(sup.id, false);
+        } else {
+          // If ID not found, reveal dashboard back
+          document.getElementById('mainDashboardView').classList.remove('hidden');
         }
+      } else {
+        document.getElementById('mainDashboardView').classList.remove('hidden');
       }
     }
 
-    // Render Supplier Profile Cards
+    // Render Supplier Profile Cards (Edit/Delete removed from dashboard)
     function renderSupplierProfiles(list) {
       const container = document.getElementById('supplierProfilesGrid');
       if(list.length === 0) {
@@ -647,11 +669,7 @@
             <p class="text-gray-400 text-[10px]">Type: <strong>${subDetails}</strong> | Total Invoices: <strong>${stats.count}</strong></p>
             <div class="pt-1.5 border-t flex justify-between font-bold items-center">
               <span class="text-gray-500">Total Due: <strong class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</strong></span>
-              <div class="space-x-1">
-                <button onclick="openSupplierProfile('${sup.id}')" class="bg-emerald-600 text-white px-2 py-1 rounded font-bold hover:bg-emerald-700" title="View Profile"><i class="fa-solid fa-eye"></i> Profile</button>
-                <button onclick="editSupplier('${sup.id}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100" title="Edit"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="deleteSupplier('${sup.id}')" class="bg-red-50 text-red-500 px-2 py-1 rounded font-bold hover:bg-red-100" title="Delete"><i class="fa-solid fa-trash"></i></button>
-              </div>
+              <button onclick="openSupplierProfile('${sup.id}')" class="bg-emerald-600 text-white px-3 py-1 rounded font-bold hover:bg-emerald-700" title="View Profile"><i class="fa-solid fa-eye mr-1"></i> View Profile</button>
             </div>
           </div>
         `;
@@ -686,6 +704,10 @@
 
       document.getElementById('mainDashboardView').classList.add('hidden');
       document.getElementById('supplierProfilePageView').classList.remove('hidden');
+
+      // Bind profile-level Edit and Delete buttons
+      document.getElementById('profileEditBtn').setAttribute('onclick', `editSupplier('${sup.id}')`);
+      document.getElementById('profileDeleteBtn').setAttribute('onclick', `deleteSupplier('${sup.id}')`);
 
       // Reset products list view to hidden by default on profile open
       document.getElementById('profileProductsContainer').classList.add('hidden');
@@ -847,6 +869,9 @@
       const sup = suppliersData.find(s => s.id === id);
       if(!sup) return;
 
+      // If we are in profile view, switch back to dashboard view form area
+      backToMainDashboard();
+
       document.getElementById('editSupplierId').value = sup.id;
       document.getElementById('suppUniqueId').value = sup.uniqueId || generateUniqueSupplierId();
       document.getElementById('suppName').value = sup.companyName;
@@ -893,6 +918,7 @@
       try {
         await deleteDoc(doc(db, "suppliers", id));
         alert("Supplier deleted successfully!");
+        backToMainDashboard();
         loadAllData();
       } catch(err) { alert("Error: " + err.message); }
     };
