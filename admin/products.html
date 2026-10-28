@@ -122,8 +122,8 @@
               </div>
 
               <div>
-                <input type="file" id="barcodeImageFile" accept="image/*" onchange="scanBarcodeFromFile(event)" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
-                <p id="barcodeScanStatus" class="text-[10px] text-gray-400 mt-0.5">Upload picture containing barcode to auto-extract number.</p>
+                <input type="file" id="barcodeImageFile" accept="image/*" capture="environment" onchange="scanBarcodeFromFile(event)" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                <p id="barcodeScanStatus" class="text-[10px] text-gray-400 mt-0.5">Upload picture or open camera to extract barcode.</p>
               </div>
             </div>
           </div>
@@ -170,14 +170,14 @@
             <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Product Picture Input Options -->
+          <!-- Product Picture Input Options (Supports Gallery & Direct Camera Capture) -->
           <div class="md:col-span-2 space-y-3 border p-3 rounded-xl bg-gray-50">
-            <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-image"></i> 7. Product Image (Upload file or provide image URL) *</label>
+            <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-image"></i> 7. Product Image (Capture camera, choose gallery file, or provide image URL) *</label>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label class="text-[11px] text-gray-600 block mb-0.5">Option A: Upload file from device</label>
-                <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none">
+                <label class="text-[11px] text-gray-600 block mb-0.5">Option A: Capture camera or choose from gallery</label>
+                <input type="file" id="prodImageFile" accept="image/*" capture="environment" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
               </div>
 
               <div>
@@ -194,7 +194,7 @@
               </div>
               <div>
                 <p id="imgOptimizeStatus" class="text-[11px] text-gray-500 font-semibold">Product image or URL is mandatory.</p>
-                <p class="text-[10px] text-gray-400">Provide a URL to see live preview in the box.</p>
+                <p class="text-[10px] text-gray-400">Provide a URL or snap/choose photo to see preview.</p>
               </div>
             </div>
           </div>
@@ -284,7 +284,7 @@
 
             document.getElementById('processedImageBase64').value = dataUrl;
             showPreview(dataUrl);
-            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ File optimized & preview loaded successfully.</span>`;
+            document.getElementById('imgOptimizeStatus').innerHTML = `<span class="text-emerald-600 font-bold">✓ Image captured/uploaded & optimized successfully.</span>`;
           }
           img.src = e.target.result;
         }
@@ -320,7 +320,7 @@
         }
 
         if(!imageValue && !editId) {
-          alert("Warning: Products cannot be saved without an image. Please upload an image or provide a direct image URL.");
+          alert("Warning: Products cannot be saved without an image. Please capture/upload an image or provide a direct image URL.");
           return;
         }
 
@@ -460,7 +460,7 @@
       document.getElementById('addProductForm').reset();
       document.getElementById('editProductId').value = "";
       document.getElementById('processedImageBase64').value = "";
-      document.getElementById('barcodeScanStatus').innerText = "Upload picture containing barcode to auto-extract number.";
+      document.getElementById('barcodeScanStatus').innerText = "Upload picture or open camera to extract barcode.";
       
       const previewImg = document.getElementById('imagePreview');
       const placeholder = document.getElementById('previewPlaceholder');
