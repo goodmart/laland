@@ -443,8 +443,7 @@
           await updateDoc(doc(db, "stock_in_history", editId), stockInRecord);
 
           for (const item of stockCart) {
-            const prodRef = doc(db, "products", String(item.id));
-            await updateDoc(prodRef, {
+            await updateDoc(doc(db, "products", String(item.id)), {
               stock: increment(item.qty),
               tp: item.tp
             });
@@ -468,8 +467,7 @@
           await addDoc(collection(db, "stock_in_history"), stockInRecord);
 
           for (const item of stockCart) {
-            const prodRef = doc(db, "products", String(item.id));
-            await updateDoc(prodRef, {
+            await updateDoc(doc(db, "products", String(item.id)), {
               stock: increment(item.qty),
               tp: item.tp
             });
