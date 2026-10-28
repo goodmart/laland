@@ -98,12 +98,11 @@
             <input type="text" id="prodName" required placeholder="e.g., Miniket Rice (5 kg)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Barcode Number (Manual / Scanner Gun / Mobile Camera / Upload Barcode Image) -->
+          <!-- Barcode Number -->
           <div class="md:col-span-2 space-y-2 border p-3 rounded-xl bg-gray-50">
             <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-barcode"></i> 2. Barcode Number (Scan live camera, upload barcode image, or type manually) *</label>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <!-- Text input & Live Camera Button -->
               <div class="flex space-x-2">
                 <input type="text" id="prodBarcode" required placeholder="Barcode number..." class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
                 <button type="button" onclick="startCameraScanner()" class="bg-emerald-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 whitespace-nowrap shadow">
@@ -111,7 +110,6 @@
                 </button>
               </div>
 
-              <!-- Option: Upload Barcode Image File to Extract Barcode -->
               <div>
                 <input type="file" id="barcodeImageFile" accept="image/*" onchange="scanBarcodeFromFile(event)" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
                 <p id="barcodeScanStatus" class="text-[10px] text-gray-400 mt-0.5">Upload picture containing barcode to auto-extract number.</p>
@@ -119,7 +117,7 @@
             </div>
           </div>
 
-          <!-- Camera Scanner View Container (Hidden by default) -->
+          <!-- Camera Scanner View Container -->
           <div id="scannerContainer" class="md:col-span-2 hidden bg-black p-2 rounded-xl relative">
             <div id="reader" class="w-full overflow-hidden rounded-lg bg-black"></div>
             <button type="button" onclick="stopCameraScanner()" class="mt-2 w-full bg-red-500 text-white font-bold py-2 rounded-lg text-xs">
@@ -161,18 +159,16 @@
             <input type="number" id="prodDiscountPrice" placeholder="360" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
 
-          <!-- Product Picture Input Options (Mandatory File Upload OR Image URL with Live Preview) -->
+          <!-- Product Picture Input Options -->
           <div class="md:col-span-2 space-y-3 border p-3 rounded-xl bg-gray-50">
             <label class="text-xs font-bold text-emerald-700 block"><i class="fa-solid fa-image"></i> 7. Product Image (Upload file or provide image URL) *</label>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <!-- Option A: File Upload -->
               <div>
                 <label class="text-[11px] text-gray-600 block mb-0.5">Option A: Upload file from device</label>
                 <input type="file" id="prodImageFile" accept="image/*" class="w-full px-3 py-1.5 border rounded-xl text-xs bg-white focus:outline-none">
               </div>
 
-              <!-- Option B: Image URL -->
               <div>
                 <label class="text-[11px] text-gray-600 block mb-0.5">Option B: Direct Image URL</label>
                 <input type="url" id="prodImageUrl" placeholder="https://example.com/image.jpg" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
@@ -192,7 +188,6 @@
             </div>
           </div>
 
-          <!-- Hidden field for processed base64 or final image URL -->
           <input type="hidden" id="processedImageBase64">
 
           <div class="md:col-span-2 pt-2">
@@ -206,10 +201,9 @@
       <!-- SUPPLIER-WISE PRODUCTS LIST SECTION -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
         <h4 class="text-xs font-bold text-emerald-700 border-b pb-2">
-          <i class="fa-solid fa-layer-group"></i> Supplier-wise Product List (with Edit & Delete options):
+          <i class="fa-solid fa-layer-group"></i> Supplier-wise Product List (with Current Stock, TP & MRP):
         </h4>
         <div id="adminProductList" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-          <!-- Loaded by JS -->
           <p class="text-xs text-gray-400 text-center py-4">Loading products...</p>
         </div>
       </div>
@@ -228,7 +222,6 @@
         loadProducts();
       }, 600);
 
-      // Helper function to show live preview
       function showPreview(srcText) {
         const previewImg = document.getElementById('imagePreview');
         const placeholder = document.getElementById('previewPlaceholder');
@@ -243,7 +236,6 @@
         }
       }
 
-      // Image File Resizing and Compression Handler
       document.getElementById('prodImageFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -288,7 +280,6 @@
         reader.readAsDataURL(file);
       });
 
-      // Handle Image URL input & Live Preview
       document.getElementById('prodImageUrl').addEventListener('input', function() {
         const urlVal = this.value.trim();
         if(urlVal !== '') {
@@ -303,7 +294,6 @@
         }
       });
 
-      // Add / Update Product Form Submit
       document.getElementById('addProductForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         stopCameraScanner();
@@ -318,7 +308,7 @@
           imageValue = imageUrlInput;
         }
 
-        if(!imageValue) {
+        if(!imageValue && !editId) {
           alert("Warning: Products cannot be saved without an image. Please upload an image or provide a direct image URL.");
           return;
         }
@@ -346,6 +336,7 @@
             resetProductForm();
           } else {
             productData.createdAt = new Date().toISOString();
+            productData.stock = 0; // Initialize stock as 0 for new products
             await addDoc(collection(db, "products"), productData);
             alert("Product added successfully!");
             document.getElementById('addProductForm').reset();
@@ -358,7 +349,6 @@
       });
     });
 
-    // Scan Barcode from Uploaded Image File
     window.scanBarcodeFromFile = function(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -381,7 +371,6 @@
         });
     };
 
-    // Edit Product Function
     window.editProduct = function(id) {
       const prod = productsDataStore[id];
       if(!prod) return;
@@ -417,7 +406,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Reset Form to Add Mode
     window.resetProductForm = function() {
       document.getElementById('addProductForm').reset();
       document.getElementById('editProductId').value = "";
@@ -436,7 +424,6 @@
       document.getElementById('imgOptimizeStatus').innerText = "Product image or URL is mandatory.";
     };
 
-    // Mobile Camera Barcode Scanner Functions
     window.startCameraScanner = async function() {
       const container = document.getElementById('scannerContainer');
       container.classList.remove('hidden');
@@ -494,7 +481,6 @@
       }
     };
 
-    // Load Suppliers for Dropdown
     async function loadSuppliersDropdown() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -523,7 +509,6 @@
       }
     }
 
-    // Add New Category Functionality
     window.addNewCategoryPrompt = function() {
       const newCatName = prompt("Enter new category name (e.g., Beverages / Cosmetics):");
       if(newCatName && newCatName.trim() !== "") {
@@ -548,7 +533,6 @@
       }
     };
 
-    // Load Added Products Grouped by Supplier
     async function loadProducts() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -589,14 +573,20 @@
           `;
 
           items.forEach(prod => {
+            const currentStock = prod.stock !== undefined ? prod.stock : 0;
             html += `
-              <div class="flex items-center justify-between bg-white p-2 rounded-xl border text-xs shadow-sm">
+              <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border text-xs shadow-sm">
                 <div class="flex items-center space-x-2.5">
-                  <img src="${prod.image}" class="w-11 h-11 object-cover rounded-lg border">
+                  <img src="${prod.image}" class="w-12 h-12 object-cover rounded-lg border">
                   <div>
-                    <p class="font-bold text-gray-800">${prod.name}</p>
+                    <p class="font-bold text-gray-800 text-sm">${prod.name}</p>
                     <p class="text-gray-400 text-[10px]">Barcode: ${prod.barcode || 'N/A'} | Category: ${prod.category || 'N/A'}</p>
-                    <p class="text-emerald-600 font-semibold">MRP: ৳ ${prod.mrp} | TP: ৳ ${prod.tp} | Disc: ৳ ${prod.discountPrice}</p>
+                    <p class="text-gray-700 font-semibold mt-0.5">
+                      Stock: <span class="text-blue-600 font-bold">${currentStock} pcs</span> | 
+                      MRP: <span class="text-emerald-700 font-bold">৳${prod.mrp}</span> | 
+                      TP: <span class="text-emerald-700 font-bold">৳${prod.tp}</span>
+                      ${prod.discountPrice && prod.discountPrice !== prod.mrp ? `| Disc: ৳${prod.discountPrice}` : ''}
+                    </p>
                   </div>
                 </div>
                 <div class="flex items-center space-x-1">
@@ -614,7 +604,6 @@
           html += `</div></div>`;
         }
 
-        container.htmlContent = html; // Fixed property assignment
         container.innerHTML = html;
       } catch (e) { console.error(e); }
     }
