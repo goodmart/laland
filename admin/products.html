@@ -359,7 +359,7 @@
       }
     };
 
-    // Load Suppliers for Dropdown
+    // Load Suppliers for Dropdown with Dealer Name Check
     async function loadSuppliersDropdown() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -372,7 +372,15 @@
         
         querySnapshot.forEach((docSnap) => {
           const sup = docSnap.data();
-          optionsHTML += `<option value="${sup.companyName}">${sup.companyName} [${sup.supplierCategory || ''}]</option>`;
+          let subTag = sup.supplierCategory || '';
+          
+          if(sup.supplierCategory === 'Dealer' && sup.dealerName) {
+            subTag = `ডিলার: ${sup.dealerName}`;
+          } else if(sup.supplierCategory === 'Third Party' && sup.thirdPartyName) {
+            subTag = `থার্ড পার্টি: ${sup.thirdPartyName}`;
+          }
+
+          optionsHTML += `<option value="${sup.companyName}">${sup.companyName} [${subTag}]</option>`;
         });
         selectEl.innerHTML = optionsHTML;
       } catch (e) {
