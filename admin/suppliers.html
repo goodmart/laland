@@ -90,6 +90,22 @@
               <option value="Third Party">3. Third Party</option>
             </select>
           </div>
+
+          <!-- NEW: Payment Method Selection (Cash / Bank) -->
+          <div>
+            <label class="text-xs text-gray-600 block mb-1">পেমেন্ট মেথড *</label>
+            <select id="suppPaymentMethod" onchange="toggleBankNameInput()" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="Cash">Cash (নগদ)</option>
+              <option value="Bank">Bank (ব্যাংক)</option>
+            </select>
+          </div>
+
+          <!-- Bank Name Field (Hidden by default unless Bank is selected) -->
+          <div id="bankNameContainer" class="hidden">
+            <label class="text-xs text-gray-600 block mb-1">ব্যাংকের নাম ও অ্যাকাউন্ট বিবরণ *</label>
+            <input type="text" id="suppBankName" placeholder="যেমন: Dhaka Bank / BRAC Bank (A/C: XXXX)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+
           <button type="submit" id="saveSupplierBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1">
             <i class="fa-solid fa-plus"></i>
             <span>সাপ্লায়ার সেভ করুন</span>
@@ -238,7 +254,6 @@
         if (!file) return;
 
         if(file.type === 'application/pdf') {
-          // If PDF, check size directly (< 50KB)
           if(file.size > 50000) {
             alert("PDF ফাইলের সাইজ ৫০ KB এর বেশি হতে পারবে না। ছোট ফাইল আপলোড করুন।");
             this.value = '';
@@ -253,7 +268,6 @@
           return;
         }
 
-        // Image Compression Handler (< 50KB)
         const reader = new FileReader();
         reader.onload = function(e) {
           const img = new Image();
@@ -298,10 +312,15 @@
         const { collection, addDoc, doc, updateDoc } = window.firebaseServices;
 
         const editId = document.getElementById('editSupplierId').value;
+        const payMethod = document.getElementById('suppPaymentMethod').value;
+        const bankName = payMethod === 'Bank' ? document.getElementById('suppBankName').value.trim() : 'Cash';
+
         const supplierData = {
           companyName: document.getElementById('suppName').value.trim(),
           contactNumber: document.getElementById('suppPhone').value.trim(),
           supplierCategory: document.getElementById('suppCategory').value,
+          paymentMethod: payMethod,
+          bankName: bankName,
           updatedAt: new Date().toISOString()
         };
 
@@ -315,6 +334,7 @@
             await addDoc(collection(db, "suppliers"), supplierData);
             alert("নতুন সাপ্লায়ার সফলভাবে সেভ করা হয়েছে!");
             document.getElementById('addSupplierForm').reset();
+            toggleBankNameInput();
           }
           loadSuppliersData();
         } catch (err) { alert("ত্রুটি: " + err.message); }
@@ -352,6 +372,22 @@
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
     });
+
+    // Toggle Bank Name Input Field
+    window.toggleBankNameInput = function() {
+      const method = document.getElementById('suppPaymentMethod').value;
+      const bankContainer = document.getElementById('bankNameContainer');
+      const bankInput = document.getElementById('suppBankName');
+
+      if(method === 'Bank') {
+        bankContainer.classList.remove('hidden');
+        bankInput.required = true;
+      } else {
+        bankContainer.classList.add('hidden');
+        bankInput.required = false;
+        bankInput.value = '';
+      }
+    };
 
     // Fetch Suppliers
     async function loadSuppliersData() {
@@ -431,6 +467,7 @@
         const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
         const due = stats.totalBill - stats.totalPaid;
         const isSelected = activeSupplierFilter === sup.companyName;
+        const paymentDisplay = sup.paymentMethod === 'Bank' ? `ব্যাংক: ${sup.bankName}` : 'ক্যাশ (নগদ)';
 
         html += `
           <div class="bg-gray-50 p-3.5 rounded-xl border transition hover:border-emerald-500 ${isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/40' : ''} text-xs space-y-1.5">
@@ -438,7 +475,8 @@
               <span class="font-bold text-gray-800 text-sm">${sup.companyName}</span>
               <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${sup.supplierCategory || 'Company'}</span>
             </div>
-            <p class="text-gray-500 text-[11px] cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | চালান: <strong>${stats.count} টি</strong></p>
+            <p class="text-gray-500 text-[11px] cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | পেমেন্ট: <strong>${paymentDisplay}</strong></p>
+            <p class="text-gray-400 text-[10px]">মোট চালান: <strong>${stats.count} টি</strong></p>
             <div class="pt-1.5 border-t flex justify-between font-bold items-center">
               <span class="text-gray-500">মোট বকেয়া: <strong class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</strong></span>
               <div class="space-x-1">
@@ -468,6 +506,12 @@
       document.getElementById('suppName').value = sup.companyName;
       document.getElementById('suppPhone').value = sup.contactNumber;
       document.getElementById('suppCategory').value = sup.supplierCategory;
+      document.getElementById('suppPaymentMethod').value = sup.paymentMethod || 'Cash';
+      
+      toggleBankNameInput();
+      if(sup.paymentMethod === 'Bank') {
+        document.getElementById('suppBankName').value = sup.bankName || '';
+      }
 
       document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> সাপ্লায়ার এডিট করুন`;
       document.getElementById('saveSupplierBtn').innerText = "পরিবর্তন সংরক্ষণ করুন";
@@ -478,6 +522,7 @@
     window.resetSupplierForm = function() {
       document.getElementById('addSupplierForm').reset();
       document.getElementById('editSupplierId').value = "";
+      toggleBankNameInput();
       document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন`;
       document.getElementById('saveSupplierBtn').innerText = "সাপ্লায়ার সেভ করুন";
       document.getElementById('cancelSupplierEditBtn').classList.add('hidden');
