@@ -142,7 +142,7 @@
     </div>
   </div>
 
-  <!-- Firebase & Core App Logic (All inside a unified module to eliminate scope mismatch) -->
+  <!-- Firebase & Core App Logic -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -387,7 +387,7 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // Finalize Stock-In (Direct Native Firestore Execution)
+    // Finalize Stock-In
     window.finalizeStockIn = async function() {
       const supplier = document.getElementById('stockSupplierSelect').value;
       if(!supplier) {
@@ -583,9 +583,14 @@
       document.getElementById('memoModal').classList.add('hidden');
     };
 
-    // Print Stock-In Invoice / Memo
+    // Print Stock-In Invoice / Memo (Safe Popup Check)
     window.printStockInvoice = function(rec) {
       const printWin = window.open('', '_blank');
+      if (!printWin) {
+        alert("팝업 차단됨 (Popup Blocked)! ব্রাউজার থেকে পপআপ পারমিশন এলাউ করে দিন অথবা হিস্ট্রি থেকে প্রিন্ট বাটনে ক্লিক করুন।");
+        return;
+      }
+
       const itemsRows = rec.items.map(i => `
         <tr>
           <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
