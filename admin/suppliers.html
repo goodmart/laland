@@ -63,12 +63,17 @@
     <!-- TOP SECTION: ADD NEW SUPPLIER & SUPPLIER LIST -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
       
-      <!-- Add Supplier Form -->
+      <!-- Add / Edit Supplier Form -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-3 lg:col-span-1">
-        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2">
-          <i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন
-        </h3>
+        <div class="flex justify-between items-center border-b pb-2">
+          <h3 id="supplierFormTitle" class="font-bold text-sm text-emerald-700">
+            <i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন
+          </h3>
+          <button type="button" id="cancelSupplierEditBtn" onclick="resetSupplierForm()" class="hidden text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold">বাতিল</button>
+        </div>
+        
         <form id="addSupplierForm" class="space-y-3">
+          <input type="hidden" id="editSupplierId">
           <div>
             <label class="text-xs text-gray-600 block mb-1">কোম্পানির নাম (Company Name) *</label>
             <input type="text" id="suppName" required placeholder="যেমন: ACI Logistics / Dabur" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
@@ -85,20 +90,26 @@
               <option value="Third Party">3. Third Party</option>
             </select>
           </div>
-          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1">
+          <button type="submit" id="saveSupplierBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 shadow flex items-center justify-center space-x-1">
             <i class="fa-solid fa-plus"></i>
             <span>সাপ্লায়ার সেভ করুন</span>
           </button>
         </form>
       </div>
 
-      <!-- Supplier Profiles Cards Container -->
+      <!-- Supplier Profiles Cards Container with Search Bar -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4 lg:col-span-2">
-        <h3 class="font-bold text-sm text-emerald-700 border-b pb-2 flex justify-between items-center">
-          <span><i class="fa-solid id-card mr-1"></i> সাপ্লায়ার প্রোফাইলসমূহ (প্রোফাইলে ক্লিক করে চালান দেখুন)</span>
-        </h3>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
+          <h3 class="font-bold text-sm text-emerald-700">
+            <i class="fa-solid fa-id-card mr-1"></i> সাপ্লায়ার প্রোফাইলসমূহ (প্রোফাইলে ক্লিক করে চালান দেখুন)
+          </h3>
+          <!-- Search Bar -->
+          <div class="w-full sm:w-auto">
+            <input type="text" id="supplierSearchInput" oninput="filterSupplierProfiles()" placeholder="সাপ্লায়ার খুঁজুন..." class="w-full sm:w-48 px-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+        </div>
         
-        <div id="supplierProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+        <div id="supplierProfilesGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
           <p class="text-xs text-gray-400 col-span-2 text-center py-4">সাপ্লায়ার প্রোফাইল লোড হচ্ছে...</p>
         </div>
       </div>
@@ -185,6 +196,13 @@
         </div>
 
         <div>
+          <label class="text-xs text-gray-600 block mb-1">পেমেন্টের প্রমাণ (ছবি/পিডিএফ - সর্বোচ্চ ৫০ KB)</label>
+          <input type="file" id="payProofFile" accept="image/*,application/pdf" class="w-full px-2 py-1.5 border rounded-xl text-xs bg-gray-50 focus:outline-none">
+          <p id="proofStatusText" class="text-[10px] text-gray-400 mt-0.5">ছবি সিলেক্ট করলে স্বয়ংক্রিয়ভাবে ৫০ KB এর নিচে রিসাইজ হবে।</p>
+        </div>
+        <input type="hidden" id="payProofBase64">
+
+        <div>
           <label class="text-xs text-gray-600 block mb-1">নোট / ট্রানজেকশন আইডি (Optional)</label>
           <input type="text" id="payModalRemarks" placeholder="যেমন: ব্যাংক ট্রানজেকশন নাম্বার #9842" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
         </div>
@@ -214,23 +232,90 @@
         loadInvoicesAndPayments();
       }, 600);
 
-      // Add Supplier Form Handler
+      // Payment Proof Compression (< 50KB) Handler
+      document.getElementById('payProofFile').addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if(file.type === 'application/pdf') {
+          // If PDF, check size directly (< 50KB)
+          if(file.size > 50000) {
+            alert("PDF ফাইলের সাইজ ৫০ KB এর বেশি হতে পারবে না। ছোট ফাইল আপলোড করুন।");
+            this.value = '';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            document.getElementById('payProofBase64').value = e.target.result;
+            document.getElementById('proofStatusText').innerHTML = `<span class="text-emerald-600 font-bold">✓ PDF সফলভাবে যুক্ত হয়েছে।</span>`;
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        // Image Compression Handler (< 50KB)
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const img = new Image();
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 400;
+            const MAX_HEIGHT = 400;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+            } else {
+              if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            let quality = 0.6;
+            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+            
+            while (dataUrl.length > 65000 && quality > 0.1) {
+              quality -= 0.1;
+              dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+
+            document.getElementById('payProofBase64').value = dataUrl;
+            document.getElementById('proofStatusText').innerHTML = `<span class="text-emerald-600 font-bold">✓ প্রমাণ ছবি সফলভাবে অপ্টিমাইজ করা হয়েছে (< 50KB)।</span>`;
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // Add / Update Supplier Form Handler
       document.getElementById('addSupplierForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const db = window.firebaseDb;
-        const { collection, addDoc } = window.firebaseServices;
+        const { collection, addDoc, doc, updateDoc } = window.firebaseServices;
 
-        const supplier = {
+        const editId = document.getElementById('editSupplierId').value;
+        const supplierData = {
           companyName: document.getElementById('suppName').value.trim(),
           contactNumber: document.getElementById('suppPhone').value.trim(),
           supplierCategory: document.getElementById('suppCategory').value,
-          createdAt: new Date().toISOString()
+          updatedAt: new Date().toISOString()
         };
 
         try {
-          await addDoc(collection(db, "suppliers"), supplier);
-          alert("নতুন সাপ্লায়ার সফলভাবে সেভ করা হয়েছে!");
-          document.getElementById('addSupplierForm').reset();
+          if (editId) {
+            await updateDoc(doc(db, "suppliers", editId), supplierData);
+            alert("সাপ্লায়ার তথ্য সফলভাবে আপডেট করা হয়েছে!");
+            resetSupplierForm();
+          } else {
+            supplierData.createdAt = new Date().toISOString();
+            await addDoc(collection(db, "suppliers"), supplierData);
+            alert("নতুন সাপ্লায়ার সফলভাবে সেভ করা হয়েছে!");
+            document.getElementById('addSupplierForm').reset();
+          }
           loadSuppliersData();
         } catch (err) { alert("ত্রুটি: " + err.message); }
       });
@@ -245,6 +330,7 @@
         const supplier = document.getElementById('payModalSupplier').value;
         const amount = Number(document.getElementById('payModalAmount').value);
         const method = document.getElementById('payModalMethod').value;
+        const proof = document.getElementById('payProofBase64').value;
         const remarks = document.getElementById('payModalRemarks').value.trim();
 
         const paymentRecord = {
@@ -253,6 +339,7 @@
           supplier: supplier,
           amount: amount,
           method: method,
+          proof: proof,
           remarks: remarks,
           createdAt: new Date().toISOString()
         };
@@ -286,7 +373,7 @@
           return;
         }
 
-        renderSupplierProfiles();
+        renderSupplierProfiles(suppliersData);
       } catch (err) { console.error(err); }
     }
 
@@ -308,15 +395,18 @@
         paymentsData = [];
         paySnap.forEach(d => paymentsData.push({ id: d.id, ...d.data() }));
 
-        renderSupplierProfiles();
+        renderSupplierProfiles(suppliersData);
         renderInvoicesTable(activeSupplierFilter);
       } catch (err) { console.error(err); }
     }
 
     // Render Supplier Profile Cards
-    function renderSupplierProfiles() {
+    function renderSupplierProfiles(list) {
       const container = document.getElementById('supplierProfilesGrid');
-      if(suppliersData.length === 0) return;
+      if(list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-4">কোনো সাপ্লায়ার পাওয়া যায়নি।</p>`;
+        return;
+      }
 
       let supplierStats = {};
       suppliersData.forEach(s => {
@@ -337,21 +427,24 @@
       });
 
       let html = '';
-      suppliersData.forEach(sup => {
+      list.forEach(sup => {
         const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
         const due = stats.totalBill - stats.totalPaid;
         const isSelected = activeSupplierFilter === sup.companyName;
 
         html += `
-          <div onclick="filterInvoicesBySupplierProfile('${sup.companyName}')" class="bg-gray-50 p-3.5 rounded-xl border cursor-pointer transition hover:border-emerald-500 ${isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/40' : ''} text-xs space-y-1.5">
-            <div class="flex justify-between items-center">
+          <div class="bg-gray-50 p-3.5 rounded-xl border transition hover:border-emerald-500 ${isSelected ? 'ring-2 ring-emerald-500 bg-emerald-50/40' : ''} text-xs space-y-1.5">
+            <div class="flex justify-between items-center cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')">
               <span class="font-bold text-gray-800 text-sm">${sup.companyName}</span>
               <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">${sup.supplierCategory || 'Company'}</span>
             </div>
-            <p class="text-gray-500 text-[11px]"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | চালান: <strong>${stats.count} টি</strong></p>
+            <p class="text-gray-500 text-[11px] cursor-pointer" onclick="filterInvoicesBySupplierProfile('${sup.companyName}')"><i class="fa-solid fa-phone mr-1"></i>${sup.contactNumber || 'N/A'} | চালান: <strong>${stats.count} টি</strong></p>
             <div class="pt-1.5 border-t flex justify-between font-bold items-center">
-              <span class="text-gray-500">মোট বকেয়া:</span>
-              <span class="${due > 0 ? 'text-red-600 text-sm' : 'text-emerald-600 text-sm'}">৳ ${due}</span>
+              <span class="text-gray-500">মোট বকেয়া: <strong class="${due > 0 ? 'text-red-600' : 'text-emerald-600'}">৳ ${due}</strong></span>
+              <div class="space-x-1">
+                <button onclick="editSupplier('${sup.id}')" class="bg-blue-50 text-blue-600 px-2 py-1 rounded font-bold hover:bg-blue-100" title="এডিট"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button onclick="deleteSupplier('${sup.id}')" class="bg-red-50 text-red-500 px-2 py-1 rounded font-bold hover:bg-red-100" title="ডিলিট"><i class="fa-solid fa-trash"></i></button>
+              </div>
             </div>
           </div>
         `;
@@ -359,18 +452,61 @@
       container.innerHTML = html;
     }
 
+    // Filter Supplier Profiles via Search Bar
+    window.filterSupplierProfiles = function() {
+      const query = document.getElementById('supplierSearchInput').value.toLowerCase().trim();
+      const filtered = suppliersData.filter(s => s.companyName.toLowerCase().includes(query) || (s.contactNumber && s.contactNumber.includes(query)));
+      renderSupplierProfiles(filtered);
+    };
+
+    // Edit Supplier
+    window.editSupplier = function(id) {
+      const sup = suppliersData.find(s => s.id === id);
+      if(!sup) return;
+
+      document.getElementById('editSupplierId').value = sup.id;
+      document.getElementById('suppName').value = sup.companyName;
+      document.getElementById('suppPhone').value = sup.contactNumber;
+      document.getElementById('suppCategory').value = sup.supplierCategory;
+
+      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> সাপ্লায়ার এডিট করুন`;
+      document.getElementById('saveSupplierBtn').innerText = "পরিবর্তন সংরক্ষণ করুন";
+      document.getElementById('cancelSupplierEditBtn').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.resetSupplierForm = function() {
+      document.getElementById('addSupplierForm').reset();
+      document.getElementById('editSupplierId').value = "";
+      document.getElementById('supplierFormTitle').innerHTML = `<i class="fa-solid fa-user-plus mr-1"></i> নতুন সাপ্লায়ার যোগ করুন`;
+      document.getElementById('saveSupplierBtn').innerText = "সাপ্লায়ার সেভ করুন";
+      document.getElementById('cancelSupplierEditBtn').classList.add('hidden');
+    };
+
+    // Delete Supplier
+    window.deleteSupplier = async function(id) {
+      if(!confirm("সাপ্লায়ারটি ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+      try {
+        await deleteDoc(doc(db, "suppliers", id));
+        alert("সাপ্লায়ার সফলভাবে ডিলিট করা হয়েছে!");
+        loadSuppliersData();
+      } catch(err) { alert("ত্রুটি: " + err.message); }
+    };
+
     // Filter Invoices when clicking a Supplier Profile Card
     window.filterInvoicesBySupplierProfile = function(supplierName) {
       activeSupplierFilter = supplierName;
       document.getElementById('selectedSupplierTitle').innerHTML = `<i class="fa-solid fa-receipt mr-1"></i> ${supplierName} - এর স্টক-ইন চালান ও পেমেন্ট`;
-      renderSupplierProfiles();
+      renderSupplierProfiles(suppliersData);
       renderInvoicesTable(supplierName);
     };
 
     window.resetSupplierFilter = function() {
       activeSupplierFilter = 'ALL';
       document.getElementById('selectedSupplierTitle').innerHTML = `<i class="fa-solid fa-receipt mr-1"></i> স্টক-ইন চালানের তালিকা ও পেমেন্ট রিলিজ (সকল সাপ্লায়ার)`;
-      renderSupplierProfiles();
+      renderSupplierProfiles(suppliersData);
       renderInvoicesTable('ALL');
     };
 
@@ -439,6 +575,9 @@
       document.getElementById('modalDueAmount').innerText = `বর্তমান বকেয়া: ৳ ${due}`;
       document.getElementById('payModalAmount').value = due;
       document.getElementById('payModalAmount').max = due;
+      document.getElementById('payProofFile').value = "";
+      document.getElementById('payProofBase64').value = "";
+      document.getElementById('proofStatusText').innerText = "ছবি সিলেক্ট করলে স্বয়ংক্রিয়ভাবে ৫০ KB এর নিচে রিসাইজ হবে।";
 
       document.getElementById('paymentModal').classList.remove('hidden');
     };
