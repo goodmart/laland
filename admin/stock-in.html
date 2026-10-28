@@ -128,10 +128,10 @@
         </div>
       </div>
 
-      <!-- PREVIOUS STOCK-IN INVOICES HISTORY WITH FILTERS -->
+      <!-- PREVIOUS STOCK-IN INVOICES HISTORY WITH FILTERS (Default Last 30 Days) -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-3">
-          <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wide"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Stock-In History:</h4>
+          <h4 class="font-bold text-xs text-gray-700 uppercase tracking-wide"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Stock-In History (Last 30 Days):</h4>
           
           <!-- Filters Bar -->
           <div class="flex flex-wrap items-center gap-2 text-xs">
@@ -161,11 +161,22 @@
           <h2 id="detailInvoiceTitle" class="text-xl font-extrabold">Chalan ID: STK-XXXXXX</h2>
           <p id="detailMetaInfo" class="text-xs text-emerald-200">Supplier: N/A | Date: N/A</p>
         </div>
-        <div class="flex items-center space-x-2">
-          <button id="detailPrintBtn" class="bg-white text-emerald-800 px-3.5 py-2 rounded-xl text-xs font-bold shadow hover:bg-emerald-50">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Action Buttons Moved Inside Detail Page -->
+          <button id="detailMemoBtn" onclick="window.viewDetailMemo()" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
+            <i class="fa-solid fa-image mr-1"></i> View Chalan Memo
+          </button>
+          <button id="detailPrintBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow">
             <i class="fa-solid fa-print mr-1"></i> Print / Download
           </button>
-          <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right">
+          <button id="detailEditBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
+            <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Chalan
+          </button>
+          <button id="detailDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
+            <i class="fa-solid fa-trash mr-1"></i> Delete Chalan
+          </button>
+
+          <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right ml-2">
             <p class="text-[11px] text-emerald-200">Total Chalan Amount</p>
             <p id="detailTotalCostAmount" class="text-lg font-extrabold text-white">৳ 0</p>
           </div>
@@ -189,14 +200,6 @@
               <tr><td colspan="4" class="text-center py-4 text-gray-400">Loading items...</td></tr>
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <!-- Chalan Memo Image Preview Card -->
-      <div id="detailMemoCard" class="bg-white p-5 rounded-2xl shadow-sm border space-y-3 hidden">
-        <h4 class="font-bold text-xs text-emerald-700 border-b pb-2"><i class="fa-solid fa-image mr-1"></i> Supplier Chalan / Memo Image</h4>
-        <div class="text-center bg-gray-50 p-3 rounded-xl border flex items-center justify-center max-h-[500px] overflow-auto">
-          <img id="detailMemoImg" src="" class="max-w-full rounded-lg shadow-sm object-contain cursor-pointer" onclick="window.open(this.src)" title="Click to open full size" alt="Supplier Memo">
         </div>
       </div>
     </div>
@@ -244,6 +247,7 @@
     let stockHistoryStore = {};
     let stockHistoryArray = [];
     let currentInvoiceNo = '';
+    let currentDetailRecord = null;
 
     window.addEventListener("DOMContentLoaded", () => {
       generateNewInvoiceNo();
@@ -563,6 +567,9 @@
       const rec = stockHistoryStore[id];
       if(!rec) return;
 
+      // If called from detail view, switch back to dashboard view first
+      backToStockDashboard();
+
       document.getElementById('editStockId').value = id;
       document.getElementById('stockSupplierSelect').value = rec.supplier;
       document.getElementById('invoiceBadge').innerText = `Chalan ID: ${rec.invoiceNo}`;
@@ -613,6 +620,7 @@
 
         await deleteDoc(doc(db, "stock_in_history", String(id)));
         alert("Stock-in chalan deleted and product stock adjusted successfully!");
+        backToStockDashboard();
         loadStockInHistory();
         loadProductsForSearch();
       } catch(err) {
@@ -640,17 +648,41 @@
 
         stockHistoryArray.sort((a, b) => new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt));
 
-        renderStockHistoryList(stockHistoryArray);
+        // Default: Show last 30 days on dashboard
+        applyDefaultLast30DaysFilter();
         checkUrlParameterForStockDetail();
 
       } catch(err) { console.error(err); }
     }
 
-    // Render History List
+    // Default Last 30 Days filter for Dashboard
+    function applyDefaultLast30DaysFilter() {
+      const dateVal = document.getElementById('filterDate').value;
+      const monthVal = document.getElementById('filterMonth').value;
+      const supVal = document.getElementById('filterSupplier').value;
+
+      // If user has actively set filters, respect their filters instead of forcing 30-day limit
+      if(dateVal || monthVal || supVal) {
+        filterStockHistory();
+        return;
+      }
+
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const filtered = stockHistoryArray.filter(rec => {
+        const recDateObj = new Date(rec.createdAt || rec.updatedAt);
+        return recDateObj >= thirtyDaysAgo;
+      });
+
+      renderStockHistoryList(filtered);
+    }
+
+    // Render History List (Streamlined: Only Details button)
     function renderStockHistoryList(list) {
       const container = document.getElementById('stockInHistoryContainer');
       if(list.length === 0) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No matching stock-in chalans found.</p>`;
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No matching stock-in chalans found (Showing last 30 days by default).</p>`;
         return;
       }
 
@@ -664,26 +696,11 @@
               <span class="text-gray-500">(Supplier: ${rec.supplier})</span>
               <p class="text-[10px] text-gray-400">Date: ${dateStr}</p>
             </div>
-            <div class="flex items-center space-x-1.5">
-              <span class="font-extrabold text-emerald-700 mr-1">৳ ${rec.totalCost}</span>
-              
-              ${rec.chalanImage ? `
-                <button onclick="window.viewMemoModal('${rec.chalanImage}')" class="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-lg font-bold hover:bg-amber-100" title="View Chalan Memo">
-                  <i class="fa-solid fa-image"></i> Memo
-                </button>
-              ` : ''}
-
-              <button onclick='window.printStockInvoice(${JSON.stringify(rec)})' class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-bold hover:bg-emerald-100" title="Print/View Invoice">
-                <i class="fa-solid fa-print"></i>
-              </button>
-              <button onclick="window.openStockDetail('${rec.invoiceNo}')" class="bg-blue-50 text-blue-600 border border-blue-200 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-100" title="View Details">
-                <i class="fa-solid fa-eye"></i> Details
-              </button>
-              <button onclick="window.editStockIn('${Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === rec.invoiceNo)}')" class="bg-gray-100 text-gray-700 border px-2.5 py-1 rounded-lg font-bold hover:bg-gray-200" title="Edit">
-                <i class="fa-solid fa-pen-to-square"></i>
-              </button>
-              <button onclick="window.deleteStockIn('${Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === rec.invoiceNo)}')" class="bg-red-50 text-red-500 border border-red-200 px-2.5 py-1 rounded-lg font-bold hover:bg-red-100" title="Delete">
-                <i class="fa-solid fa-trash"></i>
+            <div class="flex items-center space-x-2">
+              <span class="font-extrabold text-emerald-700 mr-2">৳ ${rec.totalCost}</span>
+              <button onclick="window.openStockDetail('${rec.invoiceNo}')" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1" title="View Details">
+                <i class="fa-solid fa-eye"></i>
+                <span>Details</span>
               </button>
             </div>
           </div>
@@ -717,13 +734,14 @@
       document.getElementById('filterDate').value = '';
       document.getElementById('filterMonth').value = '';
       document.getElementById('filterSupplier').value = '';
-      renderStockHistoryList(stockHistoryArray);
+      applyDefaultLast30DaysFilter();
     };
 
     // Open Stock-In Detail Page via URL parameter (e.g. ?id=STK-148836)
     window.openStockDetail = function(invoiceNo, pushHistory = true) {
       const rec = Object.values(stockHistoryStore).find(r => r.invoiceNo === invoiceNo);
       if(!rec) return;
+      currentDetailRecord = rec;
 
       if(pushHistory) {
         const newUrl = `${window.location.pathname}?id=${rec.invoiceNo}`;
@@ -736,7 +754,20 @@
       document.getElementById('detailInvoiceTitle').innerText = `Chalan ID: ${rec.invoiceNo}`;
       document.getElementById('detailMetaInfo').innerText = `Supplier: ${rec.supplier} | Date: ${new Date(rec.createdAt || rec.updatedAt).toLocaleString()}`;
       document.getElementById('detailTotalCostAmount').innerText = `৳ ${rec.totalCost}`;
+      
+      // Bind Detail-level Action Buttons
       document.getElementById('detailPrintBtn').setAttribute('onclick', `window.printStockInvoice(${JSON.stringify(rec)})`);
+      
+      const docKey = Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === rec.invoiceNo);
+      document.getElementById('detailEditBtn').setAttribute('onclick', `window.editStockIn('${docKey}')`);
+      document.getElementById('detailDeleteBtn').setAttribute('onclick', `window.deleteStockIn('${docKey}')`);
+
+      const memoBtn = document.getElementById('detailMemoBtn');
+      if(rec.chalanImage) {
+        memoBtn.classList.remove('hidden');
+      } else {
+        memoBtn.classList.add('hidden');
+      }
 
       // Render Items Table
       let itemsHtml = '';
@@ -755,16 +786,6 @@
         itemsHtml = `<tr><td colspan="4" class="text-center py-4 text-gray-400">No items found for this chalan.</td></tr>`;
       }
       document.getElementById('detailItemsTableBody').innerHTML = itemsHtml;
-
-      // Chalan Memo Image
-      const memoCard = document.getElementById('detailMemoCard');
-      const memoImg = document.getElementById('detailMemoImg');
-      if(rec.chalanImage) {
-        memoImg.src = rec.chalanImage;
-        memoCard.classList.remove('hidden');
-      } else {
-        memoCard.classList.add('hidden');
-      }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -786,10 +807,18 @@
     }
 
     window.backToStockDashboard = function() {
+      currentDetailRecord = null;
       window.history.pushState({ path: window.location.pathname }, '', window.location.pathname);
       document.getElementById('stockDetailPageView').classList.add('hidden');
       document.getElementById('mainStockEntryView').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // View Memo from Detail Page Button
+    window.viewDetailMemo = function() {
+      if(currentDetailRecord && currentDetailRecord.chalanImage) {
+        window.viewMemoModal(currentDetailRecord.chalanImage);
+      }
     };
 
     // View Memo Modal Functions
@@ -870,8 +899,7 @@
           </body>
         </html>
       `);
-      printWin.document.close();
-      printWin.print();
+      printWin.document.print();
     };
   </script>
 </body>
