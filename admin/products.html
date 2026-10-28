@@ -402,7 +402,7 @@
       document.getElementById('imgOptimizeStatus').innerText = "Product image or URL is mandatory.";
     };
 
-    // Mobile Camera Barcode Scanner Functions (High Quality / HD & Autofocus Enabled)
+    // Mobile Camera Barcode Scanner Functions (Robust Multi-tier Fallback Initialization)
     window.startCameraScanner = function() {
       const container = document.getElementById('scannerContainer');
       container.classList.remove('hidden');
@@ -411,46 +411,53 @@
         html5QrCode = new Html5Qrcode("reader");
       }
 
-      // High Performance Scanner Config
       const config = { 
-        fps: 20, // Higher frames per second for faster scanning
-        qrbox: { width: 300, height: 120 },
-        aspectRatio: 1.777778 // 16:9 widescreen ratio
+        fps: 15, 
+        qrbox: { width: 280, height: 120 }
       };
       
-      // Request HD constraints with continuous autofocus if supported by mobile OS
-      const constraintsConfig = {
-        facingMode: { exact: "environment" },
-        width: { min: 1280, ideal: 1920, max: 3840 },
-        height: { min: 720, ideal: 1080, max: 2160 },
-        advanced: [{ focusMode: "continuous" }]
+      // Step 1: Try starting with high resolution ideal settings on back camera
+      const hdConstraints = {
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
       };
 
       html5QrCode.start(
-        constraintsConfig, 
+        hdConstraints, 
         config, 
         (decodedText, decodedResult) => {
           document.getElementById('prodBarcode').value = decodedText;
           alert("Barcode scanned successfully: " + decodedText);
           stopCameraScanner();
         },
-        (errorMessage) => {
-          // Ignore frame-by-frame scanning misses
-        }
-      ).catch((err) => {
-        // Fallback constraint if exact HD or advanced autofocus fails on certain budget phones
+        (errorMessage) => {}
+      ).catch((hdErr) => {
+        // Step 2: Fallback to standard environment camera if HD ideal constraint fails
         html5QrCode.start(
           { facingMode: "environment" },
-          { fps: 15, qrbox: { width: 280, height: 120 } },
+          config,
           (decodedText, decodedResult) => {
             document.getElementById('prodBarcode').value = decodedText;
             alert("Barcode scanned successfully: " + decodedText);
             stopCameraScanner();
           },
           (errorMessage) => {}
-        ).catch((fallbackErr) => {
-          alert("Could not start HD camera. Please check camera permission and lighting: " + fallbackErr);
-          container.classList.add('hidden');
+        ).catch((envErr) => {
+          // Step 3: Final fallback to any available camera device
+          html5QrCode.start(
+            { facingMode: "user" },
+            config,
+            (decodedText, decodedResult) => {
+              document.getElementById('prodBarcode').value = decodedText;
+              alert("Barcode scanned successfully: " + decodedText);
+              stopCameraScanner();
+            },
+            (errorMessage) => {}
+          ).catch((finalErr) => {
+            alert("Could not start camera. Please check camera permissions in your browser: " + finalErr);
+            container.classList.add('hidden');
+          });
         });
       });
     };
