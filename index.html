@@ -283,31 +283,23 @@
           </div>
         </div>
 
-        <!-- Order Summary Counter Bar -->
+        <!-- Order Summary Interactive Counter Bar -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-4 text-center text-xs">
-          <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-              <i class="fa-solid fa-clock"></i>
-            </div>
-            <span class="text-gray-500 text-[10px] block">পেন্ডিং</span>
+          <div onclick="openOrdersPageFilter('pending')" class="space-y-1 cursor-pointer hover:bg-emerald-50 p-1.5 rounded-xl transition">
+            <div id="countPending" class="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">0</div>
+            <span class="text-gray-500 text-[10px] block font-semibold">পেন্ডিং</span>
           </div>
-          <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <i class="fa-solid fa-box-open"></i>
-            </div>
-            <span class="text-gray-500 text-[10px] block">প্রসেসিং</span>
+          <div onclick="openOrdersPageFilter('processing')" class="space-y-1 cursor-pointer hover:bg-emerald-50 p-1.5 rounded-xl transition">
+            <div id="countProcessing" class="w-8 h-8 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">0</div>
+            <span class="text-gray-500 text-[10px] block font-semibold">প্রসেসিং</span>
           </div>
-          <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-              <i class="fa-solid fa-truck-fast"></i>
-            </div>
-            <span class="text-gray-500 text-[10px] block">অন-দ্যা-ওয়ে</span>
+          <div onclick="openOrdersPageFilter('on-the-way')" class="space-y-1 cursor-pointer hover:bg-emerald-50 p-1.5 rounded-xl transition">
+            <div id="countOnTheWay" class="w-8 h-8 mx-auto rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold">0</div>
+            <span class="text-gray-500 text-[10px] block font-semibold">অন-দ্যা-ওয়ে</span>
           </div>
-          <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-              <i class="fa-solid fa-check"></i>
-            </div>
-            <span class="text-gray-500 text-[10px] block">সম্পন্ন</span>
+          <div onclick="openOrdersPageFilter('delivered')" class="space-y-1 cursor-pointer hover:bg-emerald-50 p-1.5 rounded-xl transition">
+            <div id="countDelivered" class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">0</div>
+            <span class="text-gray-500 text-[10px] block font-semibold">সম্পন্ন</span>
           </div>
         </div>
 
@@ -317,8 +309,8 @@
         <!-- 6 Interactive Feature Cards Grid -->
         <div class="grid grid-cols-2 gap-3">
           
-          <!-- Card 1: My Orders (Opens Dedicated New Page View) -->
-          <div onclick="openOrdersPage()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+          <!-- Card 1: My Orders -->
+          <div onclick="openOrdersPageFilter('all')" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-rectangle-list"></i>
             </div>
@@ -394,14 +386,14 @@
       </div>
     </section>
 
-    <!-- NEW DEDICATED ORDERS PAGE SUB-VIEW (Opens when clicking "আমার অর্ডার") -->
+    <!-- NEW DEDICATED ORDERS PAGE SUB-VIEW -->
     <section id="dedicatedOrdersPage" class="p-4 hidden space-y-4">
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
         <button onclick="closeOrdersPage()" class="flex items-center space-x-2 text-emerald-700 font-bold text-xs bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition">
           <i class="fa-solid fa-arrow-left"></i>
           <span>ফিরে যান (Back)</span>
         </button>
-        <h3 class="font-bold text-sm text-gray-800">অর্ডার ইতিহাস ও ট্র্যাকিং</h3>
+        <h3 id="ordersPageTitle" class="font-bold text-sm text-gray-800">অর্ডার ইতিহাস ও ট্র্যাকিং</h3>
         <button onclick="fetchCustomerOrderHistory()" class="text-xs text-emerald-600 font-bold p-2" title="Refresh">
           <i class="fa-solid fa-rotate"></i>
         </button>
@@ -515,6 +507,9 @@
   <!-- Application Logic JS -->
   <script>
     let products = [];
+    let currentGlobalOrders = [];
+    let currentOrderFilter = 'all';
+
     const categories = [
       { id: 'all', name: 'সকল আইটেম', icon: 'fa-layer-group' },
       { id: 'groceries', name: 'মুদি বাজার', icon: 'fa-basket-shopping' },
@@ -560,7 +555,6 @@
       const navButtons = document.querySelectorAll('.nav-btn');
       navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-          // Reset orders page view if open when switching tabs
           document.getElementById('dedicatedOrdersPage').classList.add('hidden');
           showTab(btn.getAttribute('data-tab'));
           navButtons.forEach(b => b.classList.replace('text-emerald-600', 'text-gray-400'));
@@ -683,13 +677,22 @@
       loadAdminAddresses();
     });
 
-    // Dedicated Orders Page Navigation Functions
-    window.openOrdersPage = function() {
-      // Hide account inner profile view or switch context to dedicated page view
+    // Dedicated Orders Page Navigation & Filtering Functions
+    window.openOrdersPageFilter = function(filterStatus) {
+      currentOrderFilter = filterStatus;
       const profileView = document.getElementById('profileView');
       profileView.classList.add('hidden');
       document.getElementById('dedicatedOrdersPage').classList.remove('hidden');
-      fetchCustomerOrderHistory();
+      
+      const titleMap = {
+        'all': 'সকল অর্ডারসমূহ',
+        'pending': 'পেন্ডিং অর্ডারসমূহ',
+        'processing': 'প্রসেসিং অর্ডারসমূহ',
+        'on-the-way': 'অন-দ্যা-ওয়ে অর্ডারসমূহ',
+        'delivered': 'সম্পন্ন অর্ডারসমূহ'
+      };
+      document.getElementById('ordersPageTitle').innerText = titleMap[filterStatus] || 'অর্ডার ইতিহাস';
+      renderFilteredOrders();
     };
 
     window.closeOrdersPage = function() {
@@ -1134,126 +1137,169 @@
       }
     }
 
-    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING
+    // FETCH & CALCULATE CUSTOMER ORDER HISTORY & COUNTERS
     async function fetchCustomerOrderHistory() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
       const { collection, getDocs, query, where } = window.firebaseServices;
-      const container = document.getElementById('customerOrdersContainer');
 
       const user = auth.currentUser;
-      if (!user) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Please login to view your order history.</p>`;
-        return;
-      }
+      if (!user) return;
 
       try {
         const q = query(collection(db, "orders"), where("userUid", "==", user.uid));
         const querySnapshot = await getDocs(q);
 
-        if (querySnapshot.empty) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">You have no previous orders.</p>`;
-          return;
-        }
-
-        let ordersList = [];
+        currentGlobalOrders = [];
         querySnapshot.forEach(docSnap => {
-          ordersList.push({ id: docSnap.id, ...docSnap.data() });
+          currentGlobalOrders.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        ordersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        currentGlobalOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-        let html = '';
-        ordersList.forEach(ord => {
-          const status = (ord.status || 'Pending').toLowerCase();
-          
-          const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
-            <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
-              <span>${i.name} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
-              <span class="font-semibold">৳ ${i.price * i.qty}</span>
-            </div>
-          `).join('') : '<p class="text-red-500 font-bold py-1">Items cancelled due to stock unavailability.</p>';
+        // Calculate and Update Counter Badges
+        let pendingCount = 0;
+        let processingCount = 0;
+        let onTheWayCount = 0;
+        let deliveredCount = 0;
 
-          const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : '';
-
-          const isPending = status === 'pending' || status === 'processing' || status === 'delivered';
-          const isProcessing = status === 'processing' || status === 'delivered';
-          const isDelivered = status === 'delivered';
-
-          html += `
-            <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3 text-xs">
-              <!-- Order Header -->
-              <div class="flex justify-between items-center border-b border-gray-100 pb-2">
-                <div>
-                  <span class="font-extrabold text-emerald-700 text-sm">${ord.orderId || '#ORD-N/A'}</span>
-                  <span class="text-[10px] text-gray-400 block">${orderDate}</span>
-                </div>
-                <span class="font-bold px-2.5 py-1 rounded-full text-[10px] ${getStatusBadgeStyle(ord.status)}">
-                  ${ord.status || 'Pending'}
-                </span>
-              </div>
-
-              <!-- Items & Revised Total Bill Notice -->
-              <div class="space-y-1 text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                <p class="font-bold text-gray-500 mb-1">Ordered Items (Revised):</p>
-                ${itemsListHTML}
-                <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800 text-sm">
-                  <span>Total Bill:</span>
-                  <span class="text-emerald-700">৳ ${ord.totalAmount || 0}</span>
-                </div>
-                <p class="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded mt-1">
-                  <i class="fa-solid fa-circle-info mr-1"></i> Quantities may be updated by admin based on warehouse stock.
-                </p>
-              </div>
-
-              <!-- Visual Live Order Tracker Bar -->
-              <div class="pt-1">
-                <p class="text-[10px] font-bold text-gray-500 mb-1.5">Order Tracking (Live Status):</p>
-                <div class="flex items-center justify-between text-[9px] font-bold">
-                  
-                  <div class="flex flex-col items-center">
-                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isPending ? 'bg-amber-500' : 'bg-gray-300'}">
-                      <i class="fa-solid fa-check text-[8px]"></i>
-                    </div>
-                    <span class="mt-0.5 ${isPending ? 'text-amber-600' : 'text-gray-400'}">Placed</span>
-                  </div>
-
-                  <div class="flex-1 h-0.5 ${isProcessing ? 'bg-blue-500' : 'bg-gray-200'} mx-1"></div>
-
-                  <div class="flex flex-col items-center">
-                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isProcessing ? 'bg-blue-500' : 'bg-gray-300'}">
-                      <i class="fa-solid fa-box text-[8px]"></i>
-                    </div>
-                    <span class="mt-0.5 ${isProcessing ? 'text-blue-600' : 'text-gray-400'}">Processing</span>
-                  </div>
-
-                  <div class="flex-1 h-0.5 ${isDelivered ? 'bg-emerald-500' : 'bg-gray-200'} mx-1"></div>
-
-                  <div class="flex flex-col items-center">
-                    <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isDelivered ? 'bg-emerald-600' : 'bg-gray-300'}">
-                      <i class="fa-solid fa-truck-ramp-box text-[8px]"></i>
-                    </div>
-                    <span class="mt-0.5 ${isDelivered ? 'text-emerald-600' : 'text-gray-400'}">Delivered</span>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          `;
+        currentGlobalOrders.forEach(ord => {
+          const st = (ord.status || 'pending').toLowerCase();
+          if (st === 'pending') pendingCount++;
+          else if (st === 'processing') processingCount++;
+          else if (st === 'on-the-way' || st === 'ontheway') onTheWayCount++;
+          else if (st === 'delivered' || st === 'completed') deliveredCount++;
         });
 
-        container.innerHTML = html;
+        document.getElementById('countPending').innerText = pendingCount;
+        document.getElementById('countProcessing').innerText = processingCount;
+        document.getElementById('countOnTheWay').innerText = onTheWayCount;
+        document.getElementById('countDelivered').innerText = deliveredCount;
+
+        renderFilteredOrders();
 
       } catch (err) {
         console.error("Error fetching order history:", err);
-        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">Error loading order history.</p>`;
       }
+    }
+
+    function renderFilteredOrders() {
+      const container = document.getElementById('customerOrdersContainer');
+      let filtered = currentGlobalOrders;
+
+      if (currentOrderFilter !== 'all') {
+        filtered = currentGlobalOrders.filter(ord => {
+          const st = (ord.status || 'pending').toLowerCase();
+          if (currentOrderFilter === 'pending') return st === 'pending';
+          if (currentOrderFilter === 'processing') return st === 'processing';
+          if (currentOrderFilter === 'on-the-way') return st === 'on-the-way' || st === 'ontheway';
+          if (currentOrderFilter === 'delivered') return st === 'delivered' || st === 'completed';
+          return true;
+        });
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-8">এই ফিল্টারে কোনো অর্ডার পাওয়া যায়নি।</p>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(ord => {
+        const status = (ord.status || 'Pending').toLowerCase();
+        
+        const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
+          <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
+            <span>${i.name} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
+            <span class="font-semibold">৳ ${i.price * i.qty}</span>
+          </div>
+        `).join('') : '<p class="text-red-500 font-bold py-1">কোনো পণ্য নেই।</p>';
+
+        const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : '';
+
+        const isPending = status === 'pending' || status === 'processing' || status === 'delivered' || status === 'on-the-way';
+        const isProcessing = status === 'processing' || status === 'delivered' || status === 'on-the-way';
+        const isOnTheWay = status === 'on-the-way' || status === 'delivered';
+        const isDelivered = status === 'delivered' || status === 'completed';
+
+        html += `
+          <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3 text-xs">
+            <!-- Order Header -->
+            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+              <div>
+                <span class="font-extrabold text-emerald-700 text-sm">${ord.orderId || '#ORD-N/A'}</span>
+                <span class="text-[10px] text-gray-400 block">${orderDate}</span>
+              </div>
+              <span class="font-bold px-2.5 py-1 rounded-full text-[10px] ${getStatusBadgeStyle(ord.status)}">
+                ${ord.status || 'Pending'}
+              </span>
+            </div>
+
+            <!-- Items & Revised Total Bill Notice -->
+            <div class="space-y-1 text-gray-600 bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
+              ${itemsListHTML}
+              <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800 text-sm">
+                <span>মোট বিল:</span>
+                <span class="text-emerald-700">৳ ${ord.totalAmount || 0}</span>
+              </div>
+              <p class="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded mt-1">
+                <i class="fa-solid fa-circle-info mr-1"></i> গুদাম স্টক অনুযায়ী অ্যাডমিন কর্তৃক পরিমাণ আপডেট করা হতে পারে।
+              </p>
+            </div>
+
+            <!-- Visual Live Order Tracker Bar -->
+            <div class="pt-1">
+              <p class="text-[10px] font-bold text-gray-500 mb-1.5">অর্ডার ট্র্যাকিং (লাইভ স্ট্যাটাস):</p>
+              <div class="flex items-center justify-between text-[9px] font-bold">
+                
+                <div class="flex flex-col items-center">
+                  <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isPending ? 'bg-amber-500' : 'bg-gray-300'}">
+                    <i class="fa-solid fa-check text-[8px]"></i>
+                  </div>
+                  <span class="mt-0.5 ${isPending ? 'text-amber-600' : 'text-gray-400'}">পেন্ডিং</span>
+                </div>
+
+                <div class="flex-1 h-0.5 ${isProcessing ? 'bg-blue-500' : 'bg-gray-200'} mx-1"></div>
+
+                <div class="flex flex-col items-center">
+                  <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isProcessing ? 'bg-blue-500' : 'bg-gray-300'}">
+                    <i class="fa-solid fa-box text-[8px]"></i>
+                  </div>
+                  <span class="mt-0.5 ${isProcessing ? 'text-blue-600' : 'text-gray-400'}">প্রসেসিং</span>
+                </div>
+
+                <div class="flex-1 h-0.5 ${isOnTheWay ? 'bg-purple-500' : 'bg-gray-200'} mx-1"></div>
+
+                <div class="flex flex-col items-center">
+                  <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isOnTheWay ? 'bg-purple-500' : 'bg-gray-300'}">
+                    <i class="fa-solid fa-truck-fast text-[8px]"></i>
+                  </div>
+                  <span class="mt-0.5 ${isOnTheWay ? 'text-purple-600' : 'text-gray-400'}">অন-দ্যা-ওয়ে</span>
+                </div>
+
+                <div class="flex-1 h-0.5 ${isDelivered ? 'bg-emerald-500' : 'bg-gray-200'} mx-1"></div>
+
+                <div class="flex flex-col items-center">
+                  <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isDelivered ? 'bg-emerald-600' : 'bg-gray-300'}">
+                    <i class="fa-solid fa-check text-[8px]"></i>
+                  </div>
+                  <span class="mt-0.5 ${isDelivered ? 'text-emerald-600' : 'text-gray-400'}">সম্পন্ন</span>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
     }
 
     function getStatusBadgeStyle(status) {
       status = (status || '').toLowerCase();
-      if(status === 'delivered') return 'bg-emerald-100 text-emerald-800';
+      if(status === 'delivered' || status === 'completed') return 'bg-emerald-100 text-emerald-800';
       if(status === 'processing') return 'bg-blue-100 text-blue-800';
+      if(status === 'on-the-way' || status === 'ontheway') return 'bg-purple-100 text-purple-800';
       if(status === 'cancelled') return 'bg-red-100 text-red-800';
       return 'bg-amber-100 text-amber-800';
     }
@@ -1279,6 +1325,7 @@
               const addrText = document.getElementById('addressCountText');
               if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "No address";
             }
+            fetchCustomerOrderHistory();
           } catch (e) { console.error("Firestore read error:", e); }
         } else {
           document.getElementById('authForms').classList.remove('hidden');
@@ -1287,7 +1334,7 @@
         }
       });
 
-      // 1. SIGN UP HANDLER (Triggers TextBee SMS)
+      // 1. SIGN UP HANDLER
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('signupName').value;
