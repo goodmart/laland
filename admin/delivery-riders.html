@@ -1,1 +1,206 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ডেলিভারি রাইডার ব্যবস্থাপনা - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.firebaseDb = db;
+    window.firebaseServices = { collection, addDoc, getDocs, updateDoc, deleteDoc, doc };
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-motorcycle text-xl"></i>
+        <h1 class="font-bold text-lg">রাইডার ড্যাশবোর্ড - Laland Express</h1>
+      </div>
+      <nav class="space-x-3 text-xs">
+        <a href="index.html" class="hover:underline">ড্যাশবোর্ড</a>
+        <a href="orders.html" class="hover:underline">অর্ডার</a>
+        <a href="delivery-riders.html" class="underline font-bold">রাইডারগণ</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-4 space-y-5">
+
+    <!-- Top Action: Add New Rider Form Toggle -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-3">
+      <div>
+        <h2 class="font-bold text-sm text-gray-800">ডেলিভারি রাইডার তালিকা ও ব্যবস্থাপনা</h2>
+        <p class="text-[11px] text-gray-500">প্রসেসিং অর্ডারগুলোর জন্য এখান থেকে রাইডার যুক্ত ও অ্যাসাইন করুন।</p>
+      </div>
+      <button onclick="toggleRiderForm()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1">
+        <i class="fa-solid fa-user-plus"></i>
+        <span>নতুন রাইডার যোগ করুন</span>
+      </button>
+    </div>
+
+    <!-- Hidden Add Rider Form Box -->
+    <div id="addRiderCard" class="hidden bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
+      <h3 class="font-bold text-xs text-emerald-800"><i class="fa-solid fa-plus-circle mr-1"></i> নতুন রাইডারের তথ্য লিখুন</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <input type="text" id="riderName" placeholder="রাইডারের নাম..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        <input type="text" id="riderPhone" placeholder="মোবাইল নম্বর..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        <input type="text" id="riderArea" placeholder="এলাকা (যেমন: কামারপাড়া, রংপুর সদর)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+      </div>
+      <div class="flex justify-end space-x-2">
+        <button onclick="toggleRiderForm()" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold">বাতিল</button>
+        <button onclick="saveNewRider()" class="bg-emerald-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-800">সংরক্ষণ করুন</button>
+      </div>
+    </div>
+
+    <!-- Riders List Container -->
+    <div id="ridersListContainer" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="bg-white p-6 rounded-2xl text-center border text-xs text-gray-400 md:col-span-3">
+        <i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>
+        রাইডারদের তথ্য লোড হচ্ছে...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script>
+    let ridersList = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        loadRiders();
+      }, 500);
+    });
+
+    function toggleRiderForm() {
+      const form = document.getElementById('addRiderCard');
+      form.classList.toggle('hidden');
+    }
+
+    // Load Riders from Firestore
+    async function loadRiders() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('ridersListContainer');
+
+      if (!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "riders"));
+        ridersList = [];
+        querySnapshot.forEach((docSnap) => {
+          ridersList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        if (ridersList.length === 0) {
+          container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center border text-xs text-gray-400 md:col-span-3">কোনো রাইডার পাওয়া যায়নি। নতুন রাইডার যোগ করুন।</div>`;
+          return;
+        }
+
+        let html = '';
+        ridersList.forEach(r => {
+          html += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2 relative">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h4 class="font-bold text-sm text-gray-800">${r.name}</h4>
+                  <p class="text-[11px] text-gray-500"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${r.phone}</p>
+                  <p class="text-[11px] text-gray-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${r.area || 'নির্দিষ্ট এলাকা নেই'}</p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${r.status === 'Busy' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
+                  ${r.status || 'Active'}
+                </span>
+              </div>
+              <div class="pt-2 border-t flex justify-between items-center text-xs">
+                <span class="text-gray-400 text-[11px]">অ্যাসাইনকৃত অর্ডার: <b>${r.assignedOrderId || 'নেই'}</b></span>
+                <button onclick="deleteRider('${r.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 md:col-span-3">রাইডার লোড করতে সমস্যা: ${err.message}</div>`;
+      }
+    }
+
+    // Save New Rider
+    async function saveNewRider() {
+      const name = document.getElementById('riderName').value.trim();
+      const phone = document.getElementById('riderPhone').value.trim();
+      const area = document.getElementById('riderArea').value.trim();
+
+      if (!name || !phone) {
+        alert("দয়া করে রাইডারের নাম এবং মোবাইল নম্বর দিন।");
+        return;
+      }
+
+      const db = window.firebaseDb;
+      const { collection, addDoc } = window.firebaseServices;
+
+      try {
+        await addDoc(collection(db, "riders"), {
+          name,
+          phone,
+          area,
+          status: 'Active',
+          assignedOrderId: null,
+          createdAt: new Date().toISOString()
+        });
+
+        alert("নতুন রাইডার সফলভাবে যুক্ত করা হয়েছে!");
+        toggleRiderForm();
+        document.getElementById('riderName').value = '';
+        document.getElementById('riderPhone').value = '';
+        document.getElementById('riderArea').value = '';
+        loadRiders();
+      } catch (err) {
+        alert("সংরক্ষণ ব্যর্থ হয়েছে: " + err.message);
+      }
+    }
+
+    // Delete Rider
+    async function deleteRider(riderId) {
+      if (!confirm("আপনি কি এই রাইডারকে তালিকা থেকে ডিলিট করতে চান?")) return;
+      const db = window.firebaseDb;
+      const { doc, deleteDoc } = window.firebaseServices;
+
+      try {
+        await deleteDoc(doc(db, "riders", riderId));
+        loadRiders();
+        alert("রাইডার মুছে ফেলা হয়েছে!");
+      } catch (err) {
+        alert("ত্রুটি: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
