@@ -747,7 +747,7 @@
       populatePrimaryDropdown();
     };
 
-    // ফায়ারস্টোর থেকে লোকেশন ডাটা এনে ১ম ড্রপডাউনে বসানো
+    // ১. ফায়ারস্টোর থেকে লোকেশন ডাটা লোড করা
     async function populatePrimaryDropdown() {
       const primarySelect = document.getElementById('dropPrimaryArea');
       if(!primarySelect) return;
@@ -763,9 +763,9 @@
         querySnapshot.forEach((docSnap) => {
           const d = docSnap.data();
           rawLocationsData.push(d);
-          if(d.primary || d.area || d.address) {
-            primarySet.add(d.primary || d.area || d.address);
-          }
+          // primary, area, বা address চেক
+          const pVal = d.primary || d.area || d.address;
+          if(pVal) primarySet.add(pVal.trim());
         });
 
         let html = `<option value="">-- এলাকা সিলেক্ট করুন --</option>`;
@@ -778,7 +778,7 @@
       }
     }
 
-    // ১ম ড্রপডাউন পরিবর্তন হলে ২য় ড্রপডাউন (সাব-লোকেশন) আপডেট করা
+    // ২. ১ম ড্রপডাউন পরিবর্তন হলে সাব-লোকেশন আপডেট
     window.onPrimaryAreaChange = function() {
       const selectedPrimary = document.getElementById('dropPrimaryArea').value;
       const subSelect = document.getElementById('dropSubLocation');
@@ -787,21 +787,23 @@
       subSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
       roadSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
       roadSelect.disabled = true;
-      roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
 
       if(!selectedPrimary) {
         subSelect.disabled = true;
-        subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+        subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100";
         return;
       }
 
       subSelect.disabled = false;
-      subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+      subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:ring-1 focus:ring-emerald-500";
 
       let subSet = new Set();
       rawLocationsData.forEach(d => {
-        if((d.primary || d.area || d.address) === selectedPrimary && (d.sub || d.subLocation)) {
-          subSet.add(d.sub || d.subLocation);
+        const pVal = (d.primary || d.area || d.address || '').trim();
+        const sVal = (d.sub || d.subLocation || '').trim();
+        
+        if(pVal === selectedPrimary.trim() && sVal) {
+          subSet.add(sVal);
         }
       });
 
@@ -812,7 +814,7 @@
       subSelect.innerHTML = html;
     };
 
-    // ২য় ড্রপডাউন পরিবর্তন হলে ৩য় ড্রপডাউন (রোড/সেকেন্ডারি) আপডেট করা
+    // ৩. ২য় ড্রপডাউন পরিবর্তন হলে রোড/সেকেন্ডারি আপডেট
     window.onSubLocationChange = function() {
       const selectedPrimary = document.getElementById('dropPrimaryArea').value;
       const selectedSub = document.getElementById('dropSubLocation').value;
@@ -822,19 +824,21 @@
 
       if(!selectedSub) {
         roadSelect.disabled = true;
-        roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+        roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100";
         return;
       }
 
       roadSelect.disabled = false;
-      roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+      roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:ring-1 focus:ring-emerald-500";
 
       let roadSet = new Set();
       rawLocationsData.forEach(d => {
-        if((d.primary || d.area || d.address) === selectedPrimary && 
-           (d.sub || d.subLocation) === selectedSub && 
-           (d.road || d.secondary || d.name)) {
-          roadSet.add(d.road || d.secondary || d.name);
+        const pVal = (d.primary || d.area || d.address || '').trim();
+        const sVal = (d.sub || d.subLocation || '').trim();
+        const rVal = (d.road || d.secondary || d.name || '').trim();
+
+        if(pVal === selectedPrimary.trim() && sVal === selectedSub.trim() && rVal) {
+          roadSet.add(rVal);
         }
       });
 
