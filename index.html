@@ -32,7 +32,8 @@
       getDocs,
       addDoc,
       query,
-      where
+      where,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -69,7 +70,8 @@
       getDocs,
       addDoc,
       query,
-      where
+      where,
+      updateDoc
     };
   </script>
 
@@ -163,7 +165,7 @@
       <div id="tabCartContainer" class="space-y-3"></div>
     </section>
 
-    <!-- Tab 4: Account Screen (Concept 1: Exact Modern Card Layout from screenshot) -->
+    <!-- Tab 4: Account Screen (Concept 1: Modern Card & Fully Interactive Features) -->
     <section id="accountTab" class="p-4 hidden space-y-4">
       <!-- Auth Container -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -240,7 +242,7 @@
 
       </div>
 
-      <!-- Authenticated Profile View (Concept 1 Modern Card Design from Screenshot) -->
+      <!-- Authenticated Profile View (Concept 1 Modern Card Design) -->
       <div id="profileView" class="hidden space-y-4">
         
         <!-- Hero Gradient Profile Card -->
@@ -281,38 +283,38 @@
           </div>
         </div>
 
-        <!-- Order Summary Counter Bar (As seen in screenshot top row) -->
+        <!-- Order Summary Counter Bar -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-4 text-center text-xs">
           <div class="space-y-1">
             <div class="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
               <i class="fa-solid fa-clock"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">Pending</span>
+            <span class="text-gray-500 text-[10px] block">পেন্ডিং</span>
           </div>
           <div class="space-y-1">
             <div class="w-8 h-8 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
               <i class="fa-solid fa-box-open"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">Processing</span>
+            <span class="text-gray-500 text-[10px] block">প্রসেসিং</span>
           </div>
           <div class="space-y-1">
             <div class="w-8 h-8 mx-auto rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
               <i class="fa-solid fa-truck-fast"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">On-The-Way</span>
+            <span class="text-gray-500 text-[10px] block">অন-দ্যা-ওয়ে</span>
           </div>
           <div class="space-y-1">
             <div class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
               <i class="fa-solid fa-check"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">Completed</span>
+            <span class="text-gray-500 text-[10px] block">সম্পন্ন</span>
           </div>
         </div>
 
         <!-- Section Title -->
-        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">মাই অ্যাকাউন্ট ফিচারসমূহ (My Account Features)</h4>
+        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">মাই অ্যাকাউন্ট ফিচারসমূহ</h4>
 
-        <!-- 6 Feature Cards Grid (As seen in screenshot) -->
+        <!-- 6 Interactive Feature Cards Grid -->
         <div class="grid grid-cols-2 gap-3">
           
           <!-- Card 1: My Orders -->
@@ -326,8 +328,8 @@
             </div>
           </div>
 
-          <!-- Card 2: Addresses -->
-          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+          <!-- Card 2: Addresses (Interactive Modal trigger) -->
+          <div onclick="openAddressModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-location-dot"></i>
             </div>
@@ -337,19 +339,19 @@
             </div>
           </div>
 
-          <!-- Card 3: My Wishlist / Coupons -->
+          <!-- Card 3: Wishlist / Coupons -->
           <div onclick="toggleWishlistModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-heart"></i>
             </div>
             <div>
               <h4 class="text-xs font-bold text-gray-800">মাই উইশলিস্ট</h4>
-              <p class="text-[10px] text-gray-400"><span id="wishlistCountText">0</span> টি আইটেম সেভড</p>
+              <p class="text-[10px] text-gray-400"><span id="wishlistCountText">0</span> টি আইটেম</p>
             </div>
           </div>
 
-          <!-- Card 4: Payment Methods -->
-          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+          <!-- Card 4: Payment Methods (Interactive Modal trigger) -->
+          <div onclick="openPaymentModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-wallet"></i>
             </div>
@@ -359,8 +361,8 @@
             </div>
           </div>
 
-          <!-- Card 5: Security -->
-          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+          <!-- Card 5: Security (Interactive Modal trigger) -->
+          <div onclick="openSecurityModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-shield-halved"></i>
             </div>
@@ -370,8 +372,8 @@
             </div>
           </div>
 
-          <!-- Card 6: Customer Care -->
-          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+          <!-- Card 6: Customer Care (Interactive Modal trigger) -->
+          <div onclick="openSupportModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
             <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-headset"></i>
             </div>
@@ -400,7 +402,7 @@
           </div>
         </div>
 
-        <!-- Stylish Logout Button (As seen at the bottom of screenshot) -->
+        <!-- Stylish Logout Button -->
         <button id="logoutBtn" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl border border-red-200 transition text-xs flex items-center justify-center space-x-2 shadow-sm">
           <i class="fa-solid fa-right-from-bracket"></i>
           <span>অ্যাকাউন্ট থেকে লগআউট করুন</span>
@@ -491,8 +493,22 @@
           <i class="fa-solid fa-xmark text-xl"></i>
         </button>
       </div>
-      <div id="wishlistDrawerItems" class="flex-1 overflow-y-auto p-4 space-y-3">
-        <!-- Wishlist items injected here -->
+      <div id="wishlistDrawerItems" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- GENERAL POPUP MODAL FOR FEATURE CARDS -->
+  <div id="featureModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 id="featureModalTitle" class="font-bold text-sm text-emerald-700">ফ্যাক্ট</h3>
+        <button onclick="closeFeatureModal()" class="text-gray-500 hover:text-red-500 text-lg font-bold px-2">&times;</button>
+      </div>
+      <div id="featureModalBody" class="text-xs text-gray-600 space-y-3">
+        <!-- Dynamic Content -->
+      </div>
+      <div class="flex justify-end pt-2 border-t">
+        <button onclick="closeFeatureModal()" class="bg-gray-200 text-gray-700 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-300">বন্ধ করুন</button>
       </div>
     </div>
   </div>
@@ -558,7 +574,7 @@
         renderProducts(e.target.value.toLowerCase());
       });
 
-      // Checkout Button Handler (Generates Unique Order ID & Stock Validation Check)
+      // Checkout Button Handler
       document.getElementById('checkoutBtn').addEventListener('click', async () => {
         if (cart.length === 0) {
           alert("আপনার কার্ট খালি রয়েছে!");
@@ -574,7 +590,6 @@
         const db = window.firebaseDb;
         const { doc, getDoc, addDoc, collection } = window.firebaseServices;
 
-        // STOCK VALIDATION CHECK BEFORE SUBMITTING ORDER
         for (let item of cart) {
           try {
             const prodRef = doc(db, "products", String(item.id));
@@ -607,7 +622,6 @@
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const totalAmount = subtotal + 30;
 
-        // Generate Unique 6-Digit Order ID
         const uniqueOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
         const orderData = {
@@ -668,7 +682,85 @@
       loadAdminAddresses();
     });
 
-    // Fetch Products from Firestore (Including Stock)
+    // Interactive Card Modal Functions
+    window.openAddressModal = function() {
+      const currentAddr = document.getElementById('userAddress')?.innerText || "কোনো ঠিকানা সেভ করা নেই";
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার সেভ করা ঠিকানাসমূহ`;
+      document.getElementById('featureModalBody').innerHTML = `
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
+          <p class="font-bold text-emerald-800 text-xs">প্রাইমারি ডেলিভারি ঠিকানা:</p>
+          <p class="text-xs text-gray-700">${currentAddr}</p>
+        </div>
+        <p class="text-[11px] text-gray-500">আপনি চেকআউট করার সময় অথবা অ্যাডমিন প্যানেল থেকে ডেলিভারি লোকেশন পরিবর্তন করতে পারবেন।</p>
+      `;
+      document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    window.openPaymentModal = function() {
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-wallet mr-1"></i> পেমেন্ট মেথডসমূহ`;
+      document.getElementById('featureModalBody').innerHTML = `
+        <div class="space-y-2">
+          <div class="flex items-center justify-between p-2.5 bg-gray-50 border rounded-xl">
+            <span class="font-bold text-gray-700"><i class="fa-solid fa-money-bill-wave text-emerald-600 mr-2"></i> ক্যাশ অন ডেলিভারি (COD)</span>
+            <span class="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded">সক্রিয়</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 bg-gray-50 border rounded-xl">
+            <span class="font-bold text-gray-700"><i class="fa-solid fa-mobile-screen text-pink-600 mr-2"></i> বিকাশ / নগদ (Online)</span>
+            <span class="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded">শীঘ্রই আসছে</span>
+          </div>
+        </div>
+      `;
+      document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    window.openSecurityModal = function() {
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> সিকিউরিটি ও পাসওয়ার্ড`;
+      document.getElementById('featureModalBody').innerHTML = `
+        <div class="space-y-2">
+          <p class="text-xs text-gray-600">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে পাসওয়ার্ড পরিবর্তন বা রিসেট করতে পারেন।</p>
+          <button onclick="triggerPasswordResetFromModal()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700">
+            পাসওয়ার্ড রিসেট লিংক পাঠান
+          </button>
+        </div>
+      `;
+      document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    async function triggerPasswordResetFromModal() {
+      const auth = window.firebaseAuth;
+      const user = auth.currentUser;
+      if(!user || !user.email) {
+        alert("ইউজার ইমেল পাওয়া যায়নি।");
+        return;
+      }
+      try {
+        const { sendPasswordResetEmail } = window.firebaseServices;
+        await sendPasswordResetEmail(auth, user.email);
+        alert("আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিংক পাঠানো হয়েছে!");
+        closeFeatureModal();
+      } catch(err) {
+        alert("সমস্যা হয়েছে: " + err.message);
+      }
+    }
+
+    window.openSupportModal = function() {
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-headset mr-1"></i> কাস্টমার কেয়ার সাপোর্ট`;
+      document.getElementById('featureModalBody').innerHTML = `
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 space-y-2 text-center">
+          <p class="font-bold text-emerald-800">Laland Express সাপোর্ট টিম</p>
+          <p class="text-xs text-gray-600">যেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করুন:</p>
+          <p class="text-sm font-extrabold text-emerald-700"><i class="fa-solid fa-phone mr-1"></i> 017XXXXXXXX</p>
+          <p class="text-[11px] text-gray-500">সময়: সকাল ৯:০০ টা থেকে রাত ১০:০০ টা</p>
+        </div>
+      `;
+      document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    window.closeFeatureModal = function() {
+      document.getElementById('featureModal').classList.add('hidden');
+    };
+
+    // Fetch Products from Firestore
     async function fetchProductsFromFirebase() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -1169,7 +1261,6 @@
               document.getElementById('userName').innerText = data.name || "Customer";
               document.getElementById('userPhone').innerText = data.phone || "No phone";
               document.getElementById('userEmail').innerText = data.email || user.email;
-              document.getElementById('userAddress').innerText = data.address || "No address provided";
               const addrText = document.getElementById('addressCountText');
               if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "No address";
             }
