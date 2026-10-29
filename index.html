@@ -1493,9 +1493,12 @@
         const isOnTheWay = status === 'on the way' || status === 'on-the-way' || status === 'ontheway' || status === 'delivered' || status === 'completed';
         const isDelivered = status === 'delivered' || status === 'completed';
 
-        // রাইডার ইনফরমেশন বক্স (যদি রাইডার অ্যাসাইন করা থাকে)
+        // রাইডার ইনফরমেশন বক্স (উভয় নাম ও ফোন ফিল্ড সাপোর্ট করার জন্য আপডেট করা হলো)
         let riderInfoHTML = '';
-        if (isOnTheWay && ord.riderName) {
+        const assignedRiderName = ord.riderName || ord.assignedRiderName;
+        const assignedRiderPhone = ord.riderPhone || ord.assignedRiderPhone;
+
+        if (isOnTheWay && assignedRiderName) {
           riderInfoHTML = `
             <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 flex items-center justify-between mt-2">
               <div class="flex items-center space-x-2">
@@ -1504,11 +1507,11 @@
                 </div>
                 <div>
                   <p class="text-[10px] text-purple-800 font-bold">ডেলিভারি রাইডার</p>
-                  <p class="text-xs font-extrabold text-gray-800">${ord.riderName}</p>
+                  <p class="text-xs font-extrabold text-gray-800">${assignedRiderName}</p>
                 </div>
               </div>
-              ${ord.riderPhone ? `
-                <a href="tel:${ord.riderPhone}" class="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-purple-700 transition">
+              ${assignedRiderPhone ? `
+                <a href="tel:${assignedRiderPhone}" class="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-purple-700 transition">
                   <i class="fa-solid fa-phone"></i>
                   <span>কল করুন</span>
                 </a>
