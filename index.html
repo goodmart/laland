@@ -747,7 +747,7 @@
       populatePrimaryDropdown();
     };
 
-    // ১. ফায়ারস্টোর থেকে লোকেশন ডাটা লোড করা (আপডেটেড ও নিরাপদ লজিক)
+    // ১. সঠিক 'delivery_locations' কালেকশন থেকে লোকেশন ডাটা লোড করা
     async function populatePrimaryDropdown() {
       const primarySelect = document.getElementById('dropPrimaryArea');
       if(!primarySelect) return;
@@ -755,7 +755,7 @@
       try {
         const db = window.firebaseDb;
         const { collection, getDocs } = window.firebaseServices;
-        const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
+        const querySnapshot = await getDocs(collection(db, "delivery_locations"));
         
         rawLocationsData = [];
         let primarySet = new Set();
@@ -763,16 +763,9 @@
         querySnapshot.forEach((docSnap) => {
           let d = docSnap.data();
           
-          let p = d.primary || d.area;
-          let s = d.sub || d.subLocation;
-          let r = d.road || d.secondary || d.name;
-
-          if (!p && d.address) {
-            const parts = d.address.split(',').map(item => item.trim());
-            p = parts[0] || '';
-            s = parts[1] || '';
-            r = parts[2] || '';
-          }
+          let p = d.primary || '';
+          let s = d.sub || '';
+          let r = d.road || '';
 
           const formattedObj = {
             primary: p ? p.trim() : '',
@@ -1287,6 +1280,7 @@
       document.getElementById('cartModal').classList.toggle('hidden');
     }
 
+    // সঠিক 'delivery_locations' কালেকশন থেকে অ্যাড্রেস লোড করার ফাংশন
     async function loadAdminAddresses() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -1299,7 +1293,7 @@
       }
 
       try {
-        const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
+        const querySnapshot = await getDocs(collection(db, "delivery_locations"));
         if (querySnapshot.empty) {
           const emptyOpt = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
           if(checkoutSelect) checkoutSelect.innerHTML = emptyOpt;
@@ -1310,9 +1304,18 @@
         let optionsHTML = `<option value="">-- ঠিকানা সিলেক্ট করুন --</option>`;
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const addressText = data.address || data.name || [data.primary, data.sub, data.road].filter(Boolean).join(', ') || "ঠিকানা";
-          optionsHTML += `<option value="${addressText}">${addressText}</option>`;
+          
+          let p = data.primary || '';
+          let s = data.sub && data.sub !== 'প্রযোজ্য নয়' ? ', ' + data.sub : '';
+          let r = data.road && data.road !== 'প্রযোজ্য নয়' ? ', ' + data.road : '';
+          
+          let addressText = (p + s + r).trim();
+
+          if(addressText) {
+            optionsHTML += `<option value="${addressText}">${addressText}</option>`;
+          }
         });
+
         if(checkoutSelect) checkoutSelect.innerHTML = optionsHTML;
         if(signupSelect) signupSelect.innerHTML = optionsHTML;
       } catch (e) {
