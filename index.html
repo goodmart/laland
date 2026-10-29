@@ -163,7 +163,7 @@
       <div id="tabCartContainer" class="space-y-3"></div>
     </section>
 
-    <!-- Tab 4: Account Screen (Concept 1: Full Modern Card Demo & English UI) -->
+    <!-- Tab 4: Account Screen (Concept 1: Exact Modern Card Layout from screenshot) -->
     <section id="accountTab" class="p-4 hidden space-y-4">
       <!-- Auth Container -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -240,7 +240,7 @@
 
       </div>
 
-      <!-- Authenticated Profile View (Concept 1 Demo Layout) -->
+      <!-- Authenticated Profile View (Concept 1 Modern Card Design from Screenshot) -->
       <div id="profileView" class="hidden space-y-4">
         
         <!-- Hero Gradient Profile Card -->
@@ -256,9 +256,6 @@
                 <p id="userEmail" class="text-[11px] text-emerald-200 opacity-90">email@example.com</p>
               </div>
             </div>
-            <button id="logoutBtn" class="bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-xl transition backdrop-blur-sm border border-white/20" title="Logout">
-              <i class="fa-solid fa-right-from-bracket"></i>
-            </button>
           </div>
 
           <!-- Wallet & Loyalty Chips -->
@@ -284,7 +281,7 @@
           </div>
         </div>
 
-        <!-- Order Summary Counter Bar -->
+        <!-- Order Summary Counter Bar (As seen in screenshot top row) -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-4 text-center text-xs">
           <div class="space-y-1">
             <div class="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
@@ -299,66 +296,115 @@
             <span class="text-gray-500 text-[10px] block">Processing</span>
           </div>
           <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <div class="w-8 h-8 mx-auto rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
               <i class="fa-solid fa-truck-fast"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">Delivered</span>
+            <span class="text-gray-500 text-[10px] block">On-The-Way</span>
           </div>
           <div class="space-y-1">
-            <div class="w-8 h-8 mx-auto rounded-full bg-red-50 text-red-500 flex items-center justify-center font-bold">
-              <i class="fa-solid fa-ban"></i>
+            <div class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-check"></i>
             </div>
-            <span class="text-gray-500 text-[10px] block">Cancelled</span>
+            <span class="text-gray-500 text-[10px] block">Completed</span>
           </div>
         </div>
 
-        <!-- Default Delivery Address Card -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-          <div class="space-y-0.5">
-            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Default Delivery Address</span>
-            <p id="userAddress" class="text-xs text-gray-800 font-semibold">Loading address...</p>
-          </div>
-          <span class="text-xs bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-lg border border-emerald-200">Primary</span>
-        </div>
+        <!-- Section Title -->
+        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider px-1">মাই অ্যাকাউন্ট ফিচারসমূহ (My Account Features)</h4>
 
-        <!-- Quick Action Grid (Concept 1 Style) -->
+        <!-- 6 Feature Cards Grid (As seen in screenshot) -->
         <div class="grid grid-cols-2 gap-3">
-          <div onclick="toggleWishlistModal()" class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
-            <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-base">
+          
+          <!-- Card 1: My Orders -->
+          <div onclick="document.getElementById('orderHistorySection').scrollIntoView({behavior: 'smooth'});" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
+              <i class="fa-solid fa-rectangle-list"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">আমার অর্ডার</h4>
+              <p class="text-[10px] text-gray-400">ইতিহাস ও ট্র্যাকিং</p>
+            </div>
+          </div>
+
+          <!-- Card 2: Addresses -->
+          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base shrink-0">
+              <i class="fa-solid fa-location-dot"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">ঠিকানাসমূহ</h4>
+              <p id="addressCountText" class="text-[10px] text-gray-400">প্রাইমারি সেভ করা আছে</p>
+            </div>
+          </div>
+
+          <!-- Card 3: My Wishlist / Coupons -->
+          <div onclick="toggleWishlistModal()" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shrink-0">
               <i class="fa-solid fa-heart"></i>
             </div>
             <div>
-              <h4 class="text-xs font-bold text-gray-800">My Wishlist</h4>
-              <p class="text-[10px] text-gray-400"><span id="wishlistCountText">0</span> items saved</p>
+              <h4 class="text-xs font-bold text-gray-800">মাই উইশলিস্ট</h4>
+              <p class="text-[10px] text-gray-400"><span id="wishlistCountText">0</span> টি আইটেম সেভড</p>
             </div>
           </div>
-          <div onclick="showTab('cartTab')" class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
-            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base">
-              <i class="fa-solid fa-bag-shopping"></i>
+
+          <!-- Card 4: Payment Methods -->
+          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
+              <i class="fa-solid fa-wallet"></i>
             </div>
             <div>
-              <h4 class="text-xs font-bold text-gray-800">Shopping Bag</h4>
-              <p class="text-[10px] text-gray-400">View active cart</p>
+              <h4 class="text-xs font-bold text-gray-800">পেমেন্ট মেথড</h4>
+              <p class="text-[10px] text-gray-400">বিকাশ, নগদ, কার্ড</p>
             </div>
           </div>
+
+          <!-- Card 5: Security -->
+          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">সিকিউরিটি</h4>
+              <p class="text-[10px] text-gray-400">পাসওয়ার্ড পরিবর্তন</p>
+            </div>
+          </div>
+
+          <!-- Card 6: Customer Care -->
+          <div class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-base shrink-0">
+              <i class="fa-solid fa-headset"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">কাস্টমার কেয়ার</h4>
+              <p class="text-[10px] text-gray-400">২৪/৭ সাপোর্ট</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- ORDER HISTORY & TRACKING SECTION -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div id="orderHistorySection" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
           <div class="flex justify-between items-center border-b pb-2">
             <h4 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
               <i class="fa-solid fa-clock-rotate-left text-emerald-600"></i>
-              <span>My Orders & Tracking</span>
+              <span>আমার অর্ডারসমূহ (Order History & Tracking)</span>
             </h4>
             <button onclick="fetchCustomerOrderHistory()" class="text-[11px] text-emerald-600 hover:underline font-bold">
-              <i class="fa-solid fa-rotate"></i> Refresh
+              <i class="fa-solid fa-rotate"></i> রিফ্রেশ
             </button>
           </div>
 
           <div id="customerOrdersContainer" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <p class="text-xs text-gray-400 text-center py-4">Loading order details...</p>
+            <p class="text-xs text-gray-400 text-center py-4">অর্ডার তথ্য লোড হচ্ছে...</p>
           </div>
         </div>
+
+        <!-- Stylish Logout Button (As seen at the bottom of screenshot) -->
+        <button id="logoutBtn" class="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-2xl border border-red-200 transition text-xs flex items-center justify-center space-x-2 shadow-sm">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>অ্যাকাউন্ট থেকে লগআউট করুন</span>
+        </button>
 
       </div>
     </section>
@@ -1124,6 +1170,8 @@
               document.getElementById('userPhone').innerText = data.phone || "No phone";
               document.getElementById('userEmail').innerText = data.email || user.email;
               document.getElementById('userAddress').innerText = data.address || "No address provided";
+              const addrText = document.getElementById('addressCountText');
+              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "No address";
             }
             
             fetchCustomerOrderHistory();
