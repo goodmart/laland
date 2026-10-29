@@ -163,7 +163,7 @@
       <div id="tabCartContainer" class="space-y-3"></div>
     </section>
 
-    <!-- Tab 4: Account Screen (Concept 1: Modern Card & English UI) -->
+    <!-- Tab 4: Account Screen (Concept 1: Full Modern Card Demo & English UI) -->
     <section id="accountTab" class="p-4 hidden space-y-4">
       <!-- Auth Container -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -240,7 +240,7 @@
 
       </div>
 
-      <!-- Authenticated Profile View (Concept 1: Modern Card & English UI) -->
+      <!-- Authenticated Profile View (Concept 1 Demo Layout) -->
       <div id="profileView" class="hidden space-y-4">
         
         <!-- Hero Gradient Profile Card -->
@@ -281,6 +281,34 @@
                 <p class="text-xs font-extrabold">150 Pts</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Order Summary Counter Bar -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 grid grid-cols-4 text-center text-xs">
+          <div class="space-y-1">
+            <div class="w-8 h-8 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-clock"></i>
+            </div>
+            <span class="text-gray-500 text-[10px] block">Pending</span>
+          </div>
+          <div class="space-y-1">
+            <div class="w-8 h-8 mx-auto rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-box-open"></i>
+            </div>
+            <span class="text-gray-500 text-[10px] block">Processing</span>
+          </div>
+          <div class="space-y-1">
+            <div class="w-8 h-8 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-truck-fast"></i>
+            </div>
+            <span class="text-gray-500 text-[10px] block">Delivered</span>
+          </div>
+          <div class="space-y-1">
+            <div class="w-8 h-8 mx-auto rounded-full bg-red-50 text-red-500 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-ban"></i>
+            </div>
+            <span class="text-gray-500 text-[10px] block">Cancelled</span>
           </div>
         </div>
 
@@ -555,7 +583,6 @@
           saveCart();
           toggleCartModal();
           
-          // Refresh order history if user is logged in
           if(user) fetchCustomerOrderHistory();
 
         } catch (err) {
@@ -620,7 +647,7 @@
             image: d.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80',
             barcode: d.barcode,
             supplier: d.supplier,
-            stock: Number(d.stock || 0) // Stock tracking
+            stock: Number(d.stock || 0)
           });
         });
         renderProducts();
@@ -954,7 +981,7 @@
       }
     }
 
-    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING (With Updated Quantities & Revised Total)
+    // FETCH LOGGED-IN CUSTOMER'S ORDER HISTORY & TRACKING
     async function fetchCustomerOrderHistory() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
@@ -981,7 +1008,6 @@
           ordersList.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // Sort by newest order first
         ordersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         let html = '';
