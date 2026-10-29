@@ -1,1 +1,362 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Laland Express - Rider Portal</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      doc, 
+      getDoc,
+      collection,
+      getDocs,
+      query,
+      where,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error("Auth persistence error:", error);
+    });
+
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      doc,
+      getDoc,
+      collection,
+      getDocs,
+      query,
+      where,
+      updateDoc
+    };
+  </script>
+
+  <style>
+    body {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 pb-20 select-none">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-45 bg-purple-700 text-white shadow-md">
+    <div class="px-4 py-3 flex items-center justify-between max-w-md mx-auto">
+      <div class="flex items-center space-x-2">
+        <div class="w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-700 font-extrabold text-lg shadow">
+          <i class="fa-solid fa-motorcycle"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold leading-tight">Laland Rider Portal</h1>
+          <p class="text-[10px] text-purple-200 font-light">ডেলিভারি পার্টনার ড্যাশবোর্ড</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <a href="admin/index.html" class="text-xs bg-purple-900 px-2 py-1.5 rounded-xl border border-purple-400 hover:bg-purple-950 transition font-semibold" title="অ্যাডমিন প্যানেল">
+          <i class="fa-solid fa-user-shield mr-1"></i> এডমিন
+        </a>
+        <a href="index.html" class="text-xs bg-purple-800 px-2.5 py-1.5 rounded-xl border border-purple-500 hover:bg-purple-900 transition font-semibold">
+          <i class="fa-solid fa-house mr-1"></i> হোম
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto p-4 space-y-4">
+
+    <!-- 1. RIDER LOGIN FORM (Hidden when logged in) -->
+    <div id="riderAuthCard" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto text-xl mb-2">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <h2 class="font-bold text-base text-gray-800">রাইডার লগইন করুন</h2>
+        <p class="text-xs text-gray-400">আপনার নিবন্ধিত মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।</p>
+      </div>
+
+      <form id="riderLoginForm" class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">রাইডার মোবাইল নম্বর</label>
+          <input type="tel" id="riderLoginPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-purple-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+          <input type="password" id="riderLoginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-purple-500">
+        </div>
+        <button type="submit" class="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-purple-700 text-sm transition">
+          লগইন করুন
+        </button>
+      </form>
+    </div>
+
+    <!-- 2. RIDER DASHBOARD VIEW (Hidden until logged in) -->
+    <div id="riderDashboardView" class="hidden space-y-4">
+      
+      <!-- Profile Hero Card -->
+      <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-5 rounded-2xl shadow-md relative overflow-hidden space-y-3">
+        <div class="flex items-center justify-between relative z-10">
+          <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 bg-white/25 border-2 border-white/40 text-white rounded-full flex items-center justify-center text-xl font-extrabold backdrop-blur-sm">
+              <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <div>
+              <h3 id="riderProfileName" class="font-extrabold text-base">রাইডার নাম</h3>
+              <p id="riderProfilePhone" class="text-xs text-purple-100">017XXXXXXXX</p>
+            </div>
+          </div>
+          <button onclick="logoutRider()" class="bg-white/25 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-xl border border-white/20 transition font-bold">
+            লগআউট
+          </button>
+        </div>
+
+        <div class="pt-2 border-t border-white/15 flex justify-between items-center text-xs relative z-10">
+          <span>এলাকা: <strong id="riderProfileArea">-</strong></span>
+          <span id="riderStatusBadge" class="bg-emerald-400 text-emerald-950 font-bold px-2 py-0.5 rounded-full text-[10px]">Active</span>
+        </div>
+      </div>
+
+      <!-- Assigned Orders Section -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-boxes-packing text-purple-600 mr-1.5"></i> আপনার অ্যাসাইনকৃত অর্ডারসমূহ</h3>
+          <button onclick="loadRiderOrders()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+
+        <div id="riderOrdersContainer" class="space-y-3">
+          <p class="text-xs text-gray-400 text-center py-6">অর্ডার তথ্য লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Script Logic -->
+  <script>
+    let currentRiderData = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(initRiderAuthListener, 500);
+    });
+
+    function initRiderAuthListener() {
+      const auth = window.firebaseAuth;
+      const db = window.firebaseDb;
+      const { onAuthStateChanged, doc, getDoc } = window.firebaseServices;
+
+      if (!auth || !db) {
+        setTimeout(initRiderAuthListener, 500);
+        return;
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          try {
+            const docRef = doc(db, "riders", user.uid);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              currentRiderData = { id: docSnap.id, ...docSnap.data() };
+              
+              document.getElementById('riderAuthCard').classList.add('hidden');
+              document.getElementById('riderDashboardView').classList.remove('hidden');
+
+              document.getElementById('riderProfileName').innerText = currentRiderData.name || 'রাইডার';
+              document.getElementById('riderProfilePhone').innerText = currentRiderData.phone || user.email;
+              document.getElementById('riderProfileArea').innerText = currentRiderData.area || 'নির্ধারিত এলাকা নেই';
+
+              loadRiderOrders();
+            } else {
+              alert("এই অ্যাকাউন্টে কোনো রাইডার প্রোফাইল পাওয়া যায়নি!");
+              await window.firebaseServices.signOut(auth);
+            }
+          } catch (err) {
+            console.error("Auth profile error:", err);
+          }
+        } else {
+          document.getElementById('riderAuthCard').classList.remove('hidden');
+          document.getElementById('riderDashboardView').classList.add('hidden');
+        }
+      });
+
+      // Login Form Handler (Converts Phone to Email Format)
+      document.getElementById('riderLoginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById('riderLoginPhone').value.trim();
+        const password = document.getElementById('riderLoginPassword').value;
+
+        const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
+
+        try {
+          await window.firebaseServices.signInWithEmailAndPassword(auth, formattedEmail, password);
+          alert("সফলভাবে রাইডার ড্যাশবোর্ডে প্রবেশ করেছেন!");
+        } catch (err) {
+          alert("লগইন ব্যর্থ হয়েছে! মোবাইল নম্বর অথবা পাসওয়ার্ড ভুল রয়েছে।");
+        }
+      });
+    }
+
+    // Load Orders assigned to this Rider
+    async function loadRiderOrders() {
+      if (!currentRiderData) return;
+
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+      const container = document.getElementById('riderOrdersContainer');
+
+      try {
+        const q = query(collection(db, "orders"), where("riderPhone", "==", currentRiderData.phone));
+        const querySnapshot = await getDocs(q);
+
+        let orders = [];
+        querySnapshot.forEach(docSnap => {
+          orders.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        if (orders.length === 0) {
+          const qName = query(collection(db, "orders"), where("riderName", "==", currentRiderData.name));
+          const snapName = await getDocs(qName);
+          snapName.forEach(docSnap => {
+            orders.push({ id: docSnap.id, ...docSnap.data() });
+          });
+        }
+
+        if (orders.length === 0) {
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">বর্তমানে আপনার নামে কোনো অর্ডার অ্যাসাইন করা নেই।</p>`;
+          return;
+        }
+
+        let html = '';
+        orders.forEach(ord => {
+          const itemsHTML = ord.items ? ord.items.map(i => `
+            <div class="flex justify-between text-xs text-gray-600 border-b border-dashed py-1">
+              <span>${i.name} <strong class="text-purple-700">(${i.qty}x)</strong></span>
+              <span>৳ ${i.price * i.qty}</span>
+            </div>
+          `).join('') : '';
+
+          const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
+
+          html += `
+            <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
+              <div class="flex justify-between items-center border-b pb-1.5">
+                <div>
+                  <span class="font-extrabold text-purple-700 text-sm">${ord.orderId}</span>
+                  <span class="text-[10px] text-gray-400 block">তারিখ: ${new Date(ord.createdAt).toLocaleDateString()}</span>
+                </div>
+                <span class="font-bold px-2.5 py-1 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
+                  ${ord.status}
+                </span>
+              </div>
+
+              <!-- Customer Details -->
+              <div class="bg-white p-2.5 rounded-lg border space-y-1">
+                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName}</p>
+                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address}</p>
+                <div class="flex justify-between items-center pt-1">
+                  <span class="font-extrabold text-gray-800">বিল: ৳ ${ord.totalAmount}</span>
+                  <a href="tel:${ord.userPhone}" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-emerald-700">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>কাস্টমারকে কল</span>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Order Items List -->
+              <div class="space-y-1">
+                <p class="font-bold text-gray-500 text-[11px]">পণ্য তালিকা:</p>
+                ${itemsHTML}
+              </div>
+
+              <!-- Complete Delivery Action Button -->
+              ${!isDelivered ? `
+                <button onclick="completeRiderOrder('${ord.id}')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition shadow flex items-center justify-center space-x-1 mt-2">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>ডেলিভারি সম্পন্ন (Delivered) করুন</span>
+                </button>
+              ` : `
+                <div class="text-center bg-emerald-50 text-emerald-700 font-bold py-1.5 rounded-xl text-xs border border-emerald-200">
+                  <i class="fa-solid fa-check-double mr-1"></i> এই অর্ডারটি সফলভাবে ডেলিভারি করা হয়েছে
+                </div>
+              `}
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">অর্ডার লোড করতে ত্রুটি হয়েছে: ${err.message}</p>`;
+      }
+    }
+
+    // Mark Order as Delivered by Rider
+    window.completeRiderOrder = async function(orderDocId) {
+      if (!confirm("আপনি কি নিশ্চিত যে এই অর্ডারের পণ্য সফলভাবে ডেলিভারি করা হয়েছে এবং পেমেন্ট রিসিভ হয়েছে?")) return;
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      try {
+        const orderRef = doc(db, "orders", orderDocId);
+        await updateDoc(orderRef, {
+          status: 'Delivered',
+          deliveredAt: new Date().toISOString()
+        });
+
+        alert("অর্ডারটি সফলভাবে 'Delivered' হিসেবে আপডেট করা হয়েছে!");
+        loadRiderOrders();
+      } catch (err) {
+        alert("আপডেট করতে সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
+    window.logoutRider = async function() {
+      await window.firebaseServices.signOut(window.firebaseAuth);
+      alert("সফলভাবে লগআউট করা হয়েছে।");
+    }
+  </script>
+</body>
+</html>
 
