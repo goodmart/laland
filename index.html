@@ -1417,10 +1417,10 @@
         let deliveredCount = 0;
 
         currentGlobalOrders.forEach(ord => {
-          const st = (ord.status || 'pending').toLowerCase();
+          const st = (ord.status || 'pending').toLowerCase().trim();
           if (st === 'pending') pendingCount++;
           else if (st === 'processing') processingCount++;
-          else if (st === 'on-the-way' || st === 'ontheway') onTheWayCount++;
+          else if (st === 'on the way' || st === 'on-the-way' || st === 'ontheway') onTheWayCount++;
           else if (st === 'delivered' || st === 'completed') deliveredCount++;
         });
 
@@ -1442,10 +1442,10 @@
 
       if (currentOrderFilter !== 'all') {
         filtered = currentGlobalOrders.filter(ord => {
-          const st = (ord.status || 'pending').toLowerCase();
+          const st = (ord.status || 'pending').toLowerCase().trim();
           if (currentOrderFilter === 'pending') return st === 'pending';
           if (currentOrderFilter === 'processing') return st === 'processing';
-          if (currentOrderFilter === 'on-the-way') return st === 'on-the-way' || st === 'ontheway';
+          if (currentOrderFilter === 'on-the-way') return st === 'on the way' || st === 'on-the-way' || st === 'ontheway';
           if (currentOrderFilter === 'delivered') return st === 'delivered' || st === 'completed';
           return true;
         });
@@ -1458,7 +1458,7 @@
 
       let html = '';
       filtered.forEach(ord => {
-        const status = (ord.status || 'Pending').toLowerCase();
+        const status = (ord.status || 'Pending').toLowerCase().trim();
         
         const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
           <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
@@ -1469,9 +1469,9 @@
 
         const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : '';
 
-        const isPending = status === 'pending' || status === 'processing' || status === 'delivered' || status === 'on-the-way';
-        const isProcessing = status === 'processing' || status === 'delivered' || status === 'on-the-way';
-        const isOnTheWay = status === 'on-the-way' || status === 'delivered';
+        const isPending = status === 'pending' || status === 'processing' || status === 'delivered' || status === 'on the way' || status === 'on-the-way' || status === 'ontheway';
+        const isProcessing = status === 'processing' || status === 'delivered' || status === 'on the way' || status === 'on-the-way' || status === 'ontheway';
+        const isOnTheWay = status === 'on the way' || status === 'on-the-way' || status === 'ontheway' || status === 'delivered' || status === 'completed';
         const isDelivered = status === 'delivered' || status === 'completed';
 
         html += `
@@ -1549,10 +1549,10 @@
     }
 
     function getStatusBadgeStyle(status) {
-      status = (status || '').toLowerCase();
+      status = (status || '').toLowerCase().trim();
       if(status === 'delivered' || status === 'completed') return 'bg-emerald-100 text-emerald-800';
       if(status === 'processing') return 'bg-blue-100 text-blue-800';
-      if(status === 'on-the-way' || status === 'ontheway') return 'bg-purple-100 text-purple-800';
+      if(status === 'on the way' || status === 'on-the-way' || status === 'ontheway') return 'bg-purple-100 text-purple-800';
       if(status === 'cancelled') return 'bg-red-100 text-red-800';
       return 'bg-amber-100 text-amber-800';
     }
