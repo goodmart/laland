@@ -17,11 +17,13 @@
       getAuth, 
       createUserWithEmailAndPassword,
       signInWithEmailAndPassword, 
-      sendPasswordResetEmail,
       signOut, 
       onAuthStateChanged,
       setPersistence,
-      browserLocalPersistence
+      browserLocalPersistence,
+      signInWithPhoneNumber,
+      RecaptchaVerifier,
+      updatePassword
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, 
@@ -60,7 +62,6 @@
     window.firebaseServices = {
       createUserWithEmailAndPassword,
       signInWithEmailAndPassword,
-      sendPasswordResetEmail,
       signOut,
       onAuthStateChanged,
       doc,
@@ -71,7 +72,10 @@
       addDoc,
       query,
       where,
-      updateDoc
+      updateDoc,
+      signInWithPhoneNumber,
+      RecaptchaVerifier,
+      updatePassword
     };
   </script>
 
@@ -222,19 +226,40 @@
           </button>
         </form>
 
-        <!-- 3. PASSWORD RECOVERY FORM -->
+        <!-- 3. PASSWORD RECOVERY FORM (BY SMS OTP) -->
         <form id="forgotForm" class="space-y-3 hidden">
           <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 text-center">
-            <h4 class="font-bold text-xs text-emerald-800">Password Recovery</h4>
-            <p class="text-[11px] text-gray-600 mt-1">Enter your registered Mobile Number.</p>
+            <h4 class="font-bold text-xs text-emerald-800">পাসওয়ার্ড রিকভারি (SMS OTP)</h4>
+            <p class="text-[11px] text-gray-600 mt-1">আপনার নিবন্ধিত মোবাইল নম্বর দিন।</p>
           </div>
-          <div>
+
+          <!-- Step 1: Mobile Input -->
+          <div id="otpStepMobile">
             <label class="text-xs text-gray-600 block mb-1">Mobile Number *</label>
-            <input type="tel" id="recoveryPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <input type="tel" id="recoveryPhone" placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <button type="button" onclick="sendPasswordResetOTP()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm mt-3">
+              ওটিপি কোড পাঠান
+            </button>
           </div>
-          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            Send Reset Link
-          </button>
+
+          <!-- Step 2: OTP Verification & New Password Input -->
+          <div id="otpStepVerify" class="space-y-3 hidden">
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">এসএমএস এ আসা ৬ ডিজিটের OTP কোড *</label>
+              <input type="text" id="otpCodeInput" placeholder="123456" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div>
+              <label class="text-xs text-gray-600 block mb-1">নতুন পাসওয়ার্ড (Min 6 digits) *</label>
+              <input type="password" id="newPasswordInput" minlength="6" placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <button type="button" onclick="verifyOTPAndResetPassword()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+              পাসওয়ার্ড পরিবর্তন করুন
+            </button>
+          </div>
+
+          <!-- Invisible Recaptcha Container -->
+          <div id="recaptcha-container"></div>
+
           <div class="text-center pt-2">
             <button type="button" id="backToLoginBtn" class="text-xs text-gray-500 hover:underline">← Back to Login</button>
           </div>
@@ -677,6 +702,72 @@
       setTimeout(initFirebaseEvents, 500);
     });
 
+    // SMS OTP Password Reset Functions
+    window.sendPasswordResetOTP = async function() {
+      const phone = document.getElementById('recoveryPhone').value.trim();
+      if(!phone) {
+        alert("দয়া করে আপনার মোবাইল নম্বরটি দিন।");
+        return;
+      }
+
+      let formattedPhone = phone;
+      if (formattedPhone.startsWith('0')) formattedPhone = '+88' + formattedPhone;
+      else if (!formattedPhone.startsWith('+880')) formattedPhone = '+88' + formattedPhone;
+
+      const auth = window.firebaseAuth;
+      const { RecaptchaVerifier, signInWithPhoneNumber } = window.firebaseServices;
+
+      try {
+        if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible'
+          });
+        }
+
+        const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
+        window.confirmationResult = confirmationResult;
+
+        alert("আপনার নম্বরে এসএমএস এর মাধ্যমে ওটিপি (OTP) পাঠানো হয়েছে!");
+        document.getElementById('otpStepMobile').classList.add('hidden');
+        document.getElementById('otpStepVerify').classList.remove('hidden');
+
+      } catch (error) {
+        console.error("OTP Error:", error);
+        alert("ওটিপি পাঠাতে সমস্যা হয়েছে: " + error.message);
+        if(window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
+      }
+    };
+
+    window.verifyOTPAndResetPassword = async function() {
+      const otpCode = document.getElementById('otpCodeInput').value.trim();
+      const newPassword = document.getElementById('newPasswordInput').value.trim();
+
+      if(!otpCode || newPassword.length < 6) {
+        alert("সঠিক OTP কোড এবং অন্তত ৬ ডিজিটের নতুন পাসওয়ার্ড দিন।");
+        return;
+      }
+
+      try {
+        const result = await window.confirmationResult.confirm(otpCode);
+        const user = result.user;
+
+        const { updatePassword } = window.firebaseServices;
+        await updatePassword(user, newPassword);
+
+        alert("আপনার পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে! এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।");
+        
+        await window.firebaseServices.signOut(window.firebaseAuth);
+        document.getElementById('otpStepVerify').classList.add('hidden');
+        document.getElementById('otpStepMobile').classList.remove('hidden');
+        document.getElementById('loginForm').classList.remove('hidden');
+        document.getElementById('forgotForm').classList.add('hidden');
+
+      } catch (error) {
+        console.error("Password reset error:", error);
+        alert("ভুল OTP কোড অথবা সমস্যা হয়েছে: " + error.message);
+      }
+    };
+
     // Dedicated Orders Page Navigation & Filtering Functions
     window.openOrdersPageFilter = function(filterStatus) {
       currentOrderFilter = filterStatus;
@@ -909,32 +1000,11 @@
       document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> সিকিউরিটি ও পাসওয়ার্ড`;
       document.getElementById('featureModalBody').innerHTML = `
         <div class="space-y-2">
-          <p class="text-xs text-gray-600">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে পাসওয়ার্ড পরিবর্তন বা রিসেট করতে পারেন।</p>
-          <button onclick="triggerPasswordResetFromModal()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700">
-            পাসওয়ার্ড রিসেট লিংক পাঠান
-          </button>
+          <p class="text-xs text-gray-600">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে পাসওয়ার্ড পরিবর্তন করতে পারেন।</p>
         </div>
       `;
       document.getElementById('featureModal').classList.remove('hidden');
     };
-
-    async function triggerPasswordResetFromModal() {
-      const auth = window.firebaseAuth;
-      const user = auth.currentUser;
-      if(!user) {
-        alert("ইউজার পাওয়া যায়নি।");
-        return;
-      }
-      try {
-        const { sendPasswordResetEmail } = window.firebaseServices;
-        const email = user.email || `${user.phoneNumber}@lalandexpress.com`;
-        await sendPasswordResetEmail(auth, email);
-        alert("আপনার ইমেইল/ফোন আইডিতে পাসওয়ার্ড রিসেট লিংক পাঠানো হয়েছে!");
-        closeFeatureModal();
-      } catch(err) {
-        alert("সমস্যা হয়েছে: " + err.message);
-      }
-    }
 
     window.openSupportModal = function() {
       document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-headset mr-1"></i> কাস্টমার কেয়ার সাপোর্ট`;
@@ -1490,7 +1560,7 @@
     function initFirebaseEvents() {
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
-      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
+      const { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
 
       onAuthStateChanged(auth, async (user) => {
         if (user) {
@@ -1573,22 +1643,6 @@
           } catch (err) {
             alert("Login failed! Please check your credentials.");
           }
-        }
-      });
-
-      // 3. PASSWORD RECOVERY HANDLER (BY PHONE)
-      document.getElementById('forgotForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const phone = document.getElementById('recoveryPhone').value.trim();
-        const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandexpress.com`;
-
-        try {
-          await sendPasswordResetEmail(auth, formattedEmail);
-          alert("Password reset instructions sent!");
-          document.getElementById('loginForm').classList.remove('hidden');
-          document.getElementById('forgotForm').classList.add('hidden');
-        } catch (error) {
-          alert("Error: " + error.message);
         }
       });
 
