@@ -26,13 +26,18 @@
       measurementId: "G-J4S4EL5LE4"
     };
 
+    // Main Admin App
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // Secondary App specifically to create riders without disrupting Admin session
+    const secondaryApp = initializeApp(firebaseConfig, "SecondaryRiderApp");
+    const secondaryAuth = getAuth(secondaryApp);
+
     window.firebaseAuth = auth;
     window.firebaseDb = db;
-    window.firebaseServices = { collection, addDoc, getDocs, deleteDoc, doc, setDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword };
+    window.firebaseServices = { collection, addDoc, getDocs, deleteDoc, doc, setDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, secondaryAuth };
   </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10 select-none">
@@ -229,7 +234,7 @@
       }
     }
 
-    // Save New Rider & Create Auth Account
+    // Save New Rider & Create Auth Account without overriding Admin Session
     async function saveNewRider() {
       const name = document.getElementById('riderName').value.trim();
       const phone = document.getElementById('riderPhone').value.trim();
@@ -241,19 +246,20 @@
         return;
       }
 
-      const auth = window.firebaseAuth;
       const db = window.firebaseDb;
-      const { createUserWithEmailAndPassword, setDoc, doc } = window.firebaseServices;
+      const { createUserWithEmailAndPassword, setDoc, doc, secondaryAuth } = window.firebaseServices;
 
-      // রাইডারদের জন্য একটি ইউনিক ইমেইল ফরম্যাট তৈরি করা হলো (যেমন: 017xxxxxxxx@lalandrider.com)
       const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
 
       try {
-        // Firebase Auth-এ অ্যাকাউন্ট তৈরি
-        const userCred = await createUserWithEmailAndPassword(auth, formattedEmail, password);
+        // Create user using secondary auth instance so admin session remains intact
+        const userCred = await createUserWithEmailAndPassword(secondaryAuth, formattedEmail, password);
         const uid = userCred.user.uid;
 
-        // Firestore-এ রাইডার ইনফো সেভ করা
+        // Sign out secondary auth immediately so it doesn't linger
+        await secondaryAuth.signOut();
+
+        // Save rider info into Firestore database
         await setDoc(doc(db, "riders", uid), {
           uid,
           name,
@@ -267,7 +273,6 @@
         alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
         toggleRiderForm();
         
-        // ইনপুট ফিল্ড খালি করা
         document.getElementById('riderName').value = '';
         document.getElementById('riderPhone').value = '';
         document.getElementById('riderPassword').value = '';
