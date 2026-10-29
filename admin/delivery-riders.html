@@ -89,9 +89,14 @@
           <p class="text-[10px] text-purple-200 font-light">ডেলিভারি পার্টনার ড্যাশবোর্ড</p>
         </div>
       </div>
-      <a href="index.html" class="text-xs bg-purple-800 px-2.5 py-1.5 rounded-xl border border-purple-500 hover:bg-purple-900 transition font-semibold">
-        <i class="fa-solid fa-house mr-1"></i> হোম
-      </a>
+      <div class="flex items-center space-x-1.5">
+        <a href="admin/index.html" class="text-xs bg-purple-900 px-2 py-1.5 rounded-xl border border-purple-400 hover:bg-purple-950 transition font-semibold" title="অ্যাডমিন প্যানেল">
+          <i class="fa-solid fa-user-shield mr-1"></i> এডমিন
+        </a>
+        <a href="index.html" class="text-xs bg-purple-800 px-2.5 py-1.5 rounded-xl border border-purple-500 hover:bg-purple-900 transition font-semibold">
+          <i class="fa-solid fa-house mr-1"></i> হোম
+        </a>
+      </div>
     </div>
   </header>
 
@@ -121,6 +126,14 @@
           লগইন করুন
         </button>
       </form>
+      
+      <!-- Admin Portal Navigation Notice -->
+      <div class="pt-3 border-t text-center">
+        <p class="text-xs text-gray-500">আপনি কি সিস্টেম অ্যাডমিন?</p>
+        <a href="admin/index.html" class="inline-block mt-1 text-xs font-bold text-purple-700 hover:underline">
+          <i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> অ্যাডমিন লগইন পেজে যান
+        </a>
+      </div>
     </div>
 
     <!-- 2. RIDER DASHBOARD VIEW (Hidden until logged in) -->
