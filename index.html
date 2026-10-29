@@ -700,18 +700,59 @@
       document.getElementById('profileView').classList.remove('hidden');
     };
 
-    // Feature Card Modals
+    // Feature Card Modals & Interactive Address Manager
     window.openAddressModal = function() {
-      const currentAddr = document.getElementById('userAddress')?.innerText || "কোনো ঠিকানা সেভ করা নেই";
+      const currentAddr = window.currentUserAddress || "কোনো ঠিকানা সেভ করা নেই";
       document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার সেভ করা ঠিকানাসমূহ`;
       document.getElementById('featureModalBody').innerHTML = `
         <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
           <p class="font-bold text-emerald-800 text-xs">প্রাইমারি ডেলিভারি ঠিকানা:</p>
-          <p class="text-xs text-gray-700">${currentAddr}</p>
+          <p id="modalCurrentAddressText" class="text-xs text-gray-700">${currentAddr}</p>
         </div>
-        <p class="text-[11px] text-gray-500">আপনি চেকআউট করার সময় অথবা অ্যাডমিন প্যানেল থেকে ডেলিভারি লোকেশন পরিবর্তন করতে পারবেন।</p>
+        <div class="space-y-2 pt-2 border-t">
+          <label class="text-xs font-bold text-gray-700 block">নতুন ঠিকানা যুক্ত বা পরিবর্তন করুন:</label>
+          <textarea id="newAddressInput" rows="2" placeholder="আপনার সম্পূর্ণ ঠিকানা লিখুন (যেমন: কামারপাড়া, রংপুর)..." class="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"></textarea>
+          <button onclick="saveUserAddress()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700 transition">
+            ঠিকানা সেভ করুন
+          </button>
+        </div>
       `;
       document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    // Save User Address to Firestore
+    window.saveUserAddress = async function() {
+      const newAddr = document.getElementById('newAddressInput').value.trim();
+      if(!newAddr) {
+        alert("দয়া করে ঠিকানা লিখুন।");
+        return;
+      }
+
+      const auth = window.firebaseAuth;
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      const user = auth.currentUser;
+      if(!user) {
+        alert("প্রথমে লগইন করুন!");
+        return;
+      }
+
+      try {
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, { address: newAddr });
+        
+        window.currentUserAddress = newAddr;
+        document.getElementById('modalCurrentAddressText').innerText = newAddr;
+        const addrText = document.getElementById('addressCountText');
+        if(addrText) addrText.innerText = "Primary: " + newAddr.slice(0, 15) + "...";
+        
+        document.getElementById('newAddressInput').value = '';
+        alert("আপনার ঠিকানা সফলভাবে সেভ হয়েছে!");
+        closeFeatureModal();
+      } catch(err) {
+        alert("ঠিকানা সেভ করতে সমস্যা হয়েছে: " + err.message);
+      }
     };
 
     window.openPaymentModal = function() {
@@ -1157,7 +1198,6 @@
 
         currentGlobalOrders.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-        // Calculate and Update Counter Badges
         let pendingCount = 0;
         let processingCount = 0;
         let onTheWayCount = 0;
@@ -1322,8 +1362,10 @@
               document.getElementById('userName').innerText = data.name || "Customer";
               document.getElementById('userPhone').innerText = data.phone || "No phone";
               document.getElementById('userEmail').innerText = data.email || user.email;
+              
+              window.currentUserAddress = data.address || "";
               const addrText = document.getElementById('addressCountText');
-              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "No address";
+              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "কোনো ঠিকানা নেই";
             }
             fetchCustomerOrderHistory();
           } catch (e) { console.error("Firestore read error:", e); }
