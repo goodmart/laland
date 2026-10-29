@@ -521,7 +521,7 @@
     let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
     let wishlist = JSON.parse(localStorage.getItem('laland_wishlist')) || [];
     let selectedCategory = 'all';
-    let adminDeliveryLocations = []; // অ্যাডমিন প্যানেল থেকে লোড হওয়া লোকেশন তালিকা
+    let rawLocationsData = [];
 
     // TextBee Configuration
     const TEXTBEE_API_KEY = "txb_sfITvlUG6MyMo8F8JJLQFDDK4KCMFLxF";
@@ -701,42 +701,162 @@
       document.getElementById('profileView').classList.remove('hidden');
     };
 
-    // Feature Card Modal: Interactive Dropdown Address Selector (No manual typing)
+    // 3টি ড্রপডাউন সহ অ্যাড্রেস সিলেকশন মডাল
     window.openAddressModal = function() {
       const currentAddr = window.currentUserAddress || "কোনো ঠিকানা সেভ করা নেই";
-      
-      let dropdownOptions = `<option value="">-- ডেলিভারি এলাকা সিলেক্ট করুন --</option>`;
-      adminDeliveryLocations.forEach(loc => {
-        const isSelected = (loc === currentAddr) ? 'selected' : '';
-        dropdownOptions += `<option value="${loc}" ${isSelected}>${loc}</option>`;
-      });
 
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার ডেলিভারি ঠিকানাসমূহ`;
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার ডেলিভারি ঠিকানা সেট করুন`;
       document.getElementById('featureModalBody').innerHTML = `
         <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
           <p class="font-bold text-emerald-800 text-xs">বর্তমান প্রাইমারি ঠিকানা:</p>
           <p id="modalCurrentAddressText" class="text-xs text-gray-700">${currentAddr}</p>
         </div>
-        <div class="space-y-2 pt-2 border-t">
-          <label class="text-xs font-bold text-gray-700 block">তালিকা থেকে ঠিকানা সিলেক্ট বা পরিবর্তন করুন:</label>
-          <select id="profileAddressDropdown" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-            ${dropdownOptions}
-          </select>
-          <button onclick="saveUserAddressFromDropdown()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700 transition">
-            ঠিকানা আপডেট করুন
+
+        <div class="space-y-3 pt-2 border-t">
+          <!-- ড্রপডাউন ১: এলাকা / প্রাইমারি -->
+          <div>
+            <label class="text-[11px] font-bold text-gray-700 block mb-1">-- এলাকা সিলেক্ট করুন --</label>
+            <select id="dropPrimaryArea" onchange="onPrimaryAreaChange()" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="">-- এলাকা সিলেক্ট করুন --</option>
+            </select>
+          </div>
+
+          <!-- ড্রপডাউন ২: সাব-লোকেশন -->
+          <div>
+            <label class="text-[11px] font-bold text-gray-700 block mb-1">সাব-লোকেশন সিলেক্ট করুন:</label>
+            <select id="dropSubLocation" onchange="onSubLocationChange()" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="">-- প্রথমে প্রাইমারি সিলেক্ট করুন --</option>
+            </select>
+          </div>
+
+          <!-- ড্রপডাউন ৩: রোড / সেকেন্ডারি -->
+          <div>
+            <label class="text-[11px] font-bold text-gray-700 block mb-1">রোড / সেকেন্ডারি সিলেক্ট করুন:</label>
+            <select id="dropRoadSecondary" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>
+            </select>
+          </div>
+
+          <button onclick="saveUserAddressFromThreeDropdowns()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 transition shadow">
+            ঠিকানা সেভ করুন
           </button>
         </div>
       `;
       document.getElementById('featureModal').classList.remove('hidden');
+      
+      populatePrimaryDropdown();
     };
 
-    // Save Selected Address from Dropdown to Firestore
-    window.saveUserAddressFromDropdown = async function() {
-      const selectedAddr = document.getElementById('profileAddressDropdown').value;
-      if(!selectedAddr) {
-        alert("দয়া করে তালিকা থেকে একটি ঠিকানা সিলেক্ট করুন।");
+    // ফায়ারস্টোর থেকে লোকেশন ডাটা এনে ১ম ড্রপডাউনে বসানো
+    async function populatePrimaryDropdown() {
+      const primarySelect = document.getElementById('dropPrimaryArea');
+      if(!primarySelect) return;
+
+      try {
+        const db = window.firebaseDb;
+        const { collection, getDocs } = window.firebaseServices;
+        const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
+        
+        rawLocationsData = [];
+        let primarySet = new Set();
+
+        querySnapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          rawLocationsData.push(d);
+          if(d.primary || d.area || d.address) {
+            primarySet.add(d.primary || d.area || d.address);
+          }
+        });
+
+        let html = `<option value="">-- এলাকা সিলেক্ট করুন --</option>`;
+        primarySet.forEach(item => {
+          html += `<option value="${item}">${item}</option>`;
+        });
+        primarySelect.innerHTML = html;
+      } catch (err) {
+        console.error("Error loading locations:", err);
+      }
+    }
+
+    // ১ম ড্রপডাউন পরিবর্তন হলে ২য় ড্রপডাউন (সাব-লোকেশন) আপডেট করা
+    window.onPrimaryAreaChange = function() {
+      const selectedPrimary = document.getElementById('dropPrimaryArea').value;
+      const subSelect = document.getElementById('dropSubLocation');
+      const roadSelect = document.getElementById('dropRoadSecondary');
+
+      subSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      roadSelect.innerHTML = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      roadSelect.disabled = true;
+      roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+
+      if(!selectedPrimary) {
+        subSelect.disabled = true;
+        subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
         return;
       }
+
+      subSelect.disabled = false;
+      subSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+
+      let subSet = new Set();
+      rawLocationsData.forEach(d => {
+        if((d.primary || d.area || d.address) === selectedPrimary && (d.sub || d.subLocation)) {
+          subSet.add(d.sub || d.subLocation);
+        }
+      });
+
+      let html = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
+      subSet.forEach(sub => {
+        html += `<option value="${sub}">${sub}</option>`;
+      });
+      subSelect.innerHTML = html;
+    };
+
+    // ২য় ড্রপডাউন পরিবর্তন হলে ৩য় ড্রপডাউন (রোড/সেকেন্ডারি) আপডেট করা
+    window.onSubLocationChange = function() {
+      const selectedPrimary = document.getElementById('dropPrimaryArea').value;
+      const selectedSub = document.getElementById('dropSubLocation').value;
+      const roadSelect = document.getElementById('dropRoadSecondary');
+
+      roadSelect.innerHTML = `<option value="">-- রোড/সেকেন্ডারি সিলেক্ট করুন --</option>`;
+
+      if(!selectedSub) {
+        roadSelect.disabled = true;
+        roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500";
+        return;
+      }
+
+      roadSelect.disabled = false;
+      roadSelect.className = "w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500";
+
+      let roadSet = new Set();
+      rawLocationsData.forEach(d => {
+        if((d.primary || d.area || d.address) === selectedPrimary && 
+           (d.sub || d.subLocation) === selectedSub && 
+           (d.road || d.secondary || d.name)) {
+          roadSet.add(d.road || d.secondary || d.name);
+        }
+      });
+
+      let html = `<option value="">-- রোড/সেকেন্ডারি সিলেক্ট করুন --</option>`;
+      roadSet.forEach(road => {
+        html += `<option value="${road}">${road}</option>`;
+      });
+      roadSelect.innerHTML = html;
+    };
+
+    // ৩টি ড্রপডাউন থেকে সিলেক্ট করা সম্পূর্ণ ঠিকানা ফায়ারস্টোরে সেভ করা
+    window.saveUserAddressFromThreeDropdowns = async function() {
+      const p1 = document.getElementById('dropPrimaryArea').value;
+      const p2 = document.getElementById('dropSubLocation').value;
+      const p3 = document.getElementById('dropRoadSecondary').value;
+
+      if(!p1) {
+        alert("দয়া করে অন্তত প্রথম এলাকাটি সিলেক্ট করুন।");
+        return;
+      }
+
+      const finalFullAddress = [p1, p2, p3].filter(Boolean).join(', ');
 
       const auth = window.firebaseAuth;
       const db = window.firebaseDb;
@@ -750,12 +870,12 @@
 
       try {
         const userRef = doc(db, "users", user.uid);
-        await updateDoc(userRef, { address: selectedAddr });
+        await updateDoc(userRef, { address: finalFullAddress });
         
-        window.currentUserAddress = selectedAddr;
-        document.getElementById('modalCurrentAddressText').innerText = selectedAddr;
+        window.currentUserAddress = finalFullAddress;
+        document.getElementById('modalCurrentAddressText').innerText = finalFullAddress;
         const addrText = document.getElementById('addressCountText');
-        if(addrText) addrText.innerText = "Primary: " + selectedAddr;
+        if(addrText) addrText.innerText = "Primary: " + finalFullAddress;
         
         alert("আপনার ঠিকানা সফলভাবে আপডেট করা হয়েছে!");
         closeFeatureModal();
@@ -1171,15 +1291,12 @@
           return;
         }
 
-        adminDeliveryLocations = [];
         let optionsHTML = `<option value="">-- ঠিকানা সিলেক্ট করুন --</option>`;
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const addressText = data.address || data.name || "ঠিকানা";
-          adminDeliveryLocations.push(addressText);
+          const addressText = data.address || data.name || [data.primary, data.sub, data.road].filter(Boolean).join(', ') || "ঠিকানা";
           optionsHTML += `<option value="${addressText}">${addressText}</option>`;
         });
-        
         if(checkoutSelect) checkoutSelect.innerHTML = optionsHTML;
         if(signupSelect) signupSelect.innerHTML = optionsHTML;
       } catch (e) {
