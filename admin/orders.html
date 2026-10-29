@@ -118,6 +118,7 @@
         <button onclick="setFilterStatus('All')" id="btnFilterAll" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm">সবগুলো (<span id="cntAll">০</span>)</button>
         <button onclick="setFilterStatus('Pending')" id="btnFilterPending" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">পেন্ডিং (<span id="cntPending">০</span>)</button>
         <button onclick="setFilterStatus('Processing')" id="btnFilterProcessing" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">প্রসেসিং (<span id="cntProcessing">০</span>)</button>
+        <button onclick="setFilterStatus('On the Way')" id="btnFilterOnTheWay" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">অন দ্য ওয়ে (<span id="cntOnTheWay">০</span>)</button>
         <button onclick="setFilterStatus('Delivered')" id="btnFilterDelivered" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">ডেলিভারড (<span id="cntDelivered">০</span>)</button>
         <button onclick="setFilterStatus('Cancelled')" id="btnFilterCancelled" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">ক্যানসেলড (<span id="cntCancelled">০</span>)</button>
       </div>
@@ -134,30 +135,10 @@
 
   </main>
 
-  <!-- RIDER ASSIGN MODAL CONTAINER -->
-  <div id="riderAssignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white w-full max-w-md p-5 rounded-2xl shadow-xl space-y-4">
-      <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-sm text-emerald-800"><i class="fa-solid fa-motorcycle mr-1"></i> রাইডার অ্যাসাইন করুন</h3>
-        <button onclick="closeRiderModal()" class="text-gray-400 hover:text-gray-600 text-xs font-bold"><i class="fa-solid fa-xmark text-base"></i></button>
-      </div>
-      <p class="text-xs text-gray-500">এই অর্ডারের জন্য একজন ডেলিভারি রাইডার সিলেক্ট করুন:</p>
-      
-      <div id="modalRidersList" class="space-y-2 max-h-60 overflow-y-auto">
-        <p class="text-xs text-gray-400 text-center py-4">রাইডার তালিকা লোড হচ্ছে...</p>
-      </div>
-
-      <div class="flex justify-end space-x-2 pt-2 border-t">
-        <button onclick="closeRiderModal()" class="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold">বাতিল</button>
-      </div>
-    </div>
-  </div>
-
   <!-- SCRIPT LOGIC -->
   <script>
     let allOrdersList = [];
     let currentActiveStatus = 'All';
-    let selectedOrderIdForRider = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(() => {
@@ -197,6 +178,7 @@
     function updateAnalyticsAndCounts() {
       let pendingCount = 0;
       let processingCount = 0;
+      let onTheWayCount = 0;
       let deliveredCount = 0;
       let cancelledCount = 0;
       let totalSales = 0;
@@ -205,6 +187,7 @@
         const st = (ord.status || 'Pending').toLowerCase();
         if (st === 'pending') pendingCount++;
         else if (st === 'processing') processingCount++;
+        else if (st === 'on the way') onTheWayCount++;
         else if (st === 'delivered') {
           deliveredCount++;
           totalSales += Number(ord.totalAmount || 0);
@@ -219,6 +202,7 @@
       document.getElementById('cntAll').innerText = allOrdersList.length;
       document.getElementById('cntPending').innerText = pendingCount;
       document.getElementById('cntProcessing').innerText = processingCount;
+      if(document.getElementById('cntOnTheWay')) document.getElementById('cntOnTheWay').innerText = onTheWayCount;
       document.getElementById('cntDelivered').innerText = deliveredCount;
       document.getElementById('cntCancelled').innerText = cancelledCount;
     }
@@ -231,16 +215,19 @@
         'All': 'btnFilterAll',
         'Pending': 'btnFilterPending',
         'Processing': 'btnFilterProcessing',
+        'On the Way': 'btnFilterOnTheWay',
         'Delivered': 'btnFilterDelivered',
         'Cancelled': 'btnFilterCancelled'
       };
 
       Object.keys(btnMap).forEach(key => {
         const btn = document.getElementById(btnMap[key]);
-        if (key === status) {
-          btn.className = "px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm font-bold";
-        } else {
-          btn.className = "px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap font-bold";
+        if (btn) {
+          if (key === status) {
+            btn.className = "px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm font-bold";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap font-bold";
+          }
         }
       });
 
@@ -299,6 +286,31 @@
 
         const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString('bn-BD') : 'তারিখ পাওয়া যায়নি';
 
+        // যদি স্ট্যাটাস Processing হয়, তবে রাইডার অ্যাসাইন করার জন্য নিচে একটি বক্স দেখাবে
+        let riderSectionHtml = '';
+        if ((ord.status || '').toLowerCase() === 'processing') {
+          riderSectionHtml = `
+            <div id="riderSection_${ord.id}" class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-2 mt-2">
+              <div class="flex justify-between items-center">
+                <p class="text-xs font-bold text-amber-800"><i class="fa-solid fa-motorcycle mr-1"></i> এই অর্ডারের জন্য একজন রাইডার সিলেক্ট করুন:</p>
+                <button onclick="loadActiveRiders('${ord.id}')" class="text-[10px] bg-amber-600 text-white px-2 py-1 rounded font-bold hover:bg-amber-700">রাইডার তালিকা রিফ্রেশ</button>
+              </div>
+              <div id="ridersDropdownContainer_${ord.id}" class="text-xs text-gray-600">
+                <button onclick="loadActiveRiders('${ord.id}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-emerald-700">
+                  <i class="fa-solid fa-list mr-1"></i> একটিভ রাইডার তালিকা দেখুন
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (ord.assignedRiderName) {
+          riderSectionHtml = `
+            <div class="bg-indigo-50 border border-indigo-100 p-2 rounded-xl text-xs flex items-center justify-between mt-2">
+              <span class="text-indigo-800 font-semibold"><i class="fa-solid fa-motorcycle mr-1"></i> অ্যাসাইনকৃত রাইডার: <b>${ord.assignedRiderName}</b></span>
+              <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">অন দ্য ওয়ে</span>
+            </div>
+          `;
+        }
+
         html += `
           <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3 transition hover:shadow-md">
             
@@ -311,7 +323,6 @@
                     ${ord.status || 'Pending'}
                   </span>
                   <span class="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">${ord.orderId || '#ORD'}</span>
-                  ${ord.assignedRiderName ? `<span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-100"><i class="fa-solid fa-motorcycle mr-1"></i>${ord.assignedRiderName}</span>` : ''}
                 </div>
                 <p class="text-[11px] text-gray-500 flex items-center space-x-2 mt-0.5">
                   <span><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${ord.userPhone || 'নম্বর নেই'}</span>
@@ -339,13 +350,17 @@
               </div>
             </div>
 
+            <!-- Rider Section if Processing -->
+            ${riderSectionHtml}
+
             <!-- Footer: Status Changing Controller -->
             <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
               <div class="flex items-center space-x-2 w-full sm:w-auto">
                 <label class="font-bold text-gray-500 whitespace-nowrap">স্ট্যাটাস আপডেট:</label>
-                <select onchange="handleStatusChange('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
+                <select onchange="updateOrderStatus('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
                   <option value="Pending" ${ord.status === 'Pending' ? 'selected' : ''}>Pending (অপেক্ষাধীন)</option>
-                  <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing (প্রসেসিং & রাইডার)</option>
+                  <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing (প্রসেসিং)</option>
+                  <option value="On the Way" ${ord.status === 'On the Way' ? 'selected' : ''}>On the Way (অন দ্য ওয়ে)</option>
                   <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered (ডেলিভারড)</option>
                   <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled (বাতিল)</option>
                 </select>
@@ -379,22 +394,13 @@
       status = (status || '').toLowerCase();
       if (status === 'delivered') return 'bg-emerald-100 text-emerald-800';
       if (status === 'processing') return 'bg-blue-100 text-blue-800';
+      if (status === 'on the way') return 'bg-indigo-100 text-indigo-800';
       if (status === 'cancelled') return 'bg-red-100 text-red-800';
       return 'bg-amber-100 text-amber-800';
     }
 
-    // Handle Status Change Logic (Connected with Rider Assignment)
-    window.handleStatusChange = async function(orderId, newStatus) {
-      if (newStatus === 'Processing') {
-        selectedOrderIdForRider = orderId;
-        openRiderAssignModal(orderId);
-      } else {
-        updateOrderStatusDirect(orderId, newStatus);
-      }
-    };
-
-    // Direct Status Update for non-processing statuses
-    async function updateOrderStatusDirect(orderId, newStatus) {
+    // Update Status in Firestore
+    window.updateOrderStatus = async function(orderId, newStatus) {
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
 
@@ -411,15 +417,12 @@
       } catch (err) {
         alert("আপডেট ব্যর্থ হয়েছে: " + err.message);
       }
-    }
+    };
 
-    // Open Rider Assign Modal and fetch riders list from 'riders' collection
-    window.openRiderAssignModal = async function(orderId) {
-      const modal = document.getElementById('riderAssignModal');
-      const listContainer = document.getElementById('modalRidersList');
-      modal.classList.remove('hidden');
-
-      listContainer.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">রাইডার তালিকা লোড হচ্ছে...</p>`;
+    // Load active riders inside order card when status is processing
+    window.loadActiveRiders = async function(orderId) {
+      const container = document.getElementById(`ridersDropdownContainer_${orderId}`);
+      container.innerHTML = `<p class="text-[11px] text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> রাইডার তালিকা লোড হচ্ছে...</p>`;
 
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -432,62 +435,52 @@
         });
 
         if (riders.length === 0) {
-          listContainer.innerHTML = `
-            <div class="text-center py-4 space-y-2">
-              <p class="text-xs text-red-500">কোনো রাইডার পাওয়া যায়নি!</p>
-              <a href="delivery-riders.html" target="_blank" class="inline-block bg-emerald-600 text-white px-3 py-1 rounded-xl text-xs font-bold">নতুন রাইডার যোগ করুন</a>
-            </div>`;
+          container.innerHTML = `<p class="text-[11px] text-red-500 py-1">কোনো রাইডার পাওয়া যায়নি! <a href="delivery-riders.html" target="_blank" class="underline font-bold">রাইডার যোগ করুন</a></p>`;
           return;
         }
 
-        let html = '';
+        let html = `<div class="space-y-1.5 pt-1">`;
         riders.forEach(r => {
           html += `
-            <div class="flex justify-between items-center p-2.5 bg-gray-50 border rounded-xl hover:bg-emerald-50 transition">
+            <div class="flex justify-between items-center p-2 bg-white border rounded-lg shadow-sm">
               <div>
-                <h4 class="font-bold text-xs text-gray-800">${r.name}</h4>
-                <p class="text-[10px] text-gray-500"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${r.phone} | এলাকা: ${r.area || 'N/A'}</p>
+                <span class="font-bold text-gray-800">${r.name}</span> 
+                <span class="text-[10px] text-gray-500">(${r.phone} - ${r.area || 'এলাকা নেই'})</span>
               </div>
-              <button onclick="assignRiderToOrder('${orderId}', '${r.id}', '${r.name}')" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow-sm">
+              <button onclick="assignRiderAndMoveOnTheWay('${orderId}', '${r.id}', '${r.name}')" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">
                 অ্যাসাইন করুন
               </button>
             </div>
           `;
         });
-
-        listContainer.innerHTML = html;
+        html += `</div>`;
+        container.innerHTML = html;
 
       } catch (err) {
-        listContainer.innerHTML = `<p class="text-xs text-red-500 text-center py-4">রাইডার লোড করতে সমস্যা: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-[11px] text-red-500">লোডিং ব্যর্থ: ${err.message}</p>`;
       }
     };
 
-    window.closeRiderModal = function() {
-      document.getElementById('riderAssignModal').classList.add('hidden');
-      loadAllOrders(); // Refresh to reflect status changes if cancelled
-    };
-
-    // Assign Rider and update order status to Processing
-    window.assignRiderToOrder = async function(orderId, riderId, riderName) {
+    // Assign Rider, update rider status, and change order status to "On the Way"
+    window.assignRiderAndMoveOnTheWay = async function(orderId, riderId, riderName) {
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
 
       try {
-        // Update order status to Processing and save assigned rider info
+        // Update order status to "On the Way" and save assigned rider info
         await updateDoc(doc(db, "orders", orderId), {
-          status: 'Processing',
+          status: 'On the Way',
           assignedRiderId: riderId,
           assignedRiderName: riderName
         });
 
-        // Also update rider status to Busy and set assigned order
+        // Update rider status to Busy and set assigned order
         await updateDoc(doc(db, "riders", riderId), {
           status: 'Busy',
           assignedOrderId: orderId
         });
 
-        alert(`সফলভাবে ${riderName}-কে এই অর্ডারের জন্য রাইডার হিসেবে অ্যাসাইন করা হয়েছে!`);
-        closeRiderModal();
+        alert(`সফলভাবে ${riderName}-কে রাইডার হিসেবে অ্যাসাইন করা হয়েছে এবং অর্ডার স্ট্যাটাস 'On the Way' এ আপডেট হয়েছে!`);
         loadAllOrders();
 
       } catch (err) {
