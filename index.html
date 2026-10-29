@@ -445,7 +445,7 @@
 
       <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
         <div>
-          <label class="text-xs font-bold text-gray-700 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন (অ্যাডমিন তালিকা থেকে):</label>
+          <label class="text-xs font-bold text-gray-700 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন (তালিকা থেকে):</label>
           <select id="checkoutAddressSelect" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             <option value="">ঠিকানা লোড হচ্ছে...</option>
           </select>
@@ -521,6 +521,7 @@
     let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
     let wishlist = JSON.parse(localStorage.getItem('laland_wishlist')) || [];
     let selectedCategory = 'all';
+    let adminDeliveryLocations = []; // অ্যাডমিন প্যানেল থেকে লোড হওয়া লোকেশন তালিকা
 
     // TextBee Configuration
     const TEXTBEE_API_KEY = "txb_sfITvlUG6MyMo8F8JJLQFDDK4KCMFLxF";
@@ -549,6 +550,7 @@
       renderCategoryPills();
       renderCategoryGrid();
       fetchProductsFromFirebase();
+      loadAdminAddresses();
       updateCartUI();
       updateWishlistUI();
 
@@ -674,7 +676,6 @@
       });
 
       setTimeout(initFirebaseEvents, 500);
-      loadAdminAddresses();
     });
 
     // Dedicated Orders Page Navigation & Filtering Functions
@@ -700,31 +701,40 @@
       document.getElementById('profileView').classList.remove('hidden');
     };
 
-    // Feature Card Modals & Interactive Address Manager
+    // Feature Card Modal: Interactive Dropdown Address Selector (No manual typing)
     window.openAddressModal = function() {
       const currentAddr = window.currentUserAddress || "কোনো ঠিকানা সেভ করা নেই";
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার সেভ করা ঠিকানাসমূহ`;
+      
+      let dropdownOptions = `<option value="">-- ডেলিভারি এলাকা সিলেক্ট করুন --</option>`;
+      adminDeliveryLocations.forEach(loc => {
+        const isSelected = (loc === currentAddr) ? 'selected' : '';
+        dropdownOptions += `<option value="${loc}" ${isSelected}>${loc}</option>`;
+      });
+
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার ডেলিভারি ঠিকানাসমূহ`;
       document.getElementById('featureModalBody').innerHTML = `
         <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
-          <p class="font-bold text-emerald-800 text-xs">প্রাইমারি ডেলিভারি ঠিকানা:</p>
+          <p class="font-bold text-emerald-800 text-xs">বর্তমান প্রাইমারি ঠিকানা:</p>
           <p id="modalCurrentAddressText" class="text-xs text-gray-700">${currentAddr}</p>
         </div>
         <div class="space-y-2 pt-2 border-t">
-          <label class="text-xs font-bold text-gray-700 block">নতুন ঠিকানা যুক্ত বা পরিবর্তন করুন:</label>
-          <textarea id="newAddressInput" rows="2" placeholder="আপনার সম্পূর্ণ ঠিকানা লিখুন (যেমন: কামারপাড়া, রংপুর)..." class="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"></textarea>
-          <button onclick="saveUserAddress()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700 transition">
-            ঠিকানা সেভ করুন
+          <label class="text-xs font-bold text-gray-700 block">তালিকা থেকে ঠিকানা সিলেক্ট বা পরিবর্তন করুন:</label>
+          <select id="profileAddressDropdown" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            ${dropdownOptions}
+          </select>
+          <button onclick="saveUserAddressFromDropdown()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700 transition">
+            ঠিকানা আপডেট করুন
           </button>
         </div>
       `;
       document.getElementById('featureModal').classList.remove('hidden');
     };
 
-    // Save User Address to Firestore
-    window.saveUserAddress = async function() {
-      const newAddr = document.getElementById('newAddressInput').value.trim();
-      if(!newAddr) {
-        alert("দয়া করে ঠিকানা লিখুন।");
+    // Save Selected Address from Dropdown to Firestore
+    window.saveUserAddressFromDropdown = async function() {
+      const selectedAddr = document.getElementById('profileAddressDropdown').value;
+      if(!selectedAddr) {
+        alert("দয়া করে তালিকা থেকে একটি ঠিকানা সিলেক্ট করুন।");
         return;
       }
 
@@ -740,18 +750,17 @@
 
       try {
         const userRef = doc(db, "users", user.uid);
-        await updateDoc(userRef, { address: newAddr });
+        await updateDoc(userRef, { address: selectedAddr });
         
-        window.currentUserAddress = newAddr;
-        document.getElementById('modalCurrentAddressText').innerText = newAddr;
+        window.currentUserAddress = selectedAddr;
+        document.getElementById('modalCurrentAddressText').innerText = selectedAddr;
         const addrText = document.getElementById('addressCountText');
-        if(addrText) addrText.innerText = "Primary: " + newAddr.slice(0, 15) + "...";
+        if(addrText) addrText.innerText = "Primary: " + selectedAddr;
         
-        document.getElementById('newAddressInput').value = '';
-        alert("আপনার ঠিকানা সফলভাবে সেভ হয়েছে!");
+        alert("আপনার ঠিকানা সফলভাবে আপডেট করা হয়েছে!");
         closeFeatureModal();
       } catch(err) {
-        alert("ঠিকানা সেভ করতে সমস্যা হয়েছে: " + err.message);
+        alert("ঠিকানা আপডেট করতে সমস্যা হয়েছে: " + err.message);
       }
     };
 
@@ -1157,24 +1166,27 @@
         const querySnapshot = await getDocs(collection(db, "delivery_addresses"));
         if (querySnapshot.empty) {
           const emptyOpt = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
-          checkoutSelect.innerHTML = emptyOpt;
-          signupSelect.innerHTML = emptyOpt;
+          if(checkoutSelect) checkoutSelect.innerHTML = emptyOpt;
+          if(signupSelect) signupSelect.innerHTML = emptyOpt;
           return;
         }
 
+        adminDeliveryLocations = [];
         let optionsHTML = `<option value="">-- ঠিকানা সিলেক্ট করুন --</option>`;
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const addressText = data.address || data.name || "ঠিকানা";
+          adminDeliveryLocations.push(addressText);
           optionsHTML += `<option value="${addressText}">${addressText}</option>`;
         });
-        checkoutSelect.innerHTML = optionsHTML;
-        signupSelect.innerHTML = optionsHTML;
+        
+        if(checkoutSelect) checkoutSelect.innerHTML = optionsHTML;
+        if(signupSelect) signupSelect.innerHTML = optionsHTML;
       } catch (e) {
         console.error("Error loading addresses:", e);
         const errOpt = `<option value="">ঠিকানা লোড করতে সমস্যা হয়েছে</option>`;
-        checkoutSelect.innerHTML = errOpt;
-        signupSelect.innerHTML = errOpt;
+        if(checkoutSelect) checkoutSelect.innerHTML = errOpt;
+        if(signupSelect) signupSelect.innerHTML = errOpt;
       }
     }
 
@@ -1365,7 +1377,7 @@
               
               window.currentUserAddress = data.address || "";
               const addrText = document.getElementById('addressCountText');
-              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address.slice(0, 15) + "..." : "কোনো ঠিকানা নেই";
+              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address : "কোনো ঠিকানা নেই";
             }
             fetchCustomerOrderHistory();
           } catch (e) { console.error("Firestore read error:", e); }
