@@ -447,7 +447,7 @@
                 <span class="font-bold text-gray-800">${r.name}</span> 
                 <span class="text-[10px] text-gray-500">(${r.phone} - ${r.area || 'এলাকা নেই'})</span>
               </div>
-              <button onclick="assignRiderAndMoveOnTheWay('${orderId}', '${r.id}', '${r.name}')" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">
+              <button onclick="assignRiderAndMoveOnTheWay('${orderId}', '${r.id}', '${r.name}', '${r.phone}')" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">
                 অ্যাসাইন করুন
               </button>
             </div>
@@ -462,16 +462,18 @@
     };
 
     // Assign Rider, update rider status, and change order status to "On the Way"
-    window.assignRiderAndMoveOnTheWay = async function(orderId, riderId, riderName) {
+    window.assignRiderAndMoveOnTheWay = async function(orderId, riderId, riderName, riderPhone) {
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
 
       try {
-        // Update order status to "On the Way" and save assigned rider info
+        // Update order status to "On the Way" and save assigned rider info with both riderName and riderPhone
         await updateDoc(doc(db, "orders", orderId), {
           status: 'On the Way',
           assignedRiderId: riderId,
-          assignedRiderName: riderName
+          assignedRiderName: riderName,
+          riderName: riderName,   // কাস্টমার অ্যাপের ট্র্যাকিংয়ের জন্য
+          riderPhone: riderPhone  // কাস্টমার অ্যাপের কল বাটনের জন্য
         });
 
         // Update rider status to Busy and set assigned order
