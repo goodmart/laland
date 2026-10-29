@@ -165,7 +165,7 @@
       <div id="tabCartContainer" class="space-y-3"></div>
     </section>
 
-    <!-- Tab 4: Account Screen (Concept 1: Modern Card Layout) -->
+    <!-- Tab 4: Account Screen -->
     <section id="accountTab" class="p-4 hidden space-y-4">
       <!-- Auth Container -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
@@ -242,7 +242,7 @@
 
       </div>
 
-      <!-- Authenticated Profile View (Concept 1 Dashboard) -->
+      <!-- Authenticated Profile View -->
       <div id="profileView" class="hidden space-y-4">
         
         <!-- Hero Gradient Profile Card -->
@@ -701,7 +701,7 @@
       document.getElementById('profileView').classList.remove('hidden');
     };
 
-    // 3টি ড্রপডাউন সহ অ্যাড্রেস সিলেকশন মডাল
+    // 3টি ড্রপডাউন সহ অ্যাড্রেস সিলেকশন মডাল (Admin locations.html ডাটাবেজ থেকে কানেক্টেড)
     window.openAddressModal = function() {
       const currentAddr = window.currentUserAddress || "কোনো ঠিকানা সেভ করা নেই";
 
@@ -763,8 +763,9 @@
         querySnapshot.forEach((docSnap) => {
           const d = docSnap.data();
           rawLocationsData.push(d);
-          if(d.primary || d.area || d.address) {
-            primarySet.add(d.primary || d.area || d.address);
+          const pVal = d.primary || d.area || d.zone || d.address || d.name;
+          if(pVal) {
+            primarySet.add(pVal);
           }
         });
 
@@ -800,8 +801,10 @@
 
       let subSet = new Set();
       rawLocationsData.forEach(d => {
-        if((d.primary || d.area || d.address) === selectedPrimary && (d.sub || d.subLocation)) {
-          subSet.add(d.sub || d.subLocation);
+        const pVal = d.primary || d.area || d.zone || d.address || d.name;
+        const sVal = d.sub || d.subLocation || d.subArea;
+        if(pVal === selectedPrimary && sVal) {
+          subSet.add(sVal);
         }
       });
 
@@ -831,10 +834,11 @@
 
       let roadSet = new Set();
       rawLocationsData.forEach(d => {
-        if((d.primary || d.area || d.address) === selectedPrimary && 
-           (d.sub || d.subLocation) === selectedSub && 
-           (d.road || d.secondary || d.name)) {
-          roadSet.add(d.road || d.secondary || d.name);
+        const pVal = d.primary || d.area || d.zone || d.address || d.name;
+        const sVal = d.sub || d.subLocation || d.subArea;
+        const rVal = d.road || d.secondary || d.street || d.detailName;
+        if(pVal === selectedPrimary && sVal === selectedSub && rVal) {
+          roadSet.add(rVal);
         }
       });
 
@@ -884,393 +888,7 @@
       }
     };
 
-    window.openPaymentModal = function() {
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-wallet mr-1"></i> পেমেন্ট মেথডসমূহ`;
-      document.getElementById('featureModalBody').innerHTML = `
-        <div class="space-y-2">
-          <div class="flex items-center justify-between p-2.5 bg-gray-50 border rounded-xl">
-            <span class="font-bold text-gray-700"><i class="fa-solid fa-money-bill-wave text-emerald-600 mr-2"></i> ক্যাশ অন ডেলিভারি (COD)</span>
-            <span class="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded">সক্রিয়</span>
-          </div>
-          <div class="flex items-center justify-between p-2.5 bg-gray-50 border rounded-xl">
-            <span class="font-bold text-gray-700"><i class="fa-solid fa-mobile-screen text-pink-600 mr-2"></i> বিকাশ / নগদ (Online)</span>
-            <span class="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded">শীঘ্রই আসছে</span>
-          </div>
-        </div>
-      `;
-      document.getElementById('featureModal').classList.remove('hidden');
-    };
-
-    window.openSecurityModal = function() {
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> সিকিউরিটি ও পাসওয়ার্ড`;
-      document.getElementById('featureModalBody').innerHTML = `
-        <div class="space-y-2">
-          <p class="text-xs text-gray-600">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে পাসওয়ার্ড পরিবর্তন বা রিসেট করতে পারেন।</p>
-          <button onclick="triggerPasswordResetFromModal()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded-xl text-xs hover:bg-emerald-700">
-            পাসওয়ার্ড রিসেট লিংক পাঠান
-          </button>
-        </div>
-      `;
-      document.getElementById('featureModal').classList.remove('hidden');
-    };
-
-    async function triggerPasswordResetFromModal() {
-      const auth = window.firebaseAuth;
-      const user = auth.currentUser;
-      if(!user || !user.email) {
-        alert("ইউজার ইমেল পাওয়া যায়নি।");
-        return;
-      }
-      try {
-        const { sendPasswordResetEmail } = window.firebaseServices;
-        await sendPasswordResetEmail(auth, user.email);
-        alert("আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিংক পাঠানো হয়েছে!");
-        closeFeatureModal();
-      } catch(err) {
-        alert("সমস্যা হয়েছে: " + err.message);
-      }
-    }
-
-    window.openSupportModal = function() {
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-headset mr-1"></i> কাস্টমার কেয়ার সাপোর্ট`;
-      document.getElementById('featureModalBody').innerHTML = `
-        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 space-y-2 text-center">
-          <p class="font-bold text-emerald-800">Laland Express সাপোর্ট টিম</p>
-          <p class="text-xs text-gray-600">যেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করুন:</p>
-          <p class="text-sm font-extrabold text-emerald-700"><i class="fa-solid fa-phone mr-1"></i> 017XXXXXXXX</p>
-          <p class="text-[11px] text-gray-500">সময়: সকাল ৯:০০ টা থেকে রাত ১০:০০ টা</p>
-        </div>
-      `;
-      document.getElementById('featureModal').classList.remove('hidden');
-    };
-
-    window.closeFeatureModal = function() {
-      document.getElementById('featureModal').classList.add('hidden');
-    };
-
-    // Fetch Products from Firestore
-    async function fetchProductsFromFirebase() {
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
-      const grid = document.getElementById('productGrid');
-      
-      if(!db) {
-        setTimeout(fetchProductsFromFirebase, 500);
-        return;
-      }
-
-      try {
-        const querySnapshot = await getDocs(collection(db, "products"));
-        products = [];
-        querySnapshot.forEach((docSnap) => {
-          const d = docSnap.data();
-          products.push({
-            id: String(docSnap.id),
-            name: d.name,
-            price: Number(d.discountPrice || d.mrp || 0),
-            oldPrice: Number(d.mrp || 0),
-            category: d.category || 'groceries',
-            image: d.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80',
-            barcode: d.barcode,
-            supplier: d.supplier,
-            stock: Number(d.stock || 0)
-          });
-        });
-        renderProducts();
-      } catch (e) {
-        console.error("Error loading products from Firebase:", e);
-        grid.innerHTML = `<p class="text-xs text-red-500 col-span-2 text-center">পণ্য লোড করতে সমস্যা হয়েছে।</p>`;
-      }
-    }
-
-    function showTab(tabId) {
-      ['homeTab', 'categoriesTab', 'cartTab', 'accountTab'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
-      document.getElementById(tabId).classList.remove('hidden');
-    }
-
-    function renderCategoryPills() {
-      document.getElementById('categoryContainer').innerHTML = categories.map(cat => `
-        <button onclick="filterCategory('${cat.id}')" 
-          class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center space-x-1.5 ${selectedCategory === cat.id ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200'}">
-          <i class="fa-solid ${cat.icon}"></i>
-          <span>${cat.name}</span>
-        </button>
-      `).join('');
-    }
-
-    function renderCategoryGrid() {
-      document.getElementById('categoryGrid').innerHTML = categories.filter(c => c.id !== 'all').map(cat => `
-        <div onclick="filterCategory('${cat.id}'); showTab('homeTab');" class="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center space-y-2 cursor-pointer hover:border-emerald-300">
-          <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-            <i class="fa-solid ${cat.icon}"></i>
-          </div>
-          <span class="text-xs font-bold text-gray-700">${cat.name}</span>
-        </div>
-      `).join('');
-    }
-
-    window.filterCategory = function(catId) {
-      selectedCategory = catId;
-      renderCategoryPills();
-      renderProducts();
-    };
-
-    function renderProducts(searchQuery = '') {
-      let filtered = products;
-      if (selectedCategory !== 'all') filtered = filtered.filter(p => p.category === selectedCategory);
-      if (searchQuery.trim() !== '') filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery));
-
-      document.getElementById('productCount').innerText = `${filtered.length} টি আইটেম`;
-
-      if (filtered.length === 0) {
-        document.getElementById('productGrid').innerHTML = `<p class="text-xs text-gray-400 col-span-2 text-center py-6">কোনো পণ্য পাওয়া যায়নি।</p>`;
-        return;
-      }
-
-      document.getElementById('productGrid').innerHTML = filtered.map(prod => {
-        const cartItem = cart.find(item => String(item.id) === String(prod.id));
-        const qty = cartItem ? cartItem.qty : 0;
-        const isWishlisted = wishlist.some(item => String(item.id) === String(prod.id));
-        
-        const discountAmount = prod.oldPrice > prod.price ? (prod.oldPrice - prod.price) : 0;
-        const isOutOfStock = prod.stock <= 0;
-
-        return `
-          <div class="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex flex-col justify-between relative overflow-hidden">
-            ${isOutOfStock ? `<div class="absolute inset-0 bg-white/70 backdrop-blur-[0.5px] z-10 flex items-center justify-center"><span class="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow">স্টক আউট</span></div>` : ''}
-            <div>
-              <div class="h-28 rounded-xl overflow-hidden mb-2 bg-gray-100 relative">
-                <img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-cover">
-                <!-- Wishlist Heart Button -->
-                <button onclick="toggleWishlist('${prod.id}')" class="absolute top-1.5 right-1.5 w-7 h-7 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow transition hover:bg-white">
-                  <i class="fa-solid fa-heart ${isWishlisted ? 'text-red-500' : 'text-gray-300'} text-xs"></i>
-                </button>
-                ${discountAmount > 0 ? `
-                  <span class="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow">
-                    ৳ ${discountAmount} ছাড়
-                  </span>
-                ` : ''}
-              </div>
-              <h4 class="text-xs font-bold text-gray-800 line-clamp-2">${prod.name}</h4>
-              <div class="flex items-baseline space-x-1 mt-1">
-                <span class="text-sm font-extrabold text-emerald-600">৳ ${prod.price}</span>
-                ${prod.oldPrice > prod.price ? `<span class="text-[10px] text-gray-400 line-through">৳ ${prod.oldPrice}</span>` : ''}
-              </div>
-            </div>
-
-            <div class="mt-3">
-              ${isOutOfStock ? `
-                <button disabled class="w-full bg-gray-100 text-gray-400 font-bold py-1.5 rounded-xl text-xs cursor-not-allowed">
-                  স্টক শেষ
-                </button>
-              ` : (qty === 0 ? `
-                <button onclick="addToCart('${prod.id}')" class="w-full bg-emerald-50 text-emerald-600 border border-emerald-200 font-bold py-1.5 rounded-xl text-xs flex items-center justify-center space-x-1 hover:bg-emerald-600 hover:text-white transition">
-                  <i class="fa-solid fa-plus text-[10px]"></i>
-                  <span>যোগ করুন</span>
-                </button>
-              ` : `
-                <div class="flex items-center justify-between bg-emerald-600 text-white rounded-xl p-1">
-                  <button onclick="updateQty('${prod.id}', -1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
-                    <i class="fa-solid fa-minus text-[10px]"></i>
-                  </button>
-                  <span class="text-xs font-bold">${qty}</span>
-                  <button onclick="updateQty('${prod.id}', 1)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-emerald-700">
-                    <i class="fa-solid fa-plus text-[10px]"></i>
-                  </button>
-                </div>
-              `)}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Wishlist Functions
-    window.toggleWishlist = function(id) {
-      id = String(id);
-      const prod = products.find(p => String(p.id) === id);
-      if(!prod) return;
-
-      const index = wishlist.findIndex(item => String(item.id) === id);
-      if(index !== -1) {
-        wishlist.splice(index, 1);
-      } else {
-        wishlist.push(prod);
-      }
-      localStorage.setItem('laland_wishlist', JSON.stringify(wishlist));
-      updateWishlistUI();
-      renderProducts();
-    };
-
-    function updateWishlistUI() {
-      const badge = document.getElementById('wishlistBadge');
-      const countText = document.getElementById('wishlistCountText');
-      if(wishlist.length > 0) {
-        badge.innerText = wishlist.length;
-        badge.classList.remove('hidden');
-        if(countText) countText.innerText = wishlist.length;
-      } else {
-        badge.classList.add('hidden');
-        if(countText) countText.innerText = '0';
-      }
-
-      const drawer = document.getElementById('wishlistDrawerItems');
-      if(!drawer) return;
-
-      if(wishlist.length === 0) {
-        drawer.innerHTML = `
-          <div class="text-center py-10 space-y-2">
-            <i class="fa-solid fa-heart-crack text-4xl text-gray-300"></i>
-            <p class="text-xs text-gray-500">Your wishlist is empty!</p>
-          </div>
-        `;
-      } else {
-        drawer.innerHTML = wishlist.map(item => `
-          <div class="flex items-center justify-between border-b pb-2">
-            <div class="flex items-center space-x-2">
-              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
-              <div>
-                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
-                <p class="text-[10px] text-emerald-600 font-bold">৳ ${item.price}</p>
-              </div>
-            </div>
-            <div class="flex items-center space-x-2">
-              <button onclick="addToCart('${item.id}'); toggleWishlistModal();" class="bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-emerald-600 hover:text-white transition">
-                Add to Cart
-              </button>
-              <button onclick="toggleWishlist('${item.id}')" class="text-red-500 p-1 text-xs" title="Remove">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        `).join('');
-      }
-    }
-
-    function toggleWishlistModal() {
-      document.getElementById('wishlistModal').classList.toggle('hidden');
-    }
-
-    window.addToCart = function(id) {
-      id = String(id);
-      const prod = products.find(p => String(p.id) === id);
-      if(!prod || prod.stock <= 0) {
-        alert("দুঃখিত! এই পণ্যটি বর্তমানে স্টকে নেই।");
-        return;
-      }
-
-      const existing = cart.find(item => String(item.id) === id);
-      const currentQtyInCart = existing ? existing.qty : 0;
-
-      if (currentQtyInCart + 1 > prod.stock) {
-        alert(`দুঃখিত! এই পণ্যটির সর্বোচ্চ ${prod.stock} টি স্টকে আছে।`);
-        return;
-      }
-
-      if(existing) {
-        existing.qty += 1;
-      } else {
-        cart.push({ ...prod, qty: 1 });
-      }
-      saveCart();
-    };
-
-    window.updateQty = function(id, change) {
-      id = String(id);
-      const prod = products.find(p => String(p.id) === id);
-      const index = cart.findIndex(item => String(item.id) === id);
-
-      if (index !== -1 && prod) {
-        const newQty = cart[index].qty + change;
-        if (newQty > prod.stock) {
-          alert(`দুঃখিত! এই পণ্যটির সর্বোচ্চ ${prod.stock} টি স্টকে আছে।`);
-          return;
-        }
-
-        cart[index].qty = newQty;
-        if (cart[index].qty <= 0) {
-          cart.splice(index, 1);
-        }
-      }
-      saveCart();
-    };
-
-    window.removeFromCart = function(id) {
-      id = String(id);
-      cart = cart.filter(item => String(item.id) !== id);
-      saveCart();
-    };
-
-    function saveCart() {
-      localStorage.setItem('laland_cart', JSON.stringify(cart));
-      updateCartUI();
-      renderProducts();
-    }
-
-    function updateCartUI() {
-      const totalCount = cart.reduce((sum, item) => sum + item.qty, 0);
-      const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-
-      const cartBadge = document.getElementById('cartBadge');
-      const navCartBadge = document.getElementById('navCartBadge');
-      
-      if (totalCount > 0) {
-        cartBadge.innerText = totalCount; cartBadge.classList.remove('hidden');
-        navCartBadge.innerText = totalCount; navCartBadge.classList.remove('hidden');
-      } else {
-        cartBadge.classList.add('hidden'); navCartBadge.classList.add('hidden');
-      }
-
-      const drawerItems = document.getElementById('drawerCartItems');
-      const tabCartContainer = document.getElementById('tabCartContainer');
-
-      if (cart.length === 0) {
-        const emptyHTML = `
-          <div class="text-center py-10 space-y-2">
-            <i class="fa-solid fa-basket-shopping text-4xl text-gray-300"></i>
-            <p class="text-xs text-gray-500">আপনার কার্ট খালি রয়েছে!</p>
-          </div>
-        `;
-        drawerItems.innerHTML = emptyHTML;
-        tabCartContainer.innerHTML = emptyHTML;
-      } else {
-        const cartListHTML = cart.map(item => `
-          <div class="flex items-center justify-between border-b pb-2">
-            <div class="flex items-center space-x-2">
-              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
-              <div>
-                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
-                <p class="text-[10px] text-gray-500">৳ ${item.price} × ${item.qty}</p>
-              </div>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-xs font-bold text-emerald-600">৳ ${item.price * item.qty}</span>
-              <div class="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button onclick="updateQty('${item.id}', -1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">-</button>
-                <span class="text-xs font-bold px-1.5">${item.qty}</span>
-                <button onclick="updateQty('${item.id}', 1)" class="w-5 h-5 text-gray-600 flex items-center justify-center text-[10px]">+</button>
-              </div>
-              <button onclick="removeFromCart('${item.id}')" class="text-red-500 hover:text-red-700 p-1 text-xs" title="রিমুভ করুন">
-                <i class="fa-solid fa-trash"></i>
-              </button>
-            </div>
-          </div>
-        `).join('');
-
-        drawerItems.innerHTML = cartListHTML;
-        tabCartContainer.innerHTML = cartListHTML;
-      }
-
-      document.getElementById('subtotalPrice').innerText = `৳ ${subtotal}`;
-      document.getElementById('totalPrice').innerText = `৳ ${subtotal > 0 ? subtotal + 30 : 0}`;
-    }
-
-    function toggleCartModal() {
-      document.getElementById('cartModal').classList.toggle('hidden');
-    }
-
+    // কার্ট চেকআউট ও রেজিস্ট্রেশনের ড্রপডাউনে অ্যাডমিন প্যানেলের লোকেশন লোড করা
     async function loadAdminAddresses() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -1294,9 +912,10 @@
         let optionsHTML = `<option value="">-- ঠিকানা সিলেক্ট করুন --</option>`;
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const addressText = data.address || data.name || [data.primary, data.sub, data.road].filter(Boolean).join(', ') || "ঠিকানা";
-          optionsHTML += `<option value="${addressText}">${addressText}</option>`;
+          const fullAddr = data.address || data.name || [data.primary || data.area, data.sub || data.subLocation, data.road].filter(Boolean).join(', ') || "ঠিকানা";
+          optionsHTML += `<option value="${fullAddr}">${fullAddr}</option>`;
         });
+        
         if(checkoutSelect) checkoutSelect.innerHTML = optionsHTML;
         if(signupSelect) signupSelect.innerHTML = optionsHTML;
       } catch (e) {
@@ -1583,4 +1202,4 @@
     }
   </script>
 </body>
-</html>
+  </html>
