@@ -97,7 +97,12 @@
           <p class="text-xs text-emerald-100 font-light">Your daily needs</p>
         </div>
       </div>
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
+        <!-- Wishlist Header Button -->
+        <button onclick="toggleWishlistModal()" class="relative p-2 rounded-full hover:bg-emerald-700 transition" title="Wishlist">
+          <i class="fa-solid fa-heart text-lg text-amber-300"></i>
+          <span id="wishlistBadge" class="absolute -top-1 -right-1 bg-amber-400 text-emerald-950 font-bold text-xs w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
+        </button>
         <!-- Admin Portal Link -->
         <a href="admin/index.html" class="text-xs bg-emerald-700 px-2.5 py-1.5 rounded-xl border border-emerald-500 hover:bg-emerald-800 transition font-semibold" title="Admin Panel">
           <i class="fa-solid fa-lock mr-1"></i> Admin
@@ -158,121 +163,172 @@
       <div id="tabCartContainer" class="space-y-3"></div>
     </section>
 
-    <!-- Tab 4: Account Screen -->
+    <!-- Tab 4: Account Screen (Concept 1: Modern Card & English UI) -->
     <section id="accountTab" class="p-4 hidden space-y-4">
       <!-- Auth Container -->
       <div id="authForms" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
         
         <div class="flex border-b border-gray-200 text-center font-bold text-sm">
-          <button id="showLoginBtn" class="flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600">লগইন</button>
-          <button id="showSignupBtn" class="flex-1 py-2 text-gray-400">রেজিস্ট্রেশন (Sign Up)</button>
+          <button id="showLoginBtn" class="flex-1 py-2 text-emerald-600 border-b-2 border-emerald-600">Login</button>
+          <button id="showSignupBtn" class="flex-1 py-2 text-gray-400">Register (Sign Up)</button>
         </div>
 
         <!-- 1. LOGIN FORM -->
         <form id="loginForm" class="space-y-3">
           <div>
-            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর</label>
+            <label class="text-xs text-gray-600 block mb-1">Mobile Number</label>
             <input type="tel" id="loginPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+            <label class="text-xs text-gray-600 block mb-1">Password</label>
             <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div class="text-right">
-            <button type="button" id="showForgotBtn" class="text-xs text-emerald-600 hover:underline">পাসওয়ার্ড ভুলে গেছেন?</button>
+            <button type="button" id="showForgotBtn" class="text-xs text-emerald-600 hover:underline">Forgot Password?</button>
           </div>
           <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            লগইন করুন
+            Login
           </button>
         </form>
 
         <!-- 2. SIGN UP FORM -->
         <form id="signupForm" class="space-y-3 hidden">
           <div>
-            <label class="text-xs text-gray-600 block mb-1">আপনার নাম *</label>
+            <label class="text-xs text-gray-600 block mb-1">Full Name *</label>
             <input type="text" id="signupName" required placeholder="MD. AL HELAL" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">মোবাইল নম্বর *</label>
+            <label class="text-xs text-gray-600 block mb-1">Mobile Number *</label>
             <input type="tel" id="signupPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">ইমেইল (পাসওয়ার্ড রিকভারির জন্য) *</label>
+            <label class="text-xs text-gray-600 block mb-1">Email (For password recovery) *</label>
             <input type="email" id="signupEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড (কমপক্ষে ৬ ডিজিট) *</label>
+            <label class="text-xs text-gray-600 block mb-1">Password (Min 6 digits) *</label>
             <input type="password" id="signupPassword" minlength="6" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন *</label>
+            <label class="text-xs text-gray-600 block mb-1">Select Delivery Address *</label>
             <select id="signupAddressSelect" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="">ঠিকানা লোড হচ্ছে...</option>
+              <option value="">Loading addresses...</option>
             </select>
           </div>
           <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            অ্যাকাউন্ট তৈরি করুন (Sign Up)
+            Create Account
           </button>
         </form>
 
         <!-- 3. PASSWORD RECOVERY FORM -->
         <form id="forgotForm" class="space-y-3 hidden">
           <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 text-center">
-            <h4 class="font-bold text-xs text-emerald-800">পাসওয়ার্ড রিকভারি</h4>
-            <p class="text-[11px] text-gray-600 mt-1">আপনার নিবন্ধিত ইমেইল এড্রেস লিখুন।</p>
+            <h4 class="font-bold text-xs text-emerald-800">Password Recovery</h4>
+            <p class="text-[11px] text-gray-600 mt-1">Enter your registered email address.</p>
           </div>
           <div>
-            <label class="text-xs text-gray-600 block mb-1">ইমেইল এড্রেস *</label>
+            <label class="text-xs text-gray-600 block mb-1">Email Address *</label>
             <input type="email" id="recoveryEmail" required placeholder="example@gmail.com" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            পাসওয়ার্ড রিসেট লিংক পাঠান
+            Send Reset Link
           </button>
           <div class="text-center pt-2">
-            <button type="button" id="backToLoginBtn" class="text-xs text-gray-500 hover:underline">← লগইন পেজে ফিরে যান</button>
+            <button type="button" id="backToLoginBtn" class="text-xs text-gray-500 hover:underline">← Back to Login</button>
           </div>
         </form>
 
       </div>
 
-      <!-- Authenticated Profile View -->
+      <!-- Authenticated Profile View (Concept 1: Modern Card & English UI) -->
       <div id="profileView" class="hidden space-y-4">
-        <!-- User Information Header -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-xl font-bold">
-              <i class="fa-solid fa-user"></i>
+        
+        <!-- Hero Gradient Profile Card -->
+        <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-5 rounded-2xl shadow-md relative overflow-hidden space-y-4">
+          <div class="flex items-center justify-between relative z-10">
+            <div class="flex items-center space-x-3">
+              <div class="w-14 h-14 bg-white/20 border-2 border-white/40 text-white rounded-full flex items-center justify-center text-2xl font-extrabold backdrop-blur-sm shadow-inner">
+                <i class="fa-solid fa-user"></i>
+              </div>
+              <div>
+                <h3 id="userName" class="font-extrabold text-base tracking-wide">Customer Name</h3>
+                <p id="userPhone" class="text-xs text-emerald-100 font-medium">017XXXXXXXX</p>
+                <p id="userEmail" class="text-[11px] text-emerald-200 opacity-90">email@example.com</p>
+              </div>
             </div>
-            <div>
-              <h3 id="userName" class="font-bold text-gray-800">গ্রাহকের নাম</h3>
-              <p id="userPhone" class="text-xs text-emerald-600 font-semibold">017XXXXXXXX</p>
-              <p id="userEmail" class="text-xs text-gray-400">email@example.com</p>
+            <button id="logoutBtn" class="bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-xl transition backdrop-blur-sm border border-white/20" title="Logout">
+              <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+          </div>
+
+          <!-- Wallet & Loyalty Chips -->
+          <div class="grid grid-cols-2 gap-3 pt-2 border-t border-white/15 relative z-10">
+            <div class="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10 flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-lg bg-amber-400 text-emerald-950 flex items-center justify-center font-bold text-sm">
+                <i class="fa-solid fa-wallet"></i>
+              </div>
+              <div>
+                <p class="text-[10px] text-emerald-100 uppercase font-semibold">Wallet Balance</p>
+                <p class="text-xs font-extrabold">৳ 0.00</p>
+              </div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10 flex items-center space-x-2">
+              <div class="w-8 h-8 rounded-lg bg-teal-400 text-emerald-950 flex items-center justify-center font-bold text-sm">
+                <i class="fa-solid fa-award"></i>
+              </div>
+              <div>
+                <p class="text-[10px] text-emerald-100 uppercase font-semibold">Reward Points</p>
+                <p class="text-xs font-extrabold">150 Pts</p>
+              </div>
             </div>
           </div>
-          <button id="logoutBtn" class="text-red-500 p-2 hover:bg-red-50 rounded-full transition" title="লগআউট">
-            <i class="fa-solid fa-right-from-bracket"></i>
-          </button>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-1">
-          <h4 class="text-[10px] font-bold text-gray-400 uppercase">ডিফল্ট ডেলিভারি ঠিকানা</h4>
-          <p id="userAddress" class="text-xs text-gray-700 font-semibold">ঠিকানা লোড হচ্ছে...</p>
+        <!-- Default Delivery Address Card -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+          <div class="space-y-0.5">
+            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Default Delivery Address</span>
+            <p id="userAddress" class="text-xs text-gray-800 font-semibold">Loading address...</p>
+          </div>
+          <span class="text-xs bg-emerald-50 text-emerald-700 font-bold px-2.5 py-1 rounded-lg border border-emerald-200">Primary</span>
         </div>
 
-        <!-- NEW: ORDER HISTORY & TRACKING SECTION -->
+        <!-- Quick Action Grid (Concept 1 Style) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div onclick="toggleWishlistModal()" class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-base">
+              <i class="fa-solid fa-heart"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">My Wishlist</h4>
+              <p class="text-[10px] text-gray-400"><span id="wishlistCountText">0</span> items saved</p>
+            </div>
+          </div>
+          <div onclick="showTab('cartTab')" class="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm flex items-center space-x-3 cursor-pointer hover:border-emerald-300 transition">
+            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-base">
+              <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-800">Shopping Bag</h4>
+              <p class="text-[10px] text-gray-400">View active cart</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ORDER HISTORY & TRACKING SECTION -->
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
           <div class="flex justify-between items-center border-b pb-2">
             <h4 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
               <i class="fa-solid fa-clock-rotate-left text-emerald-600"></i>
-              <span>আমার অর্ডারসমূহ (Order History & Tracking)</span>
+              <span>My Orders & Tracking</span>
             </h4>
             <button onclick="fetchCustomerOrderHistory()" class="text-[11px] text-emerald-600 hover:underline font-bold">
-              <i class="fa-solid fa-rotate"></i> রিফ্রেশ
+              <i class="fa-solid fa-rotate"></i> Refresh
             </button>
           </div>
 
           <div id="customerOrdersContainer" class="space-y-3 max-h-96 overflow-y-auto pr-1">
-            <p class="text-xs text-gray-400 text-center py-4">অর্ডার তথ্য লোড হচ্ছে...</p>
+            <p class="text-xs text-gray-400 text-center py-4">Loading order details...</p>
           </div>
         </div>
 
@@ -349,6 +405,24 @@
     </div>
   </div>
 
+  <!-- Wishlist Modal Drawer -->
+  <div id="wishlistModal" class="fixed inset-0 bg-black/50 z-50 hidden flex justify-end">
+    <div class="w-full max-w-sm bg-white h-full flex flex-col shadow-2xl">
+      <div class="p-4 bg-emerald-600 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-heart"></i>
+          <h3 class="font-bold text-base">My Wishlist</h3>
+        </div>
+        <button onclick="toggleWishlistModal()" class="p-1 hover:bg-emerald-700 rounded-full">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+      <div id="wishlistDrawerItems" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <!-- Wishlist items injected here -->
+      </div>
+    </div>
+  </div>
+
   <!-- Application Logic JS -->
   <script>
     let products = [];
@@ -361,6 +435,7 @@
     ];
 
     let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
+    let wishlist = JSON.parse(localStorage.getItem('laland_wishlist')) || [];
     let selectedCategory = 'all';
 
     // TextBee Configuration
@@ -391,6 +466,7 @@
       renderCategoryGrid();
       fetchProductsFromFirebase();
       updateCartUI();
+      updateWishlistUI();
 
       const navButtons = document.querySelectorAll('.nav-btn');
       navButtons.forEach(btn => {
@@ -603,6 +679,7 @@
       document.getElementById('productGrid').innerHTML = filtered.map(prod => {
         const cartItem = cart.find(item => String(item.id) === String(prod.id));
         const qty = cartItem ? cartItem.qty : 0;
+        const isWishlisted = wishlist.some(item => String(item.id) === String(prod.id));
         
         const discountAmount = prod.oldPrice > prod.price ? (prod.oldPrice - prod.price) : 0;
         const isOutOfStock = prod.stock <= 0;
@@ -613,6 +690,10 @@
             <div>
               <div class="h-28 rounded-xl overflow-hidden mb-2 bg-gray-100 relative">
                 <img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-cover">
+                <!-- Wishlist Heart Button -->
+                <button onclick="toggleWishlist('${prod.id}')" class="absolute top-1.5 right-1.5 w-7 h-7 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow transition hover:bg-white">
+                  <i class="fa-solid fa-heart ${isWishlisted ? 'text-red-500' : 'text-gray-300'} text-xs"></i>
+                </button>
                 ${discountAmount > 0 ? `
                   <span class="absolute top-1 left-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow">
                     ৳ ${discountAmount} ছাড়
@@ -651,6 +732,72 @@
           </div>
         `;
       }).join('');
+    }
+
+    // Wishlist Functions
+    window.toggleWishlist = function(id) {
+      id = String(id);
+      const prod = products.find(p => String(p.id) === id);
+      if(!prod) return;
+
+      const index = wishlist.findIndex(item => String(item.id) === id);
+      if(index !== -1) {
+        wishlist.splice(index, 1);
+      } else {
+        wishlist.push(prod);
+      }
+      localStorage.setItem('laland_wishlist', JSON.stringify(wishlist));
+      updateWishlistUI();
+      renderProducts();
+    };
+
+    function updateWishlistUI() {
+      const badge = document.getElementById('wishlistBadge');
+      const countText = document.getElementById('wishlistCountText');
+      if(wishlist.length > 0) {
+        badge.innerText = wishlist.length;
+        badge.classList.remove('hidden');
+        if(countText) countText.innerText = wishlist.length;
+      } else {
+        badge.classList.add('hidden');
+        if(countText) countText.innerText = '0';
+      }
+
+      const drawer = document.getElementById('wishlistDrawerItems');
+      if(!drawer) return;
+
+      if(wishlist.length === 0) {
+        drawer.innerHTML = `
+          <div class="text-center py-10 space-y-2">
+            <i class="fa-solid fa-heart-crack text-4xl text-gray-300"></i>
+            <p class="text-xs text-gray-500">Your wishlist is empty!</p>
+          </div>
+        `;
+      } else {
+        drawer.innerHTML = wishlist.map(item => `
+          <div class="flex items-center justify-between border-b pb-2">
+            <div class="flex items-center space-x-2">
+              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
+              <div>
+                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
+                <p class="text-[10px] text-emerald-600 font-bold">৳ ${item.price}</p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="addToCart('${item.id}'); toggleWishlistModal();" class="bg-emerald-50 text-emerald-600 px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-emerald-600 hover:text-white transition">
+                Add to Cart
+              </button>
+              <button onclick="toggleWishlist('${item.id}')" class="text-red-500 p-1 text-xs" title="Remove">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function toggleWishlistModal() {
+      document.getElementById('wishlistModal').classList.toggle('hidden');
     }
 
     window.addToCart = function(id) {
@@ -816,7 +963,7 @@
 
       const user = auth.currentUser;
       if (!user) {
-        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">অর্ডার লিস্ট দেখতে লগইন করুন।</p>`;
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">Please login to view your order history.</p>`;
         return;
       }
 
@@ -825,7 +972,7 @@
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">আপনার কোনো পূর্ববর্তী অর্ডার নেই।</p>`;
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">You have no previous orders.</p>`;
           return;
         }
 
@@ -841,17 +988,15 @@
         ordersList.forEach(ord => {
           const status = (ord.status || 'Pending').toLowerCase();
           
-          // Render current active items with dynamically updated quantities from admin panel
           const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
             <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
               <span>${i.name} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
               <span class="font-semibold">৳ ${i.price * i.qty}</span>
             </div>
-          `).join('') : '<p class="text-red-500 font-bold py-1">এই অর্ডারের সকল পণ্য স্টক না থাকায় বাতিল করা হয়েছে।</p>';
+          `).join('') : '<p class="text-red-500 font-bold py-1">Items cancelled due to stock unavailability.</p>';
 
-          const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('bn-BD') : '';
+          const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : '';
 
-          // Tracker Steps Highlight Calculation
           const isPending = status === 'pending' || status === 'processing' || status === 'delivered';
           const isProcessing = status === 'processing' || status === 'delivered';
           const isDelivered = status === 'delivered';
@@ -871,27 +1016,27 @@
 
               <!-- Items & Revised Total Bill Notice -->
               <div class="space-y-1 text-gray-600 bg-white p-2.5 rounded-lg border border-gray-100">
-                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (সংশোধিত পরিমাণসহ):</p>
+                <p class="font-bold text-gray-500 mb-1">Ordered Items (Revised):</p>
                 ${itemsListHTML}
                 <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800 text-sm">
-                  <span>সংশোধিত মোট বিল:</span>
+                  <span>Total Bill:</span>
                   <span class="text-emerald-700">৳ ${ord.totalAmount || 0}</span>
                 </div>
                 <p class="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded mt-1">
-                  <i class="fa-solid fa-circle-info mr-1"></i> ওয়্যারহাউজে স্টক সীমিত থাকায় অ্যাডমিন পণ্যের পরিমাণ বা সংখ্যা আপডেট করতে পারেন।
+                  <i class="fa-solid fa-circle-info mr-1"></i> Quantities may be updated by admin based on warehouse stock.
                 </p>
               </div>
 
               <!-- Visual Live Order Tracker Bar -->
               <div class="pt-1 border-t border-gray-200">
-                <p class="text-[10px] font-bold text-gray-500 mb-1.5">অর্ডার ট্র্যাকিং (Live Status):</p>
+                <p class="text-[10px] font-bold text-gray-500 mb-1.5">Order Tracking (Live Status):</p>
                 <div class="flex items-center justify-between text-[9px] font-bold">
                   
                   <div class="flex flex-col items-center">
                     <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isPending ? 'bg-amber-500' : 'bg-gray-300'}">
                       <i class="fa-solid fa-check text-[8px]"></i>
                     </div>
-                    <span class="mt-0.5 ${isPending ? 'text-amber-600' : 'text-gray-400'}">গৃহীত</span>
+                    <span class="mt-0.5 ${isPending ? 'text-amber-600' : 'text-gray-400'}">Placed</span>
                   </div>
 
                   <div class="flex-1 h-0.5 ${isProcessing ? 'bg-blue-500' : 'bg-gray-200'} mx-1"></div>
@@ -900,7 +1045,7 @@
                     <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isProcessing ? 'bg-blue-500' : 'bg-gray-300'}">
                       <i class="fa-solid fa-box text-[8px]"></i>
                     </div>
-                    <span class="mt-0.5 ${isProcessing ? 'text-blue-600' : 'text-gray-400'}">প্রসেসিং</span>
+                    <span class="mt-0.5 ${isProcessing ? 'text-blue-600' : 'text-gray-400'}">Processing</span>
                   </div>
 
                   <div class="flex-1 h-0.5 ${isDelivered ? 'bg-emerald-500' : 'bg-gray-200'} mx-1"></div>
@@ -909,7 +1054,7 @@
                     <div class="w-5 h-5 rounded-full flex items-center justify-center text-white ${isDelivered ? 'bg-emerald-600' : 'bg-gray-300'}">
                       <i class="fa-solid fa-truck-ramp-box text-[8px]"></i>
                     </div>
-                    <span class="mt-0.5 ${isDelivered ? 'text-emerald-600' : 'text-gray-400'}">ডেলিভারড</span>
+                    <span class="mt-0.5 ${isDelivered ? 'text-emerald-600' : 'text-gray-400'}">Delivered</span>
                   </div>
 
                 </div>
@@ -922,7 +1067,7 @@
 
       } catch (err) {
         console.error("Error fetching order history:", err);
-        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">হিস্ট্রি লোড করতে সমস্যা হয়েছে।</p>`;
+        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">Error loading order history.</p>`;
       }
     }
 
@@ -949,13 +1094,12 @@
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
               const data = docSnap.data();
-              document.getElementById('userName').innerText = data.name || "গ্রাহক";
-              document.getElementById('userPhone').innerText = data.phone || "নম্বর নেই";
+              document.getElementById('userName').innerText = data.name || "Customer";
+              document.getElementById('userPhone').innerText = data.phone || "No phone";
               document.getElementById('userEmail').innerText = data.email || user.email;
-              document.getElementById('userAddress').innerText = data.address || "কোনো ঠিকানা দেয়া হয়নি";
+              document.getElementById('userAddress').innerText = data.address || "No address provided";
             }
             
-            // Load Order History for Logged-in Customer
             fetchCustomerOrderHistory();
 
           } catch (e) { console.error("Firestore read error:", e); }
@@ -969,13 +1113,13 @@
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('signupName').value;
-        const phone = document.getElementById('signupPhone::val') || document.getElementById('signupPhone').value.trim();
+        const phone = document.getElementById('signupPhone').value.trim();
         const email = document.getElementById('signupEmail').value.trim();
         const password = document.getElementById('signupPassword').value;
         const address = document.getElementById('signupAddressSelect').value;
 
         if(!address) {
-          alert("অনুগ্রহ করে একটি ডেলিভারি ঠিকানা সিলেক্ট করুন।");
+          alert("Please select a delivery address.");
           return;
         }
 
@@ -991,12 +1135,11 @@
             createdAt: new Date().toISOString()
           });
 
-          // Trigger TextBee Welcome SMS
           await sendTextBeeWelcomeSMS(phone, name);
 
-          alert("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে এবং ওয়েলকাম এসএমএস পাঠানো হয়েছে!");
+          alert("Account created successfully and welcome SMS sent!");
         } catch (error) {
-          alert("রেজিস্ট্রেশন করতে সমস্যা হয়েছে: " + error.message);
+          alert("Registration failed: " + error.message);
         }
       });
 
@@ -1010,13 +1153,13 @@
 
         try {
           await signInWithEmailAndPassword(auth, formattedEmail, password);
-          alert("লগইন সফল হয়েছে!");
+          alert("Login successful!");
         } catch (error) {
           try {
             await signInWithEmailAndPassword(auth, phone, password);
-            alert("লগইন সফল হয়েছে!");
+            alert("Login successful!");
           } catch (err) {
-            alert("লগইন ব্যর্থ হয়েছে! সঠিক ফোন নম্বর/ইমেইল ও পাসওয়ার্ড দিন।");
+            alert("Login failed! Please check your credentials.");
           }
         }
       });
@@ -1028,18 +1171,18 @@
 
         try {
           await sendPasswordResetEmail(auth, email);
-          alert("আপনার ইমেইলে পাসওয়ার্ড রিসেট করার লিংক পাঠানো হয়েছে!");
+          alert("Password reset link sent to your email!");
           document.getElementById('loginForm').classList.remove('hidden');
           document.getElementById('forgotForm').classList.add('hidden');
         } catch (error) {
-          alert("সমস্যা হয়েছে: " + error.message);
+          alert("Error: " + error.message);
         }
       });
 
       // LOGOUT HANDLER
       document.getElementById('logoutBtn').addEventListener('click', async () => {
         await signOut(auth);
-        alert("সাইন আউট করা হয়েছে।");
+        alert("Signed out successfully.");
       });
     }
   </script>
