@@ -245,7 +245,9 @@
           await signInWithEmailAndPassword(auth, email, password);
           alert("অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন!");
         } catch (err) {
-          alert("লগইন ব্যর্থ হয়েছে! সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+          // এখানে এখন ফায়ারবেজের মূল ত্রুটি বা এরর কোড সহ পপআপ দেখাবে
+          alert("লগইন ব্যর্থ হয়েছে! ত্রুটি: " + err.message + " (Code: " + err.code + ")");
+          console.error("Login Error:", err);
         }
       });
     }
@@ -269,7 +271,6 @@
       form.classList.toggle('hidden');
     }
 
-    // Load Riders
     async function loadRiders() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -332,7 +333,6 @@
       }
     }
 
-    // Open Edit Rider Modal
     window.openEditRiderModal = function(r) {
       document.getElementById('editRiderDocId').value = r.id;
       document.getElementById('riderName').value = r.name || '';
@@ -347,7 +347,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Save or Update Rider Profile
     async function saveOrUpdateRider() {
       const editId = document.getElementById('editRiderDocId').value;
       const name = document.getElementById('riderName').value.trim();
@@ -363,11 +362,10 @@
       }
 
       const db = window.firebaseDb;
-      const { setDoc, updateDoc, doc, createUserWithEmailAndPassword, getAuth } = window.firebaseServices;
+      const { setDoc, updateDoc, doc, createUserWithEmailAndPassword } = window.firebaseServices;
 
       try {
         if (editId) {
-          // UPDATE EXISTING RIDER
           await updateDoc(doc(db, "riders", editId), {
             name,
             phone,
@@ -377,17 +375,11 @@
           });
           alert("রাইডারের স্যালারি ও কমিশন সফলভাবে আপডেট করা হয়েছে!");
         } else {
-          // CREATE NEW RIDER
           if (password.length < 6) {
             alert("নতুন রাইডারের জন্য কমপক্ষে ৬ ডিজিটের পাসওয়ার্ড দিন।");
             return;
           }
           const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
-          
-          // To prevent admin logout when creating a rider, we use a temporary auth instance or sign back in, 
-          // or simply update firestore directly if auth user is created via backend. 
-          // Here we create user directly using main auth, but note that it might switch session. 
-          // To keep admin safe, we handle user creation cleanly:
           const userCred = await createUserWithEmailAndPassword(window.firebaseAuth, formattedEmail, password);
           const uid = userCred.user.uid;
 
@@ -404,7 +396,7 @@
             status: 'Active',
             createdAt: new Date().toISOString()
           });
-          alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে! দয়া করে আপনার অ্যাডমিন অ্যাকাউন্টে আবার লগইন করে নিন যদি সেশন পরিবর্তন হয়ে থাকে।");
+          alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
         }
 
         toggleRiderForm();
@@ -414,7 +406,6 @@
       }
     }
 
-    // Load Pending Settlements
     async function loadPendingSettlements() {
       const db = window.firebaseDb;
       const { collection, getDocs, query, where } = window.firebaseServices;
@@ -472,7 +463,6 @@
       }
     }
 
-    // Load Settlement History
     async function loadSettlementHistory() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
