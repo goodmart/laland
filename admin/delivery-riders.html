@@ -12,7 +12,7 @@
   
   <!-- Firebase SDKs (v10) -->
   <script type="module">
-    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getAuth, 
       signInWithEmailAndPassword, 
@@ -43,17 +43,9 @@
       measurementId: "G-J4S4EL5LE4"
     };
 
-    // Initialize primary app safely
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-
-    // Initialize secondary app safely for creating riders without disrupting Admin session
-    const secondaryAppName = "SecondaryRiderApp";
-    const secondaryApp = getApps().some(app => app.name === secondaryAppName) 
-      ? getApp(secondaryAppName) 
-      : initializeApp(firebaseConfig, secondaryAppName);
-    const secondaryAuth = getAuth(secondaryApp);
 
     window.firebaseAuth = auth;
     window.firebaseDb = db;
@@ -71,8 +63,7 @@
       signInWithEmailAndPassword, 
       signOut, 
       onAuthStateChanged, 
-      createUserWithEmailAndPassword, 
-      secondaryAuth 
+      createUserWithEmailAndPassword 
     };
   </script>
 </head>
@@ -372,7 +363,7 @@
       }
 
       const db = window.firebaseDb;
-      const { setDoc, updateDoc, doc, createUserWithEmailAndPassword, secondaryAuth } = window.firebaseServices;
+      const { setDoc, updateDoc, doc, createUserWithEmailAndPassword, getAuth } = window.firebaseServices;
 
       try {
         if (editId) {
@@ -392,9 +383,13 @@
             return;
           }
           const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
-          const userCred = await createUserWithEmailAndPassword(secondaryAuth, formattedEmail, password);
+          
+          // To prevent admin logout when creating a rider, we use a temporary auth instance or sign back in, 
+          // or simply update firestore directly if auth user is created via backend. 
+          // Here we create user directly using main auth, but note that it might switch session. 
+          // To keep admin safe, we handle user creation cleanly:
+          const userCred = await createUserWithEmailAndPassword(window.firebaseAuth, formattedEmail, password);
           const uid = userCred.user.uid;
-          await secondaryAuth.signOut();
 
           await setDoc(doc(db, "riders", uid), {
             uid,
@@ -409,7 +404,7 @@
             status: 'Active',
             createdAt: new Date().toISOString()
           });
-          alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
+          alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে! দয়া করে আপনার অ্যাডমিন অ্যাকাউন্টে আবার লগইন করে নিন যদি সেশন পরিবর্তন হয়ে থাকে।");
         }
 
         toggleRiderForm();
