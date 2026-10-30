@@ -18,7 +18,9 @@
       signInWithEmailAndPassword, 
       signOut, 
       onAuthStateChanged, 
-      createUserWithEmailAndPassword 
+      createUserWithEmailAndPassword,
+      setPersistence,
+      browserLocalPersistence
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, 
@@ -45,6 +47,12 @@
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    
+    // Set local persistence so login state is remembered properly
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error("Auth persistence error:", error);
+    });
+
     const db = getFirestore(app);
 
     window.firebaseAuth = auth;
@@ -132,7 +140,7 @@
         </div>
       </div>
 
-      <!-- SECTION B: SETTLEMENT HISTORY WITH MONTHLY FILTER, SEARCH & EXCEL EXPORT -->
+      <!-- SECTION B: SETTLEMENT HISTORY -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
           <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
@@ -236,18 +244,18 @@
         }
       });
 
+      // Form submit handler with strict preventDefault
       document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+        e.preventDefault(); // পেজ রিলোড হওয়া বন্ধ রাখবে
+        
         const email = document.getElementById('adminEmail').value.trim();
         const password = document.getElementById('adminPassword').value;
 
         try {
           await signInWithEmailAndPassword(auth, email, password);
-          alert("অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন!");
+          // সফলভাবে লগইন হলে অন-অথ-স্টেট-চেঞ্জ ড্যাশবোর্ড ওপেন করে দেবে
         } catch (err) {
-          // এখানে এখন ফায়ারবেজের মূল ত্রুটি বা এরর কোড সহ পপআপ দেখাবে
-          alert("লগইন ব্যর্থ হয়েছে! ত্রুটি: " + err.message + " (Code: " + err.code + ")");
-          console.error("Login Error:", err);
+          alert("লগইন ব্যর্থ হয়েছে! কারণ: " + err.message);
         }
       });
     }
@@ -255,7 +263,6 @@
     async function adminLogout() {
       const auth = window.firebaseAuth;
       await window.firebaseServices.signOut(auth);
-      alert("লগআউট সম্পন্ন হয়েছে।");
     }
 
     function toggleRiderForm() {
