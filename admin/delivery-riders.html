@@ -139,19 +139,29 @@
         </div>
       </div>
 
-      <!-- SECTION B: APPROVED/REJECTED SETTLEMENT HISTORY (NEW FEATURE) -->
+      <!-- SECTION B: APPROVED/REJECTED SETTLEMENT HISTORY WITH FILTER & SEARCH -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
-        <div class="flex items-center justify-between border-b pb-2">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
           <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
             <i class="fa-solid fa-clock-rotate-left text-purple-600"></i>
-            <span>ক্যাশ কালেকশন ও সেটেলমেন্ট হিস্ট্রি (History Log)</span>
+            <span>ক্যাশ কালেকশন ও সেটেলমেন্ট হিস্ট্রি লগ</span>
           </h3>
-          <button onclick="loadSettlementHistory()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
-            <i class="fa-solid fa-rotate"></i>
-          </button>
+          
+          <!-- SEARCH & FILTER CONTROLS -->
+          <div class="flex items-center space-x-2 w-full md:w-auto">
+            <input type="text" id="historySearchInput" onkeyup="filterSettlementHistory()" placeholder="রাইডার নাম বা ফোন দিয়ে খুঁজুন..." class="px-3 py-1.5 border rounded-xl text-xs w-full md:w-48 focus:outline-none focus:ring-1 focus:ring-purple-500">
+            <select id="historyFilterSelect" onchange="filterSettlementHistory()" class="px-2.5 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold focus:outline-none">
+              <option value="ALL">সব স্ট্যাটাস</option>
+              <option value="Approved">অনুমোদিত (Approved)</option>
+              <option value="Rejected">বাতিল (Rejected)</option>
+            </select>
+            <button onclick="loadSettlementHistory()" class="text-xs text-purple-600 font-bold p-1.5 bg-purple-50 rounded-lg hover:bg-purple-100" title="Refresh">
+              <i class="fa-solid fa-rotate"></i>
+            </button>
+          </div>
         </div>
 
-        <div id="settlementHistoryContainer" class="space-y-2 max-h-60 overflow-y-auto">
+        <div id="settlementHistoryContainer" class="space-y-2 max-h-72 overflow-y-auto">
           <p class="text-xs text-gray-400 text-center py-4">হিস্ট্রি লোড হচ্ছে...</p>
         </div>
       </div>
@@ -198,6 +208,7 @@
   <!-- Script Logic -->
   <script>
     let ridersList = [];
+    let allSettlementHistory = []; // Store raw history data for searching & filtering
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initAdminAuth, 500);
@@ -219,7 +230,7 @@
           document.getElementById('adminNav').classList.remove('hidden');
           loadRiders();
           loadPendingSettlements();
-          loadSettlementHistory(); // Load History Log
+          loadSettlementHistory(); 
         } else {
           document.getElementById('adminLoginCard').classList.remove('hidden');
           document.getElementById('adminDashboardView').classList.add('hidden');
@@ -366,66 +377,94 @@
       }
     }
 
-    // Load Approved/Rejected Settlement History Log (New Feature)
+    // Load Settlement History Log
     async function loadSettlementHistory() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
-      const container = document.getElementById('settlementHistoryContainer');
 
       if (!db) return;
 
       try {
         const querySnapshot = await getDocs(collection(db, "cash_settlements"));
-        let historyList = [];
+        allSettlementHistory = [];
         querySnapshot.forEach((docSnap) => {
           const data = docSnap.data();
           if (data.status && data.status !== "Pending") {
-            historyList.push({ id: docSnap.id, ...data });
+            allSettlementHistory.push({ id: docSnap.id, ...data });
           }
         });
 
         // Sort by date descending (Newest first)
-        historyList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        allSettlementHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        if (historyList.length === 0) {
-          container.innerHTML = `<div class="bg-gray-50 p-4 rounded-xl text-center border text-xs text-gray-400">কোনো হিস্ট্রি রেকর্ড পাওয়া যায়নি।</div>`;
-          return;
-        }
-
-        let html = '';
-        historyList.forEach(h => {
-          const isApproved = h.status === "Approved";
-          const statusBadge = isApproved 
-            ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত (Approved)</span>`
-            : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল (Rejected)</span>`;
-
-          const actionDate = h.approvedAt || h.rejectedAt || h.createdAt;
-
-          html += `
-            <div class="bg-gray-50 p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
-              <div>
-                <div class="flex items-center space-x-2">
-                  <strong class="font-bold text-gray-800">${h.riderName || 'রাইডার'}</strong>
-                  ${statusBadge}
-                  <span class="text-[10px] text-gray-500">(${h.method || 'Cash'})</span>
-                </div>
-                <p class="text-[11px] text-gray-600 mt-0.5">
-                  ফোন: ${h.riderPhone || 'N/A'} | নোট/Trx: <strong class="text-purple-700">${h.trxRef || 'N/A'}</strong>
-                </p>
-                <span class="text-[10px] text-gray-400">সম্পন্ন হয়েছে: ${new Date(actionDate).toLocaleString()}</span>
-              </div>
-              <div class="font-black text-sm ${isApproved ? 'text-emerald-700' : 'text-red-500'} bg-white px-2.5 py-1 rounded-lg border">
-                ৳ ${h.amount}
-              </div>
-            </div>
-          `;
-        });
-
-        container.innerHTML = html;
+        renderHistoryList(allSettlementHistory);
 
       } catch (err) {
         console.error(err);
       }
+    }
+
+    // Render History List based on array data
+    function renderHistoryList(list) {
+      const container = document.getElementById('settlementHistoryContainer');
+
+      if (list.length === 0) {
+        container.innerHTML = `<div class="bg-gray-50 p-4 rounded-xl text-center border text-xs text-gray-400">কোনো হিস্ট্রি রেকর্ড পাওয়া যায়নি।</div>`;
+        return;
+      }
+
+      let html = '';
+      list.forEach(h => {
+        const isApproved = h.status === "Approved";
+        const statusBadge = isApproved 
+          ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত (Approved)</span>`
+          : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল (Rejected)</span>`;
+
+        const actionDate = h.approvedAt || h.rejectedAt || h.createdAt;
+
+        html += `
+          <div class="bg-gray-50 p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
+            <div>
+              <div class="flex items-center space-x-2">
+                <strong class="font-bold text-gray-800">${h.riderName || 'রাইডার'}</strong>
+                ${statusBadge}
+                <span class="text-[10px] text-gray-500">(${h.method || 'Cash'})</span>
+              </div>
+              <p class="text-[11px] text-gray-600 mt-0.5">
+                ফোন: ${h.riderPhone || 'N/A'} | নোট/Trx: <strong class="text-purple-700">${h.trxRef || 'N/A'}</strong>
+              </p>
+              <span class="text-[10px] text-gray-400">সম্পন্ন হয়েছে: ${new Date(actionDate).toLocaleString()}</span>
+            </div>
+            <div class="font-black text-sm ${isApproved ? 'text-emerald-700' : 'text-red-500'} bg-white px-2.5 py-1 rounded-lg border">
+              ৳ ${h.amount}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // FILTER & SEARCH FUNCTION (New Feature)
+    function filterSettlementHistory() {
+      const searchText = document.getElementById('historySearchInput').value.toLowerCase().trim();
+      const statusFilter = document.getElementById('historyFilterSelect').value;
+
+      const filtered = allSettlementHistory.filter(item => {
+        const name = (item.riderName || '').toLowerCase();
+        const phone = (item.riderPhone || '').toLowerCase();
+        const trx = (item.trxRef || '').toLowerCase();
+
+        // Search match condition (Name, Phone, or Trx)
+        const matchesSearch = name.includes(searchText) || phone.includes(searchText) || trx.includes(searchText);
+
+        // Status match condition
+        const matchesStatus = (statusFilter === 'ALL') || (item.status === statusFilter);
+
+        return matchesSearch && matchesStatus;
+      });
+
+      renderHistoryList(filtered);
     }
 
     // Approve Settlement
@@ -449,7 +488,7 @@
 
         alert("ক্যাশ জমা সফলভাবে অনুমোদিত হয়েছে!");
         loadPendingSettlements();
-        loadSettlementHistory(); // Refresh History Log
+        loadSettlementHistory(); 
         loadRiders();
       } catch (err) {
         alert("অনুমোদনে সমস্যা হয়েছে: " + err.message);
@@ -471,7 +510,7 @@
 
         alert("সেটেলমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে।");
         loadPendingSettlements();
-        loadSettlementHistory(); // Refresh History Log
+        loadSettlementHistory(); 
       } catch (err) {
         alert("সমস্যা হয়েছে: " + err.message);
       }
