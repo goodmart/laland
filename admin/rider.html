@@ -165,15 +165,6 @@
         </div>
       </div>
 
-      <!-- Pending Settlement Requests Alert -->
-      <div id="pendingSettlementBanner" class="hidden bg-amber-50 border border-amber-200 p-3 rounded-2xl text-xs text-amber-800 flex justify-between items-center">
-        <div>
-          <span class="font-bold block"><i class="fa-solid fa-clock text-amber-600 mr-1"></i> জমা রিকোয়েস্ট পেন্ডিং আছে</span>
-          <span id="pendingSettlementDetails" class="text-[11px] text-amber-700">৳ 0 (এডমিন ভেরিফিকেশন চলছে)</span>
-        </div>
-        <span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md font-bold text-[10px]">Pending</span>
-      </div>
-
       <!-- Assigned Orders Section -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
         <div class="flex items-center justify-between border-b pb-2">
@@ -185,6 +176,19 @@
 
         <div id="riderOrdersContainer" class="space-y-3">
           <p class="text-xs text-gray-400 text-center py-6">অর্ডার তথ্য লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+      <!-- NEW SECTION: RIDER SETTLEMENT HISTORY (রাইডারের ক্যাশ জমার হিস্ট্রি) -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-clock-rotate-left text-purple-600 mr-1.5"></i> আপনার ক্যাশ জমা দেওয়ার হিস্ট্রি</h3>
+          <button onclick="loadRiderSettlementHistory()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+        <div id="riderHistoryContainer" class="space-y-2 max-h-48 overflow-y-auto text-xs">
+          <p class="text-xs text-gray-400 text-center py-4">হিস্ট্রি লোড হচ্ছে...</p>
         </div>
       </div>
 
@@ -310,7 +314,7 @@
               document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
 
               loadRiderOrders();
-              checkPendingSettlements();
+              loadRiderSettlementHistory();
             } else {
               alert("রাইডার প্রোফাইল পাওয়া যায়নি!");
               await window.firebaseServices.signOut(auth);
@@ -340,7 +344,7 @@
       });
     }
 
-    // Load Orders
+    // Load Orders with Product Items Details for Cross-Check
     async function loadRiderOrders() {
       if (!currentRiderData) return;
 
@@ -370,19 +374,43 @@
         orders.forEach(ord => {
           const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
 
+          // Generating Product Items Table/List for Cross-Check
+          let itemsHtml = '';
+          if (ord.items && ord.items.length > 0) {
+            itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ ( ক্রস-চেক করুন ):</p>`;
+            ord.items.forEach(item => {
+              itemsHtml += `
+                <div class="flex justify-between text-xs text-gray-700 border-b border-dashed py-0.5">
+                  <span>${item.name || 'পণ্যের নাম'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
+                  <span>৳ ${(item.price || 0) * (item.qty || 1)}</span>
+                </div>
+              `;
+            });
+            itemsHtml += `</div>`;
+          } else {
+            itemsHtml = `<p class="text-[11px] text-gray-400 italic">কোনো পণ্যের তালিকা নেই</p>`;
+          }
+
           html += `
             <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
               <div class="flex justify-between items-center border-b pb-1.5">
-                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId}</span>
-                <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">${ord.status}</span>
+                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD-XXX'}</span>
+                <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">${ord.status || 'Pending'}</span>
               </div>
-              <p class="font-bold text-gray-800">গ্রাহক: ${ord.userName}</p>
-              <p class="text-gray-600">ঠিকানা: ${ord.address}</p>
-              <div class="flex justify-between items-center pt-1 font-bold">
-                <span>বিল: ৳ ${ord.totalAmount}</span>
+              <div class="space-y-0.5">
+                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || 'নাম নেই'}</p>
+                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || 'ঠিকানা পাওয়া যায়নি'}</p>
+                <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || 'N/A'}</a></p>
+              </div>
+
+              <!-- Product Items List for Rider Cross-Check -->
+              ${itemsHtml}
+
+              <div class="flex justify-between items-center pt-1 font-bold border-t">
+                <span>মোট বিল: ৳ ${ord.totalAmount || 0}</span>
                 ${!isDelivered ? `
-                  <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs">ডেলিভারি সম্পন্ন করুন</button>
-                ` : `<span class="text-emerald-700">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>`}
+                  <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs shadow">ডেলিভারি সম্পন্ন করুন</button>
+                ` : `<span class="text-emerald-700 font-bold">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>`}
               </div>
             </div>
           `;
@@ -391,6 +419,60 @@
         container.innerHTML = html;
       } catch (err) {
         container.innerHTML = `<p class="text-xs text-red-500 py-4 text-center">ত্রুটি: ${err.message}</p>`;
+      }
+    }
+
+    // Load Rider's Own Settlement History Log
+    async function loadRiderSettlementHistory() {
+      if (!currentRiderData) return;
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+      const container = document.getElementById('riderHistoryContainer');
+
+      try {
+        const q = query(
+          collection(db, "cash_settlements"), 
+          where("riderPhone", "==", currentRiderData.phone)
+        );
+        const querySnapshot = await getDocs(q);
+
+        let list = [];
+        querySnapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Sort descending by date
+        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        if (list.length === 0) {
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-3">কোনো ক্যাশ জমার হিস্ট্রি পাওয়া যায়নি।</p>`;
+          return;
+        }
+
+        let html = '';
+        list.forEach(item => {
+          let badge = '';
+          if (item.status === 'Approved') badge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত</span>`;
+          else if (item.status === 'Rejected') badge = `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল</span>`;
+          else badge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold text-[10px]">পেন্ডিং</span>`;
+
+          html += `
+            <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center text-xs">
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <strong>৳ ${item.amount}</strong>
+                  ${badge}
+                </div>
+                <p class="text-[10px] text-gray-500">মাধ্যম: ${item.method} | নোট: ${item.trxRef || 'N/A'}</p>
+                <span class="text-[9px] text-gray-400">${new Date(item.createdAt).toLocaleString()}</span>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (err) {
+        console.error(err);
       }
     }
 
@@ -484,35 +566,11 @@
 
         alert("এডমিনের কাছে জমা রিকোয়েস্ট পাঠানো হয়েছে। এডমিন ভেরিফাই করলে আপনার ক্যাশ কমবে।");
         closeSettlementModal();
-        checkPendingSettlements();
+        loadRiderSettlementHistory();
       } catch (err) {
         alert("সমস্যা হয়েছে: " + err.message);
       }
     };
-
-    async function checkPendingSettlements() {
-      if (!currentRiderData) return;
-      const db = window.firebaseDb;
-      const { collection, getDocs, query, where } = window.firebaseServices;
-
-      const q = query(
-        collection(db, "cash_settlements"), 
-        where("riderPhone", "==", currentRiderData.phone),
-        where("status", "==", "Pending")
-      );
-
-      const snap = await getDocs(q);
-      let totalPending = 0;
-      snap.forEach(d => totalPending += Number(d.data().amount || 0));
-
-      const banner = document.getElementById('pendingSettlementBanner');
-      if (totalPending > 0) {
-        document.getElementById('pendingSettlementDetails').innerText = `৳ ${totalPending} (এডমিন ভেরিফিকেশন চলছে)`;
-        banner.classList.remove('hidden');
-      } else {
-        banner.classList.add('hidden');
-      }
-    }
 
     window.logoutRider = async function() {
       await window.firebaseServices.signOut(window.firebaseAuth);
