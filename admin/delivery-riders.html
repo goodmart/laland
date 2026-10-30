@@ -44,12 +44,10 @@
       measurementId: "G-J4S4EL5LE4"
     };
 
-    // Main Admin App
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Secondary App specifically to create riders without disrupting Admin session
     const secondaryApp = initializeApp(firebaseConfig, "SecondaryRiderApp");
     const secondaryAuth = getAuth(secondaryApp);
 
@@ -139,24 +137,26 @@
         </div>
       </div>
 
-      <!-- SECTION B: APPROVED/REJECTED SETTLEMENT HISTORY WITH FILTER & SEARCH -->
+      <!-- SECTION B: SETTLEMENT HISTORY WITH MONTHLY FILTER, SEARCH & EXCEL EXPORT -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-2 gap-2">
           <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
             <i class="fa-solid fa-clock-rotate-left text-purple-600"></i>
-            <span>ক্যাশ কালেকশন ও সেটেলমেন্ট হিস্ট্রি লগ</span>
+            <span>সেটেলমেন্ট হিস্ট্রি লগ ও এক্সপোর্ট</span>
           </h3>
           
-          <!-- SEARCH & FILTER CONTROLS -->
-          <div class="flex items-center space-x-2 w-full md:w-auto">
-            <input type="text" id="historySearchInput" onkeyup="filterSettlementHistory()" placeholder="রাইডার নাম বা ফোন দিয়ে খুঁজুন..." class="px-3 py-1.5 border rounded-xl text-xs w-full md:w-48 focus:outline-none focus:ring-1 focus:ring-purple-500">
-            <select id="historyFilterSelect" onchange="filterSettlementHistory()" class="px-2.5 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold focus:outline-none">
+          <!-- SEARCH, FILTER & EXPORT CONTROLS -->
+          <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <input type="month" id="adminMonthFilter" onchange="filterSettlementHistory()" class="px-2 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold focus:outline-none">
+            <input type="text" id="historySearchInput" onkeyup="filterSettlementHistory()" placeholder="রাইডার নাম বা ফোন..." class="px-3 py-1.5 border rounded-xl text-xs w-36 focus:outline-none">
+            <select id="historyFilterSelect" onchange="filterSettlementHistory()" class="px-2.5 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold">
               <option value="ALL">সব স্ট্যাটাস</option>
-              <option value="Approved">অনুমোদিত (Approved)</option>
-              <option value="Rejected">বাতিল (Rejected)</option>
+              <option value="Approved">অনুমোদিত</option>
+              <option value="Rejected">বাতিল</option>
             </select>
-            <button onclick="loadSettlementHistory()" class="text-xs text-purple-600 font-bold p-1.5 bg-purple-50 rounded-lg hover:bg-purple-100" title="Refresh">
-              <i class="fa-solid fa-rotate"></i>
+            <button onclick="exportAdminHistoryToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold shadow flex items-center space-x-1">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>এক্সেল</span>
             </button>
           </div>
         </div>
@@ -166,11 +166,11 @@
         </div>
       </div>
 
-      <!-- SECTION C: RIDER LIST & ADD RIDER -->
+      <!-- SECTION C: RIDER LIST & ADD RIDER (WITH SALARY & COMMISSION FIELDS) -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-3">
         <div>
           <h2 class="font-bold text-sm text-gray-800">ডেলিভারি রাইডার তালিকা ও অ্যাকাউন্ট তৈরি</h2>
-          <p class="text-[11px] text-gray-500">এখান থেকে নতুন রাইডার তৈরি করুন এবং রাইডারদের বর্তমান ক্যাশ-ইন-হ্যান্ড ব্যালেন্স দেখুন।</p>
+          <p class="text-[11px] text-gray-500">নতুন রাইডার তৈরি করুন এবং স্যালারি ও কমিশন সেট করুন।</p>
         </div>
         <button onclick="toggleRiderForm()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1">
           <i class="fa-solid fa-user-plus"></i>
@@ -178,14 +178,16 @@
         </button>
       </div>
 
-      <!-- Hidden Add Rider Form Box -->
+      <!-- Hidden Add Rider Form Box with Salary & Commission -->
       <div id="addRiderCard" class="hidden bg-emerald-50 p-4 rounded-2xl border border-emerald-200 shadow-sm space-y-3">
-        <h3 class="font-bold text-xs text-emerald-800"><i class="fa-solid fa-plus-circle mr-1"></i> নতুন রাইডারের তথ্য ও পাসওয়ার্ড লিখুন</h3>
+        <h3 class="font-bold text-xs text-emerald-800"><i class="fa-solid fa-plus-circle mr-1"></i> নতুন রাইডারের তথ্য, স্যালারি ও কমিশন সেটআপ</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="text" id="riderName" placeholder="রাইডারের পূর্ণ নাম..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          <input type="tel" id="riderPhone" placeholder="মোবাইল নম্বর (যেমন: 017XXXXXXXX)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          <input type="password" id="riderPassword" placeholder="রাইডার পোর্টাল পাসওয়ার্ড (কমপক্ষে ৬ ডিজিট)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-          <input type="text" id="riderArea" placeholder="এলাকা (যেমন: কামারপাড়া, রংপুর সদর)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <input type="text" id="riderName" placeholder="রাইডারের পূর্ণ নাম..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
+          <input type="tel" id="riderPhone" placeholder="মোবাইল নম্বর (যেমন: 017XXXXXXXX)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
+          <input type="password" id="riderPassword" placeholder="পাসওয়ার্ড (কমপক্ষে ৬ ডিজিট)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
+          <input type="text" id="riderArea" placeholder="এলাকা (যেমন: কামারপাড়া, রংপুর)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
+          <input type="number" id="riderSalary" placeholder="মাসিক ফিক্সড স্যালারি (যেমন: 10000)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
+          <input type="number" id="riderCommission" placeholder="প্রতি ডেলিভারি কমিশন (যেমন: 30)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
         </div>
         <div class="flex justify-end space-x-2 pt-2">
           <button onclick="toggleRiderForm()" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl text-xs font-bold">বাতিল</button>
@@ -208,7 +210,8 @@
   <!-- Script Logic -->
   <script>
     let ridersList = [];
-    let allSettlementHistory = []; // Store raw history data for searching & filtering
+    let allSettlementHistory = [];
+    let filteredHistory = [];
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initAdminAuth, 500);
@@ -247,7 +250,7 @@
           await signInWithEmailAndPassword(auth, email, password);
           alert("অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন!");
         } catch (err) {
-          alert("লগইন ব্যর্থ হয়েছে! সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
+          alert("লগইন ব্যর্থ হয়েছে!");
         }
       });
     }
@@ -255,7 +258,7 @@
     async function adminLogout() {
       const auth = window.firebaseAuth;
       await window.firebaseServices.signOut(auth);
-      alert("অ্যাডমিন লগআউট সম্পন্ন হয়েছে।");
+      alert("লগআউট সম্পন্ন হয়েছে।");
     }
 
     function toggleRiderForm() {
@@ -263,7 +266,7 @@
       form.classList.toggle('hidden');
     }
 
-    // Load Riders
+    // Load Riders with Dual-Wallet & Salary Info
     async function loadRiders() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -286,24 +289,32 @@
         let html = '';
         ridersList.forEach(r => {
           const cashBalance = r.cashBalance || 0;
+          const earningsBalance = r.earningsBalance || 0;
+          const salary = r.fixedSalary || 0;
+          const commission = r.deliveryCommission || 30;
+
           html += `
             <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2 relative">
               <div class="flex justify-between items-start">
                 <div>
                   <h4 class="font-bold text-sm text-gray-800">${r.name}</h4>
                   <p class="text-[11px] text-gray-500"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${r.phone}</p>
-                  <p class="text-[11px] text-gray-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${r.area || 'নির্দিষ্ট এলাকা নেই'}</p>
+                  <p class="text-[11px] text-gray-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${r.area || 'এলাকা নেই'}</p>
+                  <p class="text-[10px] text-purple-600 mt-1">স্যালারি: ৳${salary} | কমিশন: ৳${commission}/অর্ডার</p>
                 </div>
-                <div class="text-right">
-                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 block mb-1">Active</span>
+                <div class="text-right space-y-1">
                   <div class="bg-purple-50 p-1.5 rounded-xl border border-purple-100 text-[10px]">
                     <span class="text-gray-500 block">ক্যাশ ইন হ্যান্ড:</span>
                     <strong class="text-purple-700 font-extrabold text-xs">৳ ${cashBalance}</strong>
                   </div>
+                  <div class="bg-emerald-50 p-1.5 rounded-xl border border-emerald-100 text-[10px]">
+                    <span class="text-gray-500 block">আয় ওয়ালেট:</span>
+                    <strong class="text-emerald-700 font-extrabold text-xs">৳ ${earningsBalance}</strong>
+                  </div>
                 </div>
               </div>
               <div class="pt-2 border-t flex justify-between items-center text-xs">
-                <span class="text-gray-400 text-[11px]">রাইডার আইডি: ${r.id.substring(0, 8)}...</span>
+                <span class="text-gray-400 text-[11px]">আইডি: ${r.id.substring(0, 8)}...</span>
                 <button onclick="deleteRider('${r.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
               </div>
             </div>
@@ -311,7 +322,6 @@
         });
 
         container.innerHTML = html;
-
       } catch (err) {
         console.error(err);
       }
@@ -345,21 +355,20 @@
             <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
               <div>
                 <div class="flex items-center space-x-2">
-                  <strong class="font-bold text-gray-800">${s.riderName || 'রাইডার'}</strong>
+                  <strong class="font-bold text-gray-800">${s.riderName || ''}</strong>
                   <span class="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">${s.method || 'Cash'}</span>
                 </div>
                 <p class="text-[11px] text-gray-600 mt-0.5">
-                  <i class="fa-solid fa-phone mr-1 text-emerald-600"></i>${s.riderPhone || 'N/A'} | 
-                  <span class="text-purple-700 font-bold">নোট/Trx: ${s.trxRef || 'N/A'}</span>
+                  ফোন: ${s.riderPhone || ''} | নোট/Trx: <strong class="text-purple-700">${s.trxRef || 'N/A'}</strong>
                 </p>
-                <span class="text-[10px] text-gray-400">রিকোয়েস্ট তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
+                <span class="text-[10px] text-gray-400">তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
               </div>
 
               <div class="flex items-center space-x-3 w-full md:w-auto justify-between border-t md:border-t-0 pt-2 md:pt-0">
                 <span class="font-black text-sm text-emerald-700 bg-white px-2.5 py-1 rounded-lg border">৳ ${s.amount}</span>
                 <div class="flex space-x-1.5">
                   <button onclick="approveRiderSettlement('${s.id}', '${s.riderId}', ${s.amount})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-sm">
-                    <i class="fa-solid fa-check mr-1"></i> অনুমোদন
+                    অনুমোদন
                   </button>
                   <button onclick="rejectRiderSettlement('${s.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-2.5 py-1.5 rounded-xl text-xs border border-red-200 transition">
                     বাতিল
@@ -371,13 +380,12 @@
         });
 
         container.innerHTML = html;
-
       } catch (err) {
         console.error(err);
       }
     }
 
-    // Load Settlement History Log
+    // Load Settlement History
     async function loadSettlementHistory() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -394,17 +402,15 @@
           }
         });
 
-        // Sort by date descending (Newest first)
         allSettlementHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        renderHistoryList(allSettlementHistory);
-
+        filteredHistory = [...allSettlementHistory];
+        renderHistoryList(filteredHistory);
       } catch (err) {
         console.error(err);
       }
     }
 
-    // Render History List based on array data
+    // Render History List
     function renderHistoryList(list) {
       const container = document.getElementById('settlementHistoryContainer');
 
@@ -417,8 +423,8 @@
       list.forEach(h => {
         const isApproved = h.status === "Approved";
         const statusBadge = isApproved 
-          ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত (Approved)</span>`
-          : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল (Rejected)</span>`;
+          ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত</span>`
+          : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল</span>`;
 
         const actionDate = h.approvedAt || h.rejectedAt || h.createdAt;
 
@@ -426,14 +432,14 @@
           <div class="bg-gray-50 p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
             <div>
               <div class="flex items-center space-x-2">
-                <strong class="font-bold text-gray-800">${h.riderName || 'রাইডার'}</strong>
+                <strong class="font-bold text-gray-800">${h.riderName || ''}</strong>
                 ${statusBadge}
-                <span class="text-[10px] text-gray-500">(${h.method || 'Cash'})</span>
+                <span class="text-[10px] text-gray-500">(${h.method || ''})</span>
               </div>
               <p class="text-[11px] text-gray-600 mt-0.5">
-                ফোন: ${h.riderPhone || 'N/A'} | নোট/Trx: <strong class="text-purple-700">${h.trxRef || 'N/A'}</strong>
+                ফোন: ${h.riderPhone || ''} | নোট/Trx: <strong class="text-purple-700">${h.trxRef || 'N/A'}</strong>
               </p>
-              <span class="text-[10px] text-gray-400">সম্পন্ন হয়েছে: ${new Date(actionDate).toLocaleString()}</span>
+              <span class="text-[10px] text-gray-400">তারিখ: ${new Date(actionDate).toLocaleString()}</span>
             </div>
             <div class="font-black text-sm ${isApproved ? 'text-emerald-700' : 'text-red-500'} bg-white px-2.5 py-1 rounded-lg border">
               ৳ ${h.amount}
@@ -445,31 +451,68 @@
       container.innerHTML = html;
     }
 
-    // FILTER & SEARCH FUNCTION (New Feature)
+    // FILTER, SEARCH & MONTHLY SELECTION
     function filterSettlementHistory() {
       const searchText = document.getElementById('historySearchInput').value.toLowerCase().trim();
       const statusFilter = document.getElementById('historyFilterSelect').value;
+      const monthFilter = document.getElementById('adminMonthFilter').value; // YYYY-MM
 
-      const filtered = allSettlementHistory.filter(item => {
+      filteredHistory = allSettlementHistory.filter(item => {
         const name = (item.riderName || '').toLowerCase();
         const phone = (item.riderPhone || '').toLowerCase();
         const trx = (item.trxRef || '').toLowerCase();
 
-        // Search match condition (Name, Phone, or Trx)
         const matchesSearch = name.includes(searchText) || phone.includes(searchText) || trx.includes(searchText);
-
-        // Status match condition
         const matchesStatus = (statusFilter === 'ALL') || (item.status === statusFilter);
+        
+        let matchesMonth = true;
+        if (monthFilter && item.createdAt) {
+          const itemMonth = item.createdAt.substring(0, 7);
+          matchesMonth = (itemMonth === monthFilter);
+        }
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesStatus && matchesMonth;
       });
 
-      renderHistoryList(filtered);
+      renderHistoryList(filteredHistory);
+    }
+
+    // EXCEL EXPORT FOR ADMIN
+    window.exportAdminHistoryToExcel = function() {
+      if (filteredHistory.length === 0) {
+        alert("এক্সপোর্ট করার মতো ডেটা নেই!");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += "ID,Rider Name,Phone,Amount,Method,Note,Status,Date\r\n";
+
+      filteredHistory.forEach(item => {
+        const row = [
+          item.id,
+          `"${item.riderName || ''}"`,
+          item.riderPhone,
+          item.amount,
+          `"${item.method || ''}"`,
+          `"${item.trxRef || ''}"`,
+          item.status,
+          `"${item.createdAt || ''}"`
+        ];
+        csvContent += row.join(",") + "\r\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `admin_settlement_history.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     // Approve Settlement
     async function approveRiderSettlement(settlementDocId, riderDocId, amount) {
-      if (!confirm(`আপনি কি নিশ্চিত যে ৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
+      if (!confirm(`৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
 
       const db = window.firebaseDb;
       const { doc, updateDoc, increment } = window.firebaseServices;
@@ -486,18 +529,18 @@
           });
         }
 
-        alert("ক্যাশ জমা সফলভাবে অনুমোদিত হয়েছে!");
+        alert("অনুমোদিত হয়েছে!");
         loadPendingSettlements();
         loadSettlementHistory(); 
         loadRiders();
       } catch (err) {
-        alert("অনুমোদনে সমস্যা হয়েছে: " + err.message);
+        alert("ত্রুটি: " + err.message);
       }
     }
 
     // Reject Settlement
     async function rejectRiderSettlement(settlementDocId) {
-      if (!confirm("আপনি কি এই রিকোয়েস্ট বাতিল করতে চান?")) return;
+      if (!confirm("বাতিল করতে চান?")) return;
 
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
@@ -508,23 +551,25 @@
           rejectedAt: new Date().toISOString()
         });
 
-        alert("সেটেলমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে।");
+        alert("বাতিল করা হয়েছে।");
         loadPendingSettlements();
         loadSettlementHistory(); 
       } catch (err) {
-        alert("সমস্যা হয়েছে: " + err.message);
+        alert("ত্রুটি: " + err.message);
       }
     }
 
-    // Save New Rider
+    // Save New Rider with Salary & Commission
     async function saveNewRider() {
       const name = document.getElementById('riderName').value.trim();
       const phone = document.getElementById('riderPhone').value.trim();
       const password = document.getElementById('riderPassword').value.trim();
       const area = document.getElementById('riderArea').value.trim();
+      const salary = Number(document.getElementById('riderSalary').value) || 0;
+      const commission = Number(document.getElementById('riderCommission').value) || 30;
 
       if (!name || !phone || password.length < 6) {
-        alert("দয়া করে সঠিক নাম, মোবাইল এবং অন্তত ৬ ডিজিটের পাসওয়ার্ড দিন।");
+        alert("সঠিক নাম, মোবাইল এবং অন্তত ৬ ডিজিটের পাসওয়ার্ড দিন।");
         return;
       }
 
@@ -543,18 +588,23 @@
           phone,
           email: formattedEmail,
           area,
+          fixedSalary: salary,
+          deliveryCommission: commission,
           cashBalance: 0,
+          earningsBalance: 0,
           status: 'Active',
           createdAt: new Date().toISOString()
         });
 
-        alert("নতুন রাইডার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
+        alert("নতুন রাইডার অ্যাকাউন্ট ও স্যালারি সেটআপ সফল হয়েছে!");
         toggleRiderForm();
         
         document.getElementById('riderName').value = '';
         document.getElementById('riderPhone').value = '';
         document.getElementById('riderPassword').value = '';
         document.getElementById('riderArea').value = '';
+        document.getElementById('riderSalary').value = '';
+        document.getElementById('riderCommission').value = '';
         
         loadRiders();
       } catch (err) {
@@ -564,14 +614,14 @@
 
     // Delete Rider
     async function deleteRider(riderId) {
-      if (!confirm("আপনি কি এই রাইডারকে মুছে ফেলতে চান?")) return;
+      if (!confirm("মুছে ফেলতে চান?")) return;
       const db = window.firebaseDb;
       const { doc, deleteDoc } = window.firebaseServices;
 
       try {
         await deleteDoc(doc(db, "riders", riderId));
         loadRiders();
-        alert("রাইডার সফলভাবে মুছে ফেলা হয়েছে!");
+        alert("মুছে ফেলা হয়েছে!");
       } catch (err) {
         alert("ত্রুটি: " + err.message);
       }
