@@ -31,8 +31,7 @@
       where,
       updateDoc,
       increment,
-      addDoc,
-      serverTimestamp
+      addDoc
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -68,8 +67,7 @@
       where,
       updateDoc,
       increment,
-      addDoc,
-      serverTimestamp
+      addDoc
     };
   </script>
 
@@ -84,7 +82,7 @@
 <body class="bg-gray-50 text-gray-800 pb-20 select-none">
 
   <!-- Header -->
-  <header class="sticky top-0 z-45 bg-purple-700 text-white shadow-md">
+  <header class="sticky top-0 z-40 bg-purple-700 text-white shadow-md">
     <div class="px-4 py-3 flex items-center justify-between max-w-md mx-auto">
       <div class="flex items-center space-x-2">
         <div class="w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-700 font-extrabold text-lg shadow">
@@ -137,7 +135,7 @@
     <!-- 2. RIDER DASHBOARD VIEW -->
     <div id="riderDashboardView" class="hidden space-y-4">
       
-      <!-- Profile Hero Card with Balance Analytics -->
+      <!-- Profile Hero Card with Balance & Settlement Action -->
       <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-5 rounded-2xl shadow-md relative overflow-hidden space-y-3">
         <div class="flex items-center justify-between relative z-10">
           <div class="flex items-center space-x-3">
@@ -154,17 +152,26 @@
           </button>
         </div>
 
-        <!-- Cash-in-Hand Analytics Widget -->
-        <div class="bg-black/20 p-3 rounded-xl backdrop-blur-sm flex justify-between items-center text-xs">
+        <!-- Cash In Hand Widget -->
+        <div class="bg-black/20 p-3.5 rounded-xl backdrop-blur-sm flex justify-between items-center text-xs">
           <div>
-            <span class="text-purple-200 block text-[10px]">ক্যাশ ইন হ্যান্ড (কোম্পানি জমাযোগ্য ক্যাশ)</span>
-            <strong id="riderCashBalance" class="text-base text-white">৳ 0</strong>
+            <span class="text-purple-200 block text-[10px]">ক্যাশ ইন হ্যান্ড (জমাযোগ্য)</span>
+            <strong id="riderCashBalance" class="text-lg text-white font-black">৳ 0</strong>
           </div>
-          <div class="text-right">
-            <span class="text-purple-200 block text-[10px]">এলাকা</span>
-            <strong id="riderProfileArea" class="text-white">-</strong>
-          </div>
+          <button onclick="openSettlementModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-2 rounded-xl text-xs shadow transition flex items-center space-x-1">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>এডমিনকে ক্যাশ জমা দিন</span>
+          </button>
         </div>
+      </div>
+
+      <!-- Pending Settlement Requests Alert -->
+      <div id="pendingSettlementBanner" class="hidden bg-amber-50 border border-amber-200 p-3 rounded-2xl text-xs text-amber-800 flex justify-between items-center">
+        <div>
+          <span class="font-bold block"><i class="fa-solid fa-clock text-amber-600 mr-1"></i> জমা রিকোয়েস্ট পেন্ডিং আছে</span>
+          <span id="pendingSettlementDetails" class="text-[11px] text-amber-700">৳ 0 (এডমিন ভেরিফিকেশন চলছে)</span>
+        </div>
+        <span class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md font-bold text-[10px]">Pending</span>
       </div>
 
       <!-- Assigned Orders Section -->
@@ -185,49 +192,83 @@
 
   </main>
 
-  <!-- PAYMENT COLLECTION MODAL -->
+  <!-- MODAL 1: ORDER PAYMENT COLLECTION MODAL -->
   <div id="paymentModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl animate-in fade-in zoom-in duration-150">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
       <div class="flex justify-between items-center border-b pb-2">
         <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-wallet text-purple-600 mr-1"></i> পেমেন্ট কালেকশন নিশ্চিত করুন</h3>
         <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold px-2">✕</button>
       </div>
 
       <div class="space-y-3 text-xs">
-        <input type="hidden" id="modalOrderId">
         <input type="hidden" id="modalDocId">
         
         <div>
-          <label class="font-bold text-gray-700 block mb-1">পেমেন্টের মাধ্যম নির্বাচন করুন:</label>
-          <select id="paymentMethodSelect" onchange="togglePaymentFields()" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold focus:ring-1 focus:ring-purple-500">
+          <label class="font-bold text-gray-700 block mb-1">পেমেন্টের মাধ্যম:</label>
+          <select id="paymentMethodSelect" onchange="togglePaymentFields()" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold">
             <option value="Cash">ক্যাশ (Cash on Delivery)</option>
             <option value="bKash">বিকাশ (bKash)</option>
             <option value="Nagad">নগদ (Nagad)</option>
             <option value="BanglaQR">বাংলা কিউআর (Bangla QR)</option>
-            <option value="POS">ব্যাংক পিওএস মেশিন (Bank POS)</option>
+            <option value="POS">ব্যাংক পিওএস (POS Machine)</option>
           </select>
         </div>
 
-        <!-- Conditional Fields for Online / Digital Payments -->
         <div id="onlinePaymentFields" class="hidden space-y-2 bg-purple-50 p-3 rounded-xl border border-purple-100">
           <div>
             <label class="text-gray-600 block mb-1 font-semibold" id="trxLabel">ট্রানজেকশন আইডি (TrxID) / স্লিপ নং:</label>
             <input type="text" id="paymentTrxId" placeholder="উদাঃ 9G87H65K" class="w-full px-3 py-2 border bg-white rounded-xl uppercase font-bold text-sm">
           </div>
-          <div>
-            <label class="text-gray-600 block mb-1">প্রেরকের নম্বর / অ্যাকাউন্ট (ঐচ্ছিক):</label>
-            <input type="tel" id="paymentSenderNo" placeholder="017XXXXXXXX" class="w-full px-3 py-2 border bg-white rounded-xl">
-          </div>
         </div>
 
         <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center">
-          <span class="text-gray-500">মোট প্রদেয় পরিমাণ:</span>
+          <span class="text-gray-500">মোটবিল:</span>
           <strong id="modalDisplayAmount" class="text-sm text-purple-700 font-extrabold">৳ 0</strong>
         </div>
 
-        <button onclick="submitCompletedDelivery()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow flex items-center justify-center space-x-1">
-          <i class="fa-solid fa-circle-check"></i>
-          <span>ডেলিভারি কনফার্ম ও পেমেন্ট সেভ করুন</span>
+        <button onclick="submitCompletedDelivery()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+          ডেলিভারি কনফার্ম ও পেমেন্ট সেভ করুন
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CASH SETTLEMENT / TRANSFER TO ADMIN MODAL -->
+  <div id="settlementModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-hand-holding-dollar text-emerald-600 mr-1"></i> এডমিনকে ক্যাশ জমা পাঠাল</h3>
+        <button onclick="closeSettlementModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold px-2">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex justify-between items-center">
+          <span class="text-emerald-800 font-medium">বর্তমান ক্যাশ ইন হ্যান্ড:</span>
+          <strong id="modalCurrentCash" class="text-emerald-700 text-sm font-extrabold">৳ 0</strong>
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">জমার মাধ্যম নির্বাচন করুন:</label>
+          <select id="settlementMethod" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold">
+            <option value="Direct Cash to Office">অফিস/এডমিনকে সরাসরি ক্যাশ প্রদান</option>
+            <option value="bKash Cash-In">বিকাশ পার্সোনাল/মার্চেন্ট জমা</option>
+            <option value="Nagad Cash-In">নগদ ক্যাশ-ইন / সেন্ড মানি</option>
+            <option value="Bank Deposit">ব্যাংক একাউন্ট ডিপোজিট</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">জমার পরিমাণ (টাকা):</label>
+          <input type="number" id="settlementAmount" placeholder="৳ 000" class="w-full px-3 py-2 border rounded-xl text-sm font-bold text-purple-700">
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">ট্রানজেকশন আইডি / রেফারেন্স / নোট:</label>
+          <input type="text" id="settlementTrx" placeholder="উদাঃ এডমিন রহিম ভাইয়ের কাছে জমাকৃত" class="w-full px-3 py-2 border rounded-xl">
+        </div>
+
+        <button onclick="submitCashSettlement()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+          জমা রিকোয়েস্ট পাঠান
         </button>
       </div>
     </div>
@@ -266,16 +307,16 @@
 
               document.getElementById('riderProfileName').innerText = currentRiderData.name || 'রাইডার';
               document.getElementById('riderProfilePhone').innerText = currentRiderData.phone || user.email;
-              document.getElementById('riderProfileArea').innerText = currentRiderData.area || 'নির্ধারিত এলাকা নেই';
               document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
 
               loadRiderOrders();
+              checkPendingSettlements();
             } else {
-              alert("এই অ্যাকাউন্টে কোনো রাইডার প্রোফাইল পাওয়া যায়নি!");
+              alert("রাইডার প্রোফাইল পাওয়া যায়নি!");
               await window.firebaseServices.signOut(auth);
             }
           } catch (err) {
-            console.error("Auth profile error:", err);
+            console.error(err);
           }
         } else {
           document.getElementById('riderAuthCard').classList.remove('hidden');
@@ -283,7 +324,7 @@
         }
       });
 
-      // Login Form Handler
+      // Login Form
       document.getElementById('riderLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const phone = document.getElementById('riderLoginPhone').value.trim();
@@ -293,14 +334,13 @@
 
         try {
           await window.firebaseServices.signInWithEmailAndPassword(auth, formattedEmail, password);
-          alert("সফলভাবে রাইডার ড্যাশবোর্ডে প্রবেশ করেছেন!");
         } catch (err) {
-          alert("লগইন ব্যর্থ হয়েছে! মোবাইল নম্বর অথবা পাসওয়ার্ড ভুল রয়েছে।");
+          alert("লগইন ব্যর্থ হয়েছে!");
         }
       });
     }
 
-    // Load Orders assigned to this Rider
+    // Load Orders
     async function loadRiderOrders() {
       if (!currentRiderData) return;
 
@@ -309,7 +349,6 @@
       const container = document.getElementById('riderOrdersContainer');
 
       try {
-        // Refresh Rider Profile Real-time Data (Cash Balance)
         const riderDocSnap = await getDoc(doc(db, "riders", currentRiderData.id));
         if (riderDocSnap.exists()) {
           currentRiderData = { id: riderDocSnap.id, ...riderDocSnap.data() };
@@ -320,109 +359,46 @@
         const querySnapshot = await getDocs(q);
 
         let orders = [];
-        querySnapshot.forEach(docSnap => {
-          orders.push({ id: docSnap.id, ...docSnap.data() });
-        });
+        querySnapshot.forEach(docSnap => orders.push({ id: docSnap.id, ...docSnap.data() }));
 
         if (orders.length === 0) {
-          const qName = query(collection(db, "orders"), where("riderName", "==", currentRiderData.name));
-          const snapName = await getDocs(qName);
-          snapName.forEach(docSnap => {
-            orders.push({ id: docSnap.id, ...docSnap.data() });
-          });
-        }
-
-        if (orders.length === 0) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">বর্তমানে আপনার নামে কোনো অর্ডার অ্যাসাইন করা নেই।</p>`;
+          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">বর্তমানে আপনার কোনো অর্ডার অ্যাসাইন করা নেই।</p>`;
           return;
         }
 
         let html = '';
         orders.forEach(ord => {
-          const itemsHTML = ord.items ? ord.items.map(i => `
-            <div class="flex justify-between text-xs text-gray-600 border-b border-dashed py-1">
-              <span>${i.name} <strong class="text-purple-700">(${i.qty}x)</strong></span>
-              <span>৳ ${i.price * i.qty}</span>
-            </div>
-          `).join('') : '';
-
           const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
 
           html += `
             <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
               <div class="flex justify-between items-center border-b pb-1.5">
-                <div>
-                  <span class="font-extrabold text-purple-700 text-sm">${ord.orderId}</span>
-                  <span class="text-[10px] text-gray-400 block">তারিখ: ${new Date(ord.createdAt).toLocaleDateString()}</span>
-                </div>
-                <span class="font-bold px-2.5 py-1 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">
-                  ${ord.status}
-                </span>
+                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId}</span>
+                <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">${ord.status}</span>
               </div>
-
-              <!-- Customer Details -->
-              <div class="bg-white p-2.5 rounded-lg border space-y-1">
-                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName}</p>
-                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address}</p>
-                <div class="flex justify-between items-center pt-1">
-                  <span class="font-extrabold text-gray-800">বিল: ৳ ${ord.totalAmount}</span>
-                  <a href="tel:${ord.userPhone}" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-emerald-700">
-                    <i class="fa-solid fa-phone"></i>
-                    <span>কাস্টমারকে কল</span>
-                  </a>
-                </div>
+              <p class="font-bold text-gray-800">গ্রাহক: ${ord.userName}</p>
+              <p class="text-gray-600">ঠিকানা: ${ord.address}</p>
+              <div class="flex justify-between items-center pt-1 font-bold">
+                <span>বিল: ৳ ${ord.totalAmount}</span>
+                ${!isDelivered ? `
+                  <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs">ডেলিভারি সম্পন্ন করুন</button>
+                ` : `<span class="text-emerald-700">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>`}
               </div>
-
-              <!-- Order Items List -->
-              <div class="space-y-1">
-                <p class="font-bold text-gray-500 text-[11px]">পণ্য তালিকা:</p>
-                ${itemsHTML}
-              </div>
-
-              <!-- Payment info if delivered -->
-              ${isDelivered ? `
-                <div class="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 text-emerald-900 space-y-1">
-                  <div class="flex justify-between font-bold">
-                    <span>পেমেন্ট পদ্ধতি:</span>
-                    <span class="text-purple-700">${ord.paymentMethod || 'Cash'}</span>
-                  </div>
-                  ${ord.paymentMethod && ord.paymentMethod !== 'Cash' ? `
-                    <div class="text-[11px] text-gray-600">
-                      <span>TrxID/Slip: <strong class="text-gray-800 uppercase">${ord.paymentTrxId || 'N/A'}</strong></span>
-                    </div>
-                  ` : ''}
-                  <div class="text-[10px] text-emerald-700 pt-1 border-t border-emerald-200 flex items-center">
-                    <i class="fa-solid fa-check-double mr-1"></i> সফলভাবে ডেলিভারি সম্পন্ন হয়েছে
-                  </div>
-                </div>
-              ` : `
-                <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition shadow flex items-center justify-center space-x-1 mt-2">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span>ডেলিভারি সম্পন্ন (Delivered) করুন</span>
-                </button>
-              `}
             </div>
           `;
         });
 
         container.innerHTML = html;
-
       } catch (err) {
-        container.innerHTML = `<p class="text-xs text-red-500 text-center py-4">অর্ডার লোড করতে ত্রুটি হয়েছে: ${err.message}</p>`;
+        container.innerHTML = `<p class="text-xs text-red-500 py-4 text-center">ত্রুটি: ${err.message}</p>`;
       }
     }
 
-    // Open Payment Modal
+    // Modal Helpers
     window.openPaymentModal = function(ord) {
       activeOrderForModal = ord;
-      document.getElementById('modalOrderId').value = ord.orderId;
       document.getElementById('modalDocId').value = ord.id;
       document.getElementById('modalDisplayAmount').innerText = `৳ ${ord.totalAmount}`;
-      document.getElementById('paymentMethodSelect').value = 'Cash';
-      document.getElementById('paymentTrxId').value = '';
-      document.getElementById('paymentSenderNo').value = '';
-      togglePaymentFields();
-      
       document.getElementById('paymentModal').classList.remove('hidden');
     }
 
@@ -432,82 +408,114 @@
 
     window.togglePaymentFields = function() {
       const method = document.getElementById('paymentMethodSelect').value;
-      const onlineFields = document.getElementById('onlinePaymentFields');
-      const trxLabel = document.getElementById('trxLabel');
-
-      if (method === 'Cash') {
-        onlineFields.classList.add('hidden');
-      } else {
-        onlineFields.classList.remove('hidden');
-        if (method === 'bKash' || method === 'Nagad') {
-          trxLabel.innerText = `${method} ট্রানজেকশন আইডি (TrxID):`;
-        } else if (method === 'BanglaQR') {
-          trxLabel.innerText = `QR পেমেন্ট রেফারেন্স / ট্রানজেকশন আইডি:`;
-        } else if (method === 'POS') {
-          trxLabel.innerText = `POS স্লিপ / এপ্রুভাল কোড:`;
-        }
-      }
+      if (method === 'Cash') document.getElementById('onlinePaymentFields').classList.add('hidden');
+      else document.getElementById('onlinePaymentFields').classList.remove('hidden');
     }
 
-    // Submit Delivered & Payment Details
     window.submitCompletedDelivery = async function() {
       if (!activeOrderForModal) return;
 
       const docId = document.getElementById('modalDocId').value;
       const paymentMethod = document.getElementById('paymentMethodSelect').value;
       const trxId = document.getElementById('paymentTrxId').value.trim();
-      const senderNo = document.getElementById('paymentSenderNo').value.trim();
       const orderAmount = Number(activeOrderForModal.totalAmount || 0);
-
-      if (paymentMethod !== 'Cash' && !trxId) {
-        alert("দয়া করে অনলাইন পেমেন্টের ট্রানজেকশন আইডি (TrxID) অথবা স্লিপ কোড দিন!");
-        return;
-      }
-
-      if (!confirm(`আপনি কি নিশ্চিত যে অর্ডারটি Delivered এবং পেমেন্ট (${paymentMethod}) মাধ্যমে রিসিভ হয়েছে?`)) return;
 
       const db = window.firebaseDb;
       const { doc, updateDoc, increment } = window.firebaseServices;
 
       try {
-        const orderRef = doc(db, "orders", docId);
-        
-        let updatePayload = {
+        await updateDoc(doc(db, "orders", docId), {
           status: 'Delivered',
           paymentMethod: paymentMethod,
+          paymentTrxId: trxId || '',
           deliveredAt: new Date().toISOString()
-        };
+        });
 
-        if (paymentMethod !== 'Cash') {
-          updatePayload.paymentTrxId = trxId;
-          updatePayload.paymentSenderNo = senderNo;
-          updatePayload.paymentStatus = 'Paid Online';
-        } else {
-          updatePayload.paymentStatus = 'Cash Collected by Rider';
-        }
-
-        await updateDoc(orderRef, updatePayload);
-
-        // ANALYTICS & LEDGER: If Paid by Cash, add to Rider's cash balance ledger
+        // Add to Cash in Hand Balance if paid by Cash
         if (paymentMethod === 'Cash' && currentRiderData) {
-          const riderRef = doc(db, "riders", currentRiderData.id);
-          await updateDoc(riderRef, {
+          await updateDoc(doc(db, "riders", currentRiderData.id), {
             cashBalance: increment(orderAmount)
           });
         }
 
-        alert("অর্ডার সফলভাবে ডেলিভারি করা হয়েছে এবং পেমেন্ট রেকর্ড আপডেট হয়েছে!");
+        alert("অর্ডার সম্পূর্ণ হয়েছে!");
         closePaymentModal();
         loadRiderOrders();
-
       } catch (err) {
-        alert("স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে: " + err.message);
+        alert("ত্রুটি: " + err.message);
       }
     };
 
+    // SETTLEMENT LOGIC (RIDER TO ADMIN)
+    window.openSettlementModal = function() {
+      document.getElementById('modalCurrentCash').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
+      document.getElementById('settlementAmount').value = currentRiderData.cashBalance || '';
+      document.getElementById('settlementModal').classList.remove('hidden');
+    }
+
+    window.closeSettlementModal = function() {
+      document.getElementById('settlementModal').classList.add('hidden');
+    }
+
+    window.submitCashSettlement = async function() {
+      const amount = Number(document.getElementById('settlementAmount').value);
+      const method = document.getElementById('settlementMethod').value;
+      const trx = document.getElementById('settlementTrx').value.trim();
+
+      if (!amount || amount <= 0) {
+        alert("সঠিক টাকার পরিমাণ লিখুন!");
+        return;
+      }
+
+      const db = window.firebaseDb;
+      const { collection, addDoc } = window.firebaseServices;
+
+      try {
+        await addDoc(collection(db, "cash_settlements"), {
+          riderId: currentRiderData.id,
+          riderName: currentRiderData.name,
+          riderPhone: currentRiderData.phone,
+          amount: amount,
+          method: method,
+          trxRef: trx,
+          status: 'Pending',
+          createdAt: new Date().toISOString()
+        });
+
+        alert("এডমিনের কাছে জমা রিকোয়েস্ট পাঠানো হয়েছে। এডমিন ভেরিফাই করলে আপনার ক্যাশ কমবে।");
+        closeSettlementModal();
+        checkPendingSettlements();
+      } catch (err) {
+        alert("সমস্যা হয়েছে: " + err.message);
+      }
+    };
+
+    async function checkPendingSettlements() {
+      if (!currentRiderData) return;
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+
+      const q = query(
+        collection(db, "cash_settlements"), 
+        where("riderPhone", "==", currentRiderData.phone),
+        where("status", "==", "Pending")
+      );
+
+      const snap = await getDocs(q);
+      let totalPending = 0;
+      snap.forEach(d => totalPending += Number(d.data().amount || 0));
+
+      const banner = document.getElementById('pendingSettlementBanner');
+      if (totalPending > 0) {
+        document.getElementById('pendingSettlementDetails').innerText = `৳ ${totalPending} (এডমিন ভেরিফিকেশন চলছে)`;
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
     window.logoutRider = async function() {
       await window.firebaseServices.signOut(window.firebaseAuth);
-      alert("সফলভাবে লগআউট করা হয়েছে।");
     }
   </script>
 </body>
