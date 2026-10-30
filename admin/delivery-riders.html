@@ -127,7 +127,7 @@
         <div class="flex items-center justify-between border-b pb-2">
           <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
             <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i>
-            <span>রাইডারদের ক্যাশ জমা রিকোয়েস্ট (Settlements)</span>
+            <span>রাইডারদের ক্যাশ জমা রিকোয়েস্ট (Pending Settlements)</span>
           </h3>
           <button onclick="loadPendingSettlements()" class="text-xs text-emerald-600 font-bold p-1" title="Refresh">
             <i class="fa-solid fa-rotate"></i>
@@ -139,7 +139,24 @@
         </div>
       </div>
 
-      <!-- SECTION B: RIDER LIST & ADD RIDER -->
+      <!-- SECTION B: APPROVED/REJECTED SETTLEMENT HISTORY (NEW FEATURE) -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
+            <i class="fa-solid fa-clock-rotate-left text-purple-600"></i>
+            <span>ক্যাশ কালেকশন ও সেটেলমেন্ট হিস্ট্রি (History Log)</span>
+          </h3>
+          <button onclick="loadSettlementHistory()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+
+        <div id="settlementHistoryContainer" class="space-y-2 max-h-60 overflow-y-auto">
+          <p class="text-xs text-gray-400 text-center py-4">হিস্ট্রি লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+      <!-- SECTION C: RIDER LIST & ADD RIDER -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-3">
         <div>
           <h2 class="font-bold text-sm text-gray-800">ডেলিভারি রাইডার তালিকা ও অ্যাকাউন্ট তৈরি</h2>
@@ -202,6 +219,7 @@
           document.getElementById('adminNav').classList.remove('hidden');
           loadRiders();
           loadPendingSettlements();
+          loadSettlementHistory(); // Load History Log
         } else {
           document.getElementById('adminLoginCard').classList.remove('hidden');
           document.getElementById('adminDashboardView').classList.add('hidden');
@@ -323,19 +341,81 @@
                   <i class="fa-solid fa-phone mr-1 text-emerald-600"></i>${s.riderPhone || 'N/A'} | 
                   <span class="text-purple-700 font-bold">নোট/Trx: ${s.trxRef || 'N/A'}</span>
                 </p>
-                <span class="text-[10px] text-gray-400">তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
+                <span class="text-[10px] text-gray-400">রিকোয়েস্ট তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
               </div>
 
               <div class="flex items-center space-x-3 w-full md:w-auto justify-between border-t md:border-t-0 pt-2 md:pt-0">
                 <span class="font-black text-sm text-emerald-700 bg-white px-2.5 py-1 rounded-lg border">৳ ${s.amount}</span>
                 <div class="flex space-x-1.5">
                   <button onclick="approveRiderSettlement('${s.id}', '${s.riderId}', ${s.amount})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-sm">
-                    <i class="fa-solid fa-check mr-1"></i> অনুমোদন করুন
+                    <i class="fa-solid fa-check mr-1"></i> অনুমোদন
                   </button>
                   <button onclick="rejectRiderSettlement('${s.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-2.5 py-1.5 rounded-xl text-xs border border-red-200 transition">
                     বাতিল
                   </button>
                 </div>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Load Approved/Rejected Settlement History Log (New Feature)
+    async function loadSettlementHistory() {
+      const db = window.firebaseDb;
+      const { collection, getDocs } = window.firebaseServices;
+      const container = document.getElementById('settlementHistoryContainer');
+
+      if (!db) return;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "cash_settlements"));
+        let historyList = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.status && data.status !== "Pending") {
+            historyList.push({ id: docSnap.id, ...data });
+          }
+        });
+
+        // Sort by date descending (Newest first)
+        historyList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        if (historyList.length === 0) {
+          container.innerHTML = `<div class="bg-gray-50 p-4 rounded-xl text-center border text-xs text-gray-400">কোনো হিস্ট্রি রেকর্ড পাওয়া যায়নি।</div>`;
+          return;
+        }
+
+        let html = '';
+        historyList.forEach(h => {
+          const isApproved = h.status === "Approved";
+          const statusBadge = isApproved 
+            ? `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত (Approved)</span>`
+            : `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল (Rejected)</span>`;
+
+          const actionDate = h.approvedAt || h.rejectedAt || h.createdAt;
+
+          html += `
+            <div class="bg-gray-50 p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <strong class="font-bold text-gray-800">${h.riderName || 'রাইডার'}</strong>
+                  ${statusBadge}
+                  <span class="text-[10px] text-gray-500">(${h.method || 'Cash'})</span>
+                </div>
+                <p class="text-[11px] text-gray-600 mt-0.5">
+                  ফোন: ${h.riderPhone || 'N/A'} | নোট/Trx: <strong class="text-purple-700">${h.trxRef || 'N/A'}</strong>
+                </p>
+                <span class="text-[10px] text-gray-400">সম্পন্ন হয়েছে: ${new Date(actionDate).toLocaleString()}</span>
+              </div>
+              <div class="font-black text-sm ${isApproved ? 'text-emerald-700' : 'text-red-500'} bg-white px-2.5 py-1 rounded-lg border">
+                ৳ ${h.amount}
               </div>
             </div>
           `;
@@ -369,6 +449,7 @@
 
         alert("ক্যাশ জমা সফলভাবে অনুমোদিত হয়েছে!");
         loadPendingSettlements();
+        loadSettlementHistory(); // Refresh History Log
         loadRiders();
       } catch (err) {
         alert("অনুমোদনে সমস্যা হয়েছে: " + err.message);
@@ -390,6 +471,7 @@
 
         alert("সেটেলমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে।");
         loadPendingSettlements();
+        loadSettlementHistory(); // Refresh History Log
       } catch (err) {
         alert("সমস্যা হয়েছে: " + err.message);
       }
