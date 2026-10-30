@@ -12,7 +12,7 @@
   
   <!-- Firebase SDKs (v10) -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getAuth, 
       signInWithEmailAndPassword, 
@@ -43,11 +43,16 @@
       measurementId: "G-J4S4EL5LE4"
     };
 
-    const app = initializeApp(firebaseConfig);
+    // Initialize primary app safely
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const secondaryApp = initializeApp(firebaseConfig, "SecondaryRiderApp");
+    // Initialize secondary app safely for creating riders without disrupting Admin session
+    const secondaryAppName = "SecondaryRiderApp";
+    const secondaryApp = getApps().some(app => app.name === secondaryAppName) 
+      ? getApp(secondaryAppName) 
+      : initializeApp(firebaseConfig, secondaryAppName);
     const secondaryAuth = getAuth(secondaryApp);
 
     window.firebaseAuth = auth;
@@ -186,8 +191,6 @@
           <input type="password" id="riderPassword" placeholder="পাসওয়ার্ড (নতুন রাইডারের জন্য কমপক্ষে ৬ ডিজিট)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
           <input type="text" id="riderArea" placeholder="এলাকা (যেমন: কামারপাড়া, রংপুর)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
           <input type="number" id="riderSalary" placeholder="মাসিক ফিক্সড স্যালারি (যেমন: 10000)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
-          
-          <!-- Target Slab Base Commission (Default / Tier 1) -->
           <input type="number" id="riderCommission" placeholder="বেস কমিশন / টার্গেট স্ল্যাব রেট (যেমন: 30)..." class="p-2 border rounded-xl text-xs bg-white focus:outline-none">
         </div>
         <div class="flex justify-end space-x-2 pt-2">
@@ -251,7 +254,7 @@
           await signInWithEmailAndPassword(auth, email, password);
           alert("অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন!");
         } catch (err) {
-          alert("লগইন ব্যর্থ হয়েছে!");
+          alert("লগইন ব্যর্থ হয়েছে! সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
         }
       });
     }
@@ -265,7 +268,7 @@
     function toggleRiderForm() {
       const form = document.getElementById('addRiderCard');
       document.getElementById('editRiderDocId').value = '';
-      document.getElementById('riderFormTitle.innerHTML') = `<i class="fa-solid fa-plus-circle mr-1"></i> নতুন রাইডার অ্যাকাউন্ট ও টার্গেট স্ল্যাব সেটআপ`;
+      document.getElementById('riderFormTitle').innerHTML = `<i class="fa-solid fa-plus-circle mr-1"></i> নতুন রাইডার অ্যাকাউন্ট ও টার্গেট স্ল্যাব সেটআপ`;
       document.getElementById('riderName').value = '';
       document.getElementById('riderPhone').value = '';
       document.getElementById('riderPassword').value = '';
@@ -348,6 +351,7 @@
       document.getElementById('riderSalary').value = r.fixedSalary || 0;
       document.getElementById('riderCommission').value = r.deliveryCommission || 30;
       
+      document.getElementById('riderFormTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> রাইডার তথ্য ও স্যালারি এডিট করুন`;
       document.getElementById('addRiderCard').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
