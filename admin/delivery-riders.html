@@ -94,7 +94,7 @@
   <!-- Main Container -->
   <main class="max-w-4xl mx-auto p-4 space-y-5">
 
-    <!-- 1. ADMIN LOGIN SECTION (Shown when admin is not logged in) -->
+    <!-- 1. ADMIN LOGIN SECTION -->
     <div id="adminLoginCard" class="bg-white p-6 rounded-2xl shadow-sm border max-w-md mx-auto space-y-4 mt-10">
       <div class="text-center space-y-1">
         <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-xl mb-2">
@@ -119,7 +119,7 @@
       </form>
     </div>
 
-    <!-- 2. RIDER & SETTLEMENT MANAGEMENT SECTION (Hidden until admin logs in) -->
+    <!-- 2. RIDER & SETTLEMENT MANAGEMENT SECTION -->
     <div id="adminDashboardView" class="hidden space-y-5">
       
       <!-- SECTION A: PENDING CASH SETTLEMENT APPROVALS -->
@@ -195,7 +195,6 @@
         return;
       }
 
-      // Check Login State
       onAuthStateChanged(auth, (user) => {
         if (user) {
           document.getElementById('adminLoginCard').classList.add('hidden');
@@ -210,7 +209,6 @@
         }
       });
 
-      // Admin Login Handler
       document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('adminEmail').value.trim();
@@ -220,7 +218,7 @@
           await signInWithEmailAndPassword(auth, email, password);
           alert("অ্যাডমিন প্যানেলে সফলভাবে প্রবেশ করেছেন!");
         } catch (err) {
-          alert("লগইন ব্যর্থ হয়েছে! সঠিক ইমেইল ও পাসওয়ার্ড দিন। ত্রুটি: " + err.message);
+          alert("লগইন ব্যর্থ হয়েছে! সঠিক ইমেইল ও পাসওয়ার্ড দিন।");
         }
       });
     }
@@ -236,7 +234,7 @@
       form.classList.toggle('hidden');
     }
 
-    // Load Riders from Firestore
+    // Load Riders
     async function loadRiders() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -252,7 +250,7 @@
         });
 
         if (ridersList.length === 0) {
-          container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center border text-xs text-gray-400 md:col-span-2">কোনো রাইডার পাওয়া যায়নি। নতুন রাইডার যোগ করুন।</div>`;
+          container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center border text-xs text-gray-400 md:col-span-2">কোনো রাইডার পাওয়া যায়নি।</div>`;
           return;
         }
 
@@ -266,7 +264,6 @@
                   <h4 class="font-bold text-sm text-gray-800">${r.name}</h4>
                   <p class="text-[11px] text-gray-500"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${r.phone}</p>
                   <p class="text-[11px] text-gray-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${r.area || 'নির্দিষ্ট এলাকা নেই'}</p>
-                  <p class="text-[10px] text-purple-600 mt-1"><i class="fa-solid fa-envelope mr-1"></i>${r.email}</p>
                 </div>
                 <div class="text-right">
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 block mb-1">Active</span>
@@ -287,11 +284,11 @@
         container.innerHTML = html;
 
       } catch (err) {
-        container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 md:col-span-2">রাইডার লোড করতে সমস্যা: ${err.message}</div>`;
+        console.error(err);
       }
     }
 
-    // Load Pending Settlements Submitted by Riders
+    // Load Pending Settlements
     async function loadPendingSettlements() {
       const db = window.firebaseDb;
       const { collection, getDocs, query, where } = window.firebaseServices;
@@ -324,7 +321,7 @@
                 </div>
                 <p class="text-[11px] text-gray-600 mt-0.5">
                   <i class="fa-solid fa-phone mr-1 text-emerald-600"></i>${s.riderPhone || 'N/A'} | 
-                  <span class="text-purple-700 font-bold">Trx/Ref: ${s.trxRef || 'N/A'}</span>
+                  <span class="text-purple-700 font-bold">নোট/Trx: ${s.trxRef || 'N/A'}</span>
                 </p>
                 <span class="text-[10px] text-gray-400">তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
               </div>
@@ -347,11 +344,11 @@
         container.innerHTML = html;
 
       } catch (err) {
-        container.innerHTML = `<div class="bg-white p-4 rounded-xl text-center text-xs text-red-500">সেটেলমেন্ট লোড করতে সমস্যা: ${err.message}</div>`;
+        console.error(err);
       }
     }
 
-    // Approve Rider Cash Settlement
+    // Approve Settlement
     async function approveRiderSettlement(settlementDocId, riderDocId, amount) {
       if (!confirm(`আপনি কি নিশ্চিত যে ৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
 
@@ -359,13 +356,11 @@
       const { doc, updateDoc, increment } = window.firebaseServices;
 
       try {
-        // 1. Mark Settlement Request as Approved
         await updateDoc(doc(db, "cash_settlements", settlementDocId), {
           status: "Approved",
           approvedAt: new Date().toISOString()
         });
 
-        // 2. Decrement Rider's Cash in Hand Balance
         if (riderDocId) {
           await updateDoc(doc(db, "riders", riderDocId), {
             cashBalance: increment(-amount)
@@ -380,9 +375,9 @@
       }
     }
 
-    // Reject Settlement Request
+    // Reject Settlement
     async function rejectRiderSettlement(settlementDocId) {
-      if (!confirm("আপনি কি এই ক্যাশ জমা রিকোয়েস্টটি বাতিল করতে চান?")) return;
+      if (!confirm("আপনি কি এই রিকোয়েস্ট বাতিল করতে চান?")) return;
 
       const db = window.firebaseDb;
       const { doc, updateDoc } = window.firebaseServices;
@@ -396,11 +391,11 @@
         alert("সেটেলমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে।");
         loadPendingSettlements();
       } catch (err) {
-        alert("বাতিল করতে সমস্যা হয়েছে: " + err.message);
+        alert("সমস্যা হয়েছে: " + err.message);
       }
     }
 
-    // Save New Rider & Create Auth Account without overriding Admin Session
+    // Save New Rider
     async function saveNewRider() {
       const name = document.getElementById('riderName').value.trim();
       const phone = document.getElementById('riderPhone').value.trim();
@@ -408,24 +403,19 @@
       const area = document.getElementById('riderArea').value.trim();
 
       if (!name || !phone || password.length < 6) {
-        alert("দয়া করে সঠিক নাম, মোবাইল নম্বর এবং অন্তত ৬ ডিজিটের পাসওয়ার্ড দিন।");
+        alert("দয়া করে সঠিক নাম, মোবাইল এবং অন্তত ৬ ডিজিটের পাসওয়ার্ড দিন।");
         return;
       }
 
       const db = window.firebaseDb;
       const { createUserWithEmailAndPassword, setDoc, doc, secondaryAuth } = window.firebaseServices;
-
       const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
 
       try {
-        // Create user using secondary auth instance so admin session remains intact
         const userCred = await createUserWithEmailAndPassword(secondaryAuth, formattedEmail, password);
         const uid = userCred.user.uid;
-
-        // Sign out secondary auth immediately so it doesn't linger
         await secondaryAuth.signOut();
 
-        // Save rider info into Firestore database with initial cashBalance of 0
         await setDoc(doc(db, "riders", uid), {
           uid,
           name,
@@ -447,13 +437,13 @@
         
         loadRiders();
       } catch (err) {
-        alert("রাইডার অ্যাকাউন্ট তৈরি ব্যর্থ হয়েছে: " + err.message);
+        alert("ব্যর্থ হয়েছে: " + err.message);
       }
     }
 
     // Delete Rider
     async function deleteRider(riderId) {
-      if (!confirm("আপনি কি এই রাইডারকে তালিকা থেকে ডিলিট করতে চান?")) return;
+      if (!confirm("আপনি কি এই রাইডারকে মুছে ফেলতে চান?")) return;
       const db = window.firebaseDb;
       const { doc, deleteDoc } = window.firebaseServices;
 
