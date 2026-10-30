@@ -152,23 +152,27 @@
           </button>
         </div>
 
-        <!-- Cash In Hand Widget -->
-        <div class="bg-black/20 p-3.5 rounded-xl backdrop-blur-sm flex justify-between items-center text-xs">
-          <div>
+        <!-- Wallets Grid (Cash in hand vs Earnings) -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="bg-black/20 p-3 rounded-xl backdrop-blur-sm text-xs">
             <span class="text-purple-200 block text-[10px]">ক্যাশ ইন হ্যান্ড (জমাযোগ্য)</span>
-            <strong id="riderCashBalance" class="text-lg text-white font-black">৳ 0</strong>
+            <strong id="riderCashBalance" class="text-sm text-white font-black">৳ 0</strong>
+            <button onclick="openSettlementModal()" class="mt-2 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-1 px-2 rounded-lg text-[10px] shadow transition">
+              জমা দিন
+            </button>
           </div>
-          <button onclick="openSettlementModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-2 rounded-xl text-xs shadow transition flex items-center space-x-1">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span>এডমিনকে ক্যাশ জমা দিন</span>
-          </button>
+          <div class="bg-black/20 p-3 rounded-xl backdrop-blur-sm text-xs">
+            <span class="text-purple-200 block text-[10px]">আমার আয় / কমিশন ওয়ালেট</span>
+            <strong id="riderEarningsBalance" class="text-sm text-emerald-300 font-black">৳ 0</strong>
+            <span class="block text-[9px] text-purple-200 mt-2">ফিক্সড স্যালারি + কমিশন</span>
+          </div>
         </div>
       </div>
 
       <!-- Assigned Orders Section -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
         <div class="flex items-center justify-between border-b pb-2">
-          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-boxes-packing text-purple-600 mr-1.5"></i> আপনার অ্যাসাইনকৃত অর্ডারসমূহ</h3>
+          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-boxes-packing text-purple-600 mr-1.5"></i> অ্যাসাইনকৃত অর্ডারসমূহ</h3>
           <button onclick="loadRiderOrders()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
             <i class="fa-solid fa-rotate"></i>
           </button>
@@ -179,14 +183,25 @@
         </div>
       </div>
 
-      <!-- NEW SECTION: RIDER SETTLEMENT HISTORY (রাইডারের ক্যাশ জমার হিস্ট্রি) -->
+      <!-- SETTLEMENT HISTORY WITH MONTHLY FILTER & EXCEL EXPORT -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
-        <div class="flex items-center justify-between border-b pb-2">
-          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-clock-rotate-left text-purple-600 mr-1.5"></i> আপনার ক্যাশ জমা দেওয়ার হিস্ট্রি</h3>
-          <button onclick="loadRiderSettlementHistory()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
-            <i class="fa-solid fa-rotate"></i>
-          </button>
+        <div class="flex flex-col space-y-2 border-b pb-2">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-clock-rotate-left text-purple-600 mr-1.5"></i> ক্যাশ জমা হিস্ট্রি ও এক্সপোর্ট</h3>
+            <button onclick="exportHistoryToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow transition flex items-center space-x-1">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>এক্সেল এক্সপোর্ট</span>
+            </button>
+          </div>
+
+          <!-- Monthly Filter Bar -->
+          <div class="flex items-center space-x-2 pt-1">
+            <label class="text-[11px] text-gray-600 font-medium">মাস নির্বাচন:</label>
+            <input type="month" id="historyMonthFilter" onchange="filterRiderHistory()" class="px-2 py-1 border rounded-lg text-xs bg-gray-50 font-semibold focus:outline-none">
+            <button onclick="clearMonthFilter()" class="text-[10px] text-gray-500 underline">রিসেট</button>
+          </div>
         </div>
+
         <div id="riderHistoryContainer" class="space-y-2 max-h-48 overflow-y-auto text-xs">
           <p class="text-xs text-gray-400 text-center py-4">হিস্ট্রি লোড হচ্ছে...</p>
         </div>
@@ -220,7 +235,7 @@
 
         <div id="onlinePaymentFields" class="hidden space-y-2 bg-purple-50 p-3 rounded-xl border border-purple-100">
           <div>
-            <label class="text-gray-600 block mb-1 font-semibold" id="trxLabel">ট্রানজেকশন আইডি (TrxID) / স্লিপ নং:</label>
+            <label class="text-gray-600 block mb-1 font-semibold" id="trxLabel">ট্রানজেকশন আইডি (TrxID):</label>
             <input type="text" id="paymentTrxId" placeholder="উদাঃ 9G87H65K" class="w-full px-3 py-2 border bg-white rounded-xl uppercase font-bold text-sm">
           </div>
         </div>
@@ -231,7 +246,7 @@
         </div>
 
         <button onclick="submitCompletedDelivery()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
-          ডেলিভারি কনফার্ম ও পেমেন্ট সেভ করুন
+          ডেলিভারি কনফার্ম ও কমিশন যুক্ত করুন
         </button>
       </div>
     </div>
@@ -252,12 +267,12 @@
         </div>
 
         <div>
-          <label class="font-bold text-gray-700 block mb-1">জমার মাধ্যম নির্বাচন করুন:</label>
+          <label class="font-bold text-gray-700 block mb-1">জমার মাধ্যম:</label>
           <select id="settlementMethod" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold">
-            <option value="Direct Cash to Office">অফিস/এডমিনকে সরাসরি ক্যাশ প্রদান</option>
-            <option value="bKash Cash-In">বিকাশ পার্সোনাল/মার্চেন্ট জমা</option>
-            <option value="Nagad Cash-In">নগদ ক্যাশ-ইন / সেন্ড মানি</option>
-            <option value="Bank Deposit">ব্যাংক একাউন্ট ডিপোজিট</option>
+            <option value="Direct Cash to Office">সরাসরি ক্যাশ প্রদান</option>
+            <option value="bKash Cash-In">বিকাশ জমা</option>
+            <option value="Nagad Cash-In">নগদ জমা</option>
+            <option value="Bank Deposit">ব্যাংক ডিপোজিট</option>
           </select>
         </div>
 
@@ -267,8 +282,8 @@
         </div>
 
         <div>
-          <label class="font-bold text-gray-700 block mb-1">ট্রানজেকশন আইডি / রেফারেন্স / নোট:</label>
-          <input type="text" id="settlementTrx" placeholder="উদাঃ রহিম ভাইয়ের কাছে জমাকৃত / TrxID" class="w-full px-3 py-2 border rounded-xl">
+          <label class="font-bold text-gray-700 block mb-1">নোট / ট্রানজেকশন আইডি:</label>
+          <input type="text" id="settlementTrx" placeholder="উদাঃ রহিম ভাইয়ের কাছে জমাকৃত" class="w-full px-3 py-2 border rounded-xl">
         </div>
 
         <button onclick="submitCashSettlement()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
@@ -282,6 +297,7 @@
   <script>
     let currentRiderData = null;
     let activeOrderForModal = null;
+    let rawRiderHistory = [];
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initRiderAuthListener, 500);
@@ -312,6 +328,7 @@
               document.getElementById('riderProfileName').innerText = currentRiderData.name || 'রাইডার';
               document.getElementById('riderProfilePhone').innerText = currentRiderData.phone || user.email;
               document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
+              document.getElementById('riderEarningsBalance').innerText = `৳ ${currentRiderData.earningsBalance || 0}`;
 
               loadRiderOrders();
               loadRiderSettlementHistory();
@@ -328,12 +345,10 @@
         }
       });
 
-      // Login Form
       document.getElementById('riderLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const phone = document.getElementById('riderLoginPhone').value.trim();
         const password = document.getElementById('riderLoginPassword').value;
-
         const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
 
         try {
@@ -344,7 +359,6 @@
       });
     }
 
-    // Load Orders with Product Items Details for Cross-Check
     async function loadRiderOrders() {
       if (!currentRiderData) return;
 
@@ -357,6 +371,7 @@
         if (riderDocSnap.exists()) {
           currentRiderData = { id: riderDocSnap.id, ...riderDocSnap.data() };
           document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
+          document.getElementById('riderEarningsBalance').innerText = `৳ ${currentRiderData.earningsBalance || 0}`;
         }
 
         const q = query(collection(db, "orders"), where("riderPhone", "==", currentRiderData.phone));
@@ -374,36 +389,32 @@
         orders.forEach(ord => {
           const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
 
-          // Generating Product Items Table/List for Cross-Check
           let itemsHtml = '';
           if (ord.items && ord.items.length > 0) {
-            itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ ( ক্রস-চেক করুন ):</p>`;
+            itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ (ক্রস-চেক):</p>`;
             ord.items.forEach(item => {
               itemsHtml += `
                 <div class="flex justify-between text-xs text-gray-700 border-b border-dashed py-0.5">
-                  <span>${item.name || 'পণ্যের নাম'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
+                  <span>${item.name || 'পণ্য'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
                   <span>৳ ${(item.price || 0) * (item.qty || 1)}</span>
                 </div>
               `;
             });
             itemsHtml += `</div>`;
-          } else {
-            itemsHtml = `<p class="text-[11px] text-gray-400 italic">কোনো পণ্যের তালিকা নেই</p>`;
           }
 
           html += `
             <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
               <div class="flex justify-between items-center border-b pb-1.5">
-                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD-XXX'}</span>
+                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD'}</span>
                 <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">${ord.status || 'Pending'}</span>
               </div>
               <div class="space-y-0.5">
-                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || 'নাম নেই'}</p>
-                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || 'ঠিকানা পাওয়া যায়নি'}</p>
-                <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || 'N/A'}</a></p>
+                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || ''}</p>
+                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || ''}</p>
+                <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || ''}</a></p>
               </div>
 
-              <!-- Product Items List for Rider Cross-Check -->
               ${itemsHtml}
 
               <div class="flex justify-between items-center pt-1 font-bold border-t">
@@ -418,16 +429,15 @@
 
         container.innerHTML = html;
       } catch (err) {
-        container.innerHTML = `<p class="text-xs text-red-500 py-4 text-center">ত্রুটি: ${err.message}</p>`;
+        console.error(err);
       }
     }
 
-    // Load Rider's Own Settlement History Log
+    // Load Settlement History for Rider
     async function loadRiderSettlementHistory() {
       if (!currentRiderData) return;
       const db = window.firebaseDb;
       const { collection, getDocs, query, where } = window.firebaseServices;
-      const container = document.getElementById('riderHistoryContainer');
 
       try {
         const q = query(
@@ -436,44 +446,102 @@
         );
         const querySnapshot = await getDocs(q);
 
-        let list = [];
+        rawRiderHistory = [];
         querySnapshot.forEach(docSnap => {
-          list.push({ id: docSnap.id, ...docSnap.data() });
+          rawRiderHistory.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // Sort descending by date
-        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        if (list.length === 0) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-3">কোনো ক্যাশ জমার হিস্ট্রি পাওয়া যায়নি।</p>`;
-          return;
-        }
-
-        let html = '';
-        list.forEach(item => {
-          let badge = '';
-          if (item.status === 'Approved') badge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত</span>`;
-          else if (item.status === 'Rejected') badge = `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল</span>`;
-          else badge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold text-[10px]">পেন্ডিং</span>`;
-
-          html += `
-            <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center text-xs">
-              <div>
-                <div class="flex items-center space-x-1.5">
-                  <strong>৳ ${item.amount}</strong>
-                  ${badge}
-                </div>
-                <p class="text-[10px] text-gray-500">মাধ্যম: ${item.method} | নোট: ${item.trxRef || 'N/A'}</p>
-                <span class="text-[9px] text-gray-400">${new Date(item.createdAt).toLocaleString()}</span>
-              </div>
-            </div>
-          `;
-        });
-
-        container.innerHTML = html;
+        rawRiderHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        renderRiderHistory(rawRiderHistory);
       } catch (err) {
         console.error(err);
       }
+    }
+
+    // Render History List
+    function renderRiderHistory(list) {
+      const container = document.getElementById('riderHistoryContainer');
+
+      if (list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-3">কোনো হিস্ট্রি পাওয়া যায়নি।</p>`;
+        return;
+      }
+
+      let html = '';
+      list.forEach(item => {
+        let badge = '';
+        if (item.status === 'Approved') badge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত</span>`;
+        else if (item.status === 'Rejected') badge = `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল</span>`;
+        else badge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold text-[10px]">পেন্ডিং</span>`;
+
+        html += `
+          <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center text-xs">
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <strong>৳ ${item.amount}</strong>
+                ${badge}
+              </div>
+              <p class="text-[10px] text-gray-500">মাধ্যম: ${item.method} | নোট: ${item.trxRef || 'N/A'}</p>
+              <span class="text-[9px] text-gray-400">${new Date(item.createdAt).toLocaleString()}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // MONTHLY FILTER FUNCTION
+    window.filterRiderHistory = function() {
+      const selectedMonth = document.getElementById('historyMonthFilter').value; // Format: YYYY-MM
+      if (!selectedMonth) {
+        renderRiderHistory(rawRiderHistory);
+        return;
+      }
+
+      const filtered = rawRiderHistory.filter(item => {
+        if (!item.createdAt) return false;
+        const itemMonth = item.createdAt.substring(0, 7); // YYYY-MM
+        return itemMonth === selectedMonth;
+      });
+
+      renderRiderHistory(filtered);
+    }
+
+    window.clearMonthFilter = function() {
+      document.getElementById('historyMonthFilter').value = '';
+      renderRiderHistory(rawRiderHistory);
+    }
+
+    // EXCEL / CSV EXPORT FUNCTION
+    window.exportHistoryToExcel = function() {
+      if (rawRiderHistory.length === 0) {
+        alert("এক্সপোর্ট করার মতো কোনো ডেটা নেই!");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += "ID,Amount,Method,Note,Status,Date\r\n";
+
+      rawRiderHistory.forEach(item => {
+        const row = [
+          item.id,
+          item.amount,
+          `"${item.method || ''}"`,
+          `"${item.trxRef || ''}"`,
+          item.status,
+          `"${item.createdAt || ''}"`
+        ];
+        csvContent += row.join(",") + "\r\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `rider_settlement_history_${currentRiderData.phone}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
     // Modal Helpers
@@ -494,6 +562,7 @@
       else document.getElementById('onlinePaymentFields').classList.remove('hidden');
     }
 
+    // SUBMIT COMPLETED DELIVERY & ADD COMMISSION AUTOMATICALLY TO EARNINGS WALLET
     window.submitCompletedDelivery = async function() {
       if (!activeOrderForModal) return;
 
@@ -502,10 +571,14 @@
       const trxId = document.getElementById('paymentTrxId').value.trim();
       const orderAmount = Number(activeOrderForModal.totalAmount || 0);
 
+      // Default Commission per delivery (Can be set dynamically from admin profile later)
+      const commissionAmount = Number(currentRiderData.deliveryCommission || 30);
+
       const db = window.firebaseDb;
       const { doc, updateDoc, increment } = window.firebaseServices;
 
       try {
+        // 1. Update Order Status
         await updateDoc(doc(db, "orders", docId), {
           status: 'Delivered',
           paymentMethod: paymentMethod,
@@ -513,14 +586,18 @@
           deliveredAt: new Date().toISOString()
         });
 
-        // Add to Cash in Hand Balance if paid by Cash
-        if (paymentMethod === 'Cash' && currentRiderData) {
-          await updateDoc(doc(db, "riders", currentRiderData.id), {
-            cashBalance: increment(orderAmount)
-          });
+        // 2. If Paid by Cash, add to Cash in Hand Balance
+        let riderUpdatePayload = {};
+        if (paymentMethod === 'Cash') {
+          riderUpdatePayload.cashBalance = increment(orderAmount);
         }
 
-        alert("অর্ডার সম্পূর্ণ হয়েছে!");
+        // 3. Automatically Add Commission to Rider's Earnings Wallet
+        riderUpdatePayload.earningsBalance = increment(commissionAmount);
+
+        await updateDoc(doc(db, "riders", currentRiderData.id), riderUpdatePayload);
+
+        alert(`অর্ডার সফলভাবে সম্পন্ন হয়েছে! আপনার ওয়ালেটে ৳ ${commissionAmount} ডেলিভারি কমিশন যুক্ত হয়েছে।`);
         closePaymentModal();
         loadRiderOrders();
       } catch (err) {
@@ -528,7 +605,6 @@
       }
     };
 
-    // SETTLEMENT LOGIC (RIDER TO ADMIN)
     window.openSettlementModal = function() {
       document.getElementById('modalCurrentCash').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
       document.getElementById('settlementAmount').value = currentRiderData.cashBalance || '';
@@ -564,7 +640,7 @@
           createdAt: new Date().toISOString()
         });
 
-        alert("এডমিনের কাছে জমা রিকোয়েস্ট পাঠানো হয়েছে। এডমিন ভেরিফাই করলে আপনার ক্যাশ কমবে।");
+        alert("এডমিনের কাছে ক্যাশ জমা রিকোয়েস্ট পাঠানো হয়েছে।");
         closeSettlementModal();
         loadRiderSettlementHistory();
       } catch (err) {
