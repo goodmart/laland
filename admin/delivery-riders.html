@@ -13,8 +13,26 @@
   <!-- Firebase SDKs (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged, 
+      createUserWithEmailAndPassword 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      deleteDoc, 
+      doc, 
+      setDoc,
+      updateDoc,
+      increment,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -37,7 +55,23 @@
 
     window.firebaseAuth = auth;
     window.firebaseDb = db;
-    window.firebaseServices = { collection, addDoc, getDocs, deleteDoc, doc, setDoc, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, secondaryAuth };
+    window.firebaseServices = { 
+      collection, 
+      addDoc, 
+      getDocs, 
+      deleteDoc, 
+      doc, 
+      setDoc, 
+      updateDoc,
+      increment,
+      query,
+      where,
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged, 
+      createUserWithEmailAndPassword, 
+      secondaryAuth 
+    };
   </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10 select-none">
@@ -67,7 +101,7 @@
           <i class="fa-solid fa-user-shield"></i>
         </div>
         <h2 class="font-bold text-base text-gray-800">অ্যাডমিন প্যানেল লগইন</h2>
-        <p class="text-xs text-gray-400">রাইডার ম্যানেজ করতে অ্যাডমিন ইমেইল ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।</p>
+        <p class="text-xs text-gray-400">রাইডার ও ক্যাশ কালেকশন সেটেলমেন্ট ম্যানেজ করতে প্রবেশ করুন।</p>
       </div>
 
       <form id="adminLoginForm" class="space-y-3">
@@ -85,14 +119,31 @@
       </form>
     </div>
 
-    <!-- 2. RIDER MANAGEMENT SECTION (Hidden until admin logs in) -->
+    <!-- 2. RIDER & SETTLEMENT MANAGEMENT SECTION (Hidden until admin logs in) -->
     <div id="adminDashboardView" class="hidden space-y-5">
       
-      <!-- Top Action: Add New Rider Form Toggle -->
+      <!-- SECTION A: PENDING CASH SETTLEMENT APPROVALS -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="font-bold text-sm text-gray-800 flex items-center space-x-2">
+            <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i>
+            <span>রাইডারদের ক্যাশ জমা রিকোয়েস্ট (Settlements)</span>
+          </h3>
+          <button onclick="loadPendingSettlements()" class="text-xs text-emerald-600 font-bold p-1" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+
+        <div id="settlementsListContainer" class="space-y-2">
+          <p class="text-xs text-gray-400 text-center py-4">পেনন্ডিং ক্যাশ জমার রিকোয়েস্ট লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+      <!-- SECTION B: RIDER LIST & ADD RIDER -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border flex flex-col md:flex-row justify-between items-center gap-3">
         <div>
           <h2 class="font-bold text-sm text-gray-800">ডেলিভারি রাইডার তালিকা ও অ্যাকাউন্ট তৈরি</h2>
-          <p class="text-[11px] text-gray-500">এখান থেকে নতুন রাইডার তৈরি করুন যাতে তারা রাইডার পোর্টাল থেকে লগইন করতে পারে।</p>
+          <p class="text-[11px] text-gray-500">এখান থেকে নতুন রাইডার তৈরি করুন এবং রাইডারদের বর্তমান ক্যাশ-ইন-হ্যান্ড ব্যালেন্স দেখুন।</p>
         </div>
         <button onclick="toggleRiderForm()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-sm flex items-center space-x-1">
           <i class="fa-solid fa-user-plus"></i>
@@ -151,6 +202,7 @@
           document.getElementById('adminDashboardView').classList.remove('hidden');
           document.getElementById('adminNav').classList.remove('hidden');
           loadRiders();
+          loadPendingSettlements();
         } else {
           document.getElementById('adminLoginCard').classList.remove('hidden');
           document.getElementById('adminDashboardView').classList.add('hidden');
@@ -206,6 +258,7 @@
 
         let html = '';
         ridersList.forEach(r => {
+          const cashBalance = r.cashBalance || 0;
           html += `
             <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-2 relative">
               <div class="flex justify-between items-start">
@@ -215,12 +268,16 @@
                   <p class="text-[11px] text-gray-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${r.area || 'নির্দিষ্ট এলাকা নেই'}</p>
                   <p class="text-[10px] text-purple-600 mt-1"><i class="fa-solid fa-envelope mr-1"></i>${r.email}</p>
                 </div>
-                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                  Active Login
-                </span>
+                <div class="text-right">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 block mb-1">Active</span>
+                  <div class="bg-purple-50 p-1.5 rounded-xl border border-purple-100 text-[10px]">
+                    <span class="text-gray-500 block">ক্যাশ ইন হ্যান্ড:</span>
+                    <strong class="text-purple-700 font-extrabold text-xs">৳ ${cashBalance}</strong>
+                  </div>
+                </div>
               </div>
               <div class="pt-2 border-t flex justify-between items-center text-xs">
-                <span class="text-gray-400 text-[11px]">রাইডার পোর্টাল পাসওয়ার্ড সক্রিয়</span>
+                <span class="text-gray-400 text-[11px]">রাইডার আইডি: ${r.id.substring(0, 8)}...</span>
                 <button onclick="deleteRider('${r.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fa-solid fa-trash"></i></button>
               </div>
             </div>
@@ -231,6 +288,115 @@
 
       } catch (err) {
         container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 md:col-span-2">রাইডার লোড করতে সমস্যা: ${err.message}</div>`;
+      }
+    }
+
+    // Load Pending Settlements Submitted by Riders
+    async function loadPendingSettlements() {
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+      const container = document.getElementById('settlementsListContainer');
+
+      if (!db) return;
+
+      try {
+        const q = query(collection(db, "cash_settlements"), where("status", "==", "Pending"));
+        const querySnapshot = await getDocs(q);
+
+        let settlements = [];
+        querySnapshot.forEach((docSnap) => {
+          settlements.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        if (settlements.length === 0) {
+          container.innerHTML = `<div class="bg-gray-50 p-4 rounded-xl text-center border text-xs text-gray-400">বর্তমানে কোনো পেন্ডিং ক্যাশ জমা রিকোয়েস্ট নেই।</div>`;
+          return;
+        }
+
+        let html = '';
+        settlements.forEach(s => {
+          html += `
+            <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <strong class="font-bold text-gray-800">${s.riderName || 'রাইডার'}</strong>
+                  <span class="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-bold">${s.method || 'Cash'}</span>
+                </div>
+                <p class="text-[11px] text-gray-600 mt-0.5">
+                  <i class="fa-solid fa-phone mr-1 text-emerald-600"></i>${s.riderPhone || 'N/A'} | 
+                  <span class="text-purple-700 font-bold">Trx/Ref: ${s.trxRef || 'N/A'}</span>
+                </p>
+                <span class="text-[10px] text-gray-400">তারিখ: ${new Date(s.createdAt).toLocaleString()}</span>
+              </div>
+
+              <div class="flex items-center space-x-3 w-full md:w-auto justify-between border-t md:border-t-0 pt-2 md:pt-0">
+                <span class="font-black text-sm text-emerald-700 bg-white px-2.5 py-1 rounded-lg border">৳ ${s.amount}</span>
+                <div class="flex space-x-1.5">
+                  <button onclick="approveRiderSettlement('${s.id}', '${s.riderId}', ${s.amount})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-sm">
+                    <i class="fa-solid fa-check mr-1"></i> অনুমোদন করুন
+                  </button>
+                  <button onclick="rejectRiderSettlement('${s.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-2.5 py-1.5 rounded-xl text-xs border border-red-200 transition">
+                    বাতিল
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        container.innerHTML = `<div class="bg-white p-4 rounded-xl text-center text-xs text-red-500">সেটেলমেন্ট লোড করতে সমস্যা: ${err.message}</div>`;
+      }
+    }
+
+    // Approve Rider Cash Settlement
+    async function approveRiderSettlement(settlementDocId, riderDocId, amount) {
+      if (!confirm(`আপনি কি নিশ্চিত যে ৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc, increment } = window.firebaseServices;
+
+      try {
+        // 1. Mark Settlement Request as Approved
+        await updateDoc(doc(db, "cash_settlements", settlementDocId), {
+          status: "Approved",
+          approvedAt: new Date().toISOString()
+        });
+
+        // 2. Decrement Rider's Cash in Hand Balance
+        if (riderDocId) {
+          await updateDoc(doc(db, "riders", riderDocId), {
+            cashBalance: increment(-amount)
+          });
+        }
+
+        alert("ক্যাশ জমা সফলভাবে অনুমোদিত হয়েছে!");
+        loadPendingSettlements();
+        loadRiders();
+      } catch (err) {
+        alert("অনুমোদনে সমস্যা হয়েছে: " + err.message);
+      }
+    }
+
+    // Reject Settlement Request
+    async function rejectRiderSettlement(settlementDocId) {
+      if (!confirm("আপনি কি এই ক্যাশ জমা রিকোয়েস্টটি বাতিল করতে চান?")) return;
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc } = window.firebaseServices;
+
+      try {
+        await updateDoc(doc(db, "cash_settlements", settlementDocId), {
+          status: "Rejected",
+          rejectedAt: new Date().toISOString()
+        });
+
+        alert("সেটেলমেন্ট রিকোয়েস্ট বাতিল করা হয়েছে।");
+        loadPendingSettlements();
+      } catch (err) {
+        alert("বাতিল করতে সমস্যা হয়েছে: " + err.message);
       }
     }
 
@@ -259,13 +425,14 @@
         // Sign out secondary auth immediately so it doesn't linger
         await secondaryAuth.signOut();
 
-        // Save rider info into Firestore database
+        // Save rider info into Firestore database with initial cashBalance of 0
         await setDoc(doc(db, "riders", uid), {
           uid,
           name,
           phone,
           email: formattedEmail,
           area,
+          cashBalance: 0,
           status: 'Active',
           createdAt: new Date().toISOString()
         });
