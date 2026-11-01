@@ -169,12 +169,25 @@
         </div>
       </div>
 
-      <!-- Assigned Orders Section -->
+      <!-- Assigned Orders Section with Filter Tabs -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
         <div class="flex items-center justify-between border-b pb-2">
           <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-boxes-packing text-purple-600 mr-1.5"></i> অ্যাসাইনকৃত অর্ডারসমূহ</h3>
           <button onclick="loadRiderOrders()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
             <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+
+        <!-- Filter Menu Tabs -->
+        <div class="grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl text-xs font-semibold text-center">
+          <button id="tabMyOrders" onclick="switchOrderTab('myOrders')" class="py-2 rounded-lg bg-purple-600 text-white shadow-sm transition">
+            My Orders
+          </button>
+          <button id="tabMyDelivered" onclick="switchOrderTab('myDelivered')" class="py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition">
+            My Delivered
+          </button>
+          <button id="tabCancelled" onclick="switchOrderTab('cancelled')" class="py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition">
+            Cancelled
           </button>
         </div>
 
@@ -299,7 +312,9 @@
     let currentRiderData = null;
     let activeOrderForModal = null;
     let rawRiderHistory = [];
-    let isSettlementSubmitting = false; // Double-click & spam protection lock
+    let allRiderOrders = [];
+    let currentOrderTab = 'myOrders'; // Default tab
+    let isSettlementSubmitting = false;
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initRiderAuthListener, 500);
@@ -361,12 +376,35 @@
       });
     }
 
+    // Switch Order Tabs Function
+    window.switchOrderTab = function(tabName) {
+      currentOrderTab = tabName;
+
+      // Update Tab Buttons UI Style
+      const tabMyOrders = document.getElementById('tabMyOrders');
+      const tabMyDelivered = document.getElementById('tabMyDelivered');
+      const tabCancelled = document.getElementById('tabCancelled');
+
+      tabMyOrders.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+      tabMyDelivered.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+      tabCancelled.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+
+      if (tabName === 'myOrders') {
+        tabMyOrders.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      } else if (tabName === 'myDelivered') {
+        tabMyDelivered.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      } else if (tabName === 'cancelled') {
+        tabCancelled.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      }
+
+      renderRiderOrders();
+    }
+
     async function loadRiderOrders() {
       if (!currentRiderData) return;
 
       const db = window.firebaseDb;
       const { collection, getDocs, query, where, doc, getDoc } = window.firebaseServices;
-      const container = document.getElementById('riderOrdersContainer');
 
       try {
         const riderDocSnap = await getDoc(doc(db, "riders", currentRiderData.id));
@@ -379,60 +417,105 @@
         const q = query(collection(db, "orders"), where("riderPhone", "==", currentRiderData.phone));
         const querySnapshot = await getDocs(q);
 
-        let orders = [];
-        querySnapshot.forEach(docSnap => orders.push({ id: docSnap.id, ...docSnap.data() }));
+        allRiderOrders = [];
+        querySnapshot.forEach(docSnap => allRiderOrders.push({ id: docSnap.id, ...docSnap.data() }));
 
-        if (orders.length === 0) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">বর্তমানে আপনার কোনো অর্ডার অ্যাসাইন করা নেই।</p>`;
-          return;
-        }
+        // Sorting: "On the way" (Active) orders on top, Delivered / Cancelled orders down
+        allRiderOrders.sort((a, b) => {
+          const statusA = (a.status || '').toLowerCase();
+          const statusB = (b.status || '').toLowerCase();
+          const isAActive = statusA !== 'delivered' && statusA !== 'completed' && statusA !== 'cancelled';
+          const isBActive = statusB !== 'delivered' && statusB !== 'completed' && statusB !== 'cancelled';
 
-        let html = '';
-        orders.forEach(ord => {
-          const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
-
-          let itemsHtml = '';
-          if (ord.items && ord.items.length > 0) {
-            itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ (ক্রস-চেক):</p>`;
-            ord.items.forEach(item => {
-              itemsHtml += `
-                <div class="flex justify-between text-xs text-gray-700 border-b border-dashed py-0.5">
-                  <span>${item.name || 'পণ্য'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
-                  <span>৳ ${(item.price || 0) * (item.qty || 1)}</span>
-                </div>
-              `;
-            });
-            itemsHtml += `</div>`;
-          }
-
-          html += `
-            <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
-              <div class="flex justify-between items-center border-b pb-1.5">
-                <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD'}</span>
-                <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'}">${ord.status || 'Pending'}</span>
-              </div>
-              <div class="space-y-0.5">
-                <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || ''}</p>
-                <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || ''}</p>
-                <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || ''}</a></p>
-              </div>
-
-              ${itemsHtml}
-
-              <div class="flex justify-between items-center pt-1 font-bold border-t">
-                <span>মোট বিল: ৳ ${ord.totalAmount || 0}</span>
-                ${!isDelivered ? `
-                  <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs shadow">ডেলিভারি সম্পন্ন করুন</button>
-                ` : `<span class="text-emerald-700 font-bold">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>`}
-              </div>
-            </div>
-          `;
+          if (isAActive && !isBActive) return -1;
+          if (!isAActive && isBActive) return 1;
+          return 0;
         });
 
-        container.innerHTML = html;
+        renderRiderOrders();
       } catch (err) {
         console.error(err);
       }
+    }
+
+    // Render Orders based on selected tab
+    function renderRiderOrders() {
+      const container = document.getElementById('riderOrdersContainer');
+      let filteredOrders = [];
+
+      if (currentOrderTab === 'myOrders') {
+        // "On the way" orders (Admin or Rider received, not delivered/completed & not cancelled)
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s !== 'delivered' && s !== 'completed' && s !== 'cancelled';
+        });
+      } else if (currentOrderTab === 'myDelivered') {
+        // Delivered Orders
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s === 'delivered' || s === 'completed';
+        });
+      } else if (currentOrderTab === 'cancelled') {
+        // Cancelled Orders
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s === 'cancelled';
+        });
+      }
+
+      if (filteredOrders.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">এই সেকশনে কোনো অর্ডার পাওয়া যায়নি।</p>`;
+        return;
+      }
+
+      let html = '';
+      filteredOrders.forEach(ord => {
+        const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
+        const isCancelled = (ord.status || '').toLowerCase() === 'cancelled';
+
+        let itemsHtml = '';
+        if (ord.items && ord.items.length > 0) {
+          itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ (ক্রস-চেক):</p>`;
+          ord.items.forEach(item => {
+            itemsHtml += `
+              <div class="flex justify-between text-xs text-gray-700 border-b border-dashed py-0.5">
+                <span>${item.name || 'পণ্য'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
+                <span>৳ ${(item.price || 0) * (item.qty || 1)}</span>
+              </div>
+            `;
+          });
+          itemsHtml += `</div>`;
+        }
+
+        let badgeColor = 'bg-purple-100 text-purple-800';
+        if (isDelivered) badgeColor = 'bg-emerald-100 text-emerald-800';
+        else if (isCancelled) badgeColor = 'bg-red-100 text-red-800';
+
+        html += `
+          <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
+            <div class="flex justify-between items-center border-b pb-1.5">
+              <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD'}</span>
+              <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${badgeColor}">${ord.status || 'Pending'}</span>
+            </div>
+            <div class="space-y-0.5">
+              <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || ''}</p>
+              <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || ''}</p>
+              <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || ''}</a></p>
+            </div>
+
+            ${itemsHtml}
+
+            <div class="flex justify-between items-center pt-1 font-bold border-t">
+              <span>মোট বিল: ৳ ${ord.totalAmount || 0}</span>
+              ${(!isDelivered && !isCancelled) ? `
+                <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs shadow">ডেলিভারি সম্পন্ন করুন</button>
+              ` : isDelivered ? `<span class="text-emerald-700 font-bold">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>` : `<span class="text-red-600 font-bold">✕ বাতিলকৃত</span>`}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
     }
 
     // Load Settlement History for Rider
@@ -495,7 +578,7 @@
 
     // MONTHLY FILTER FUNCTION
     window.filterRiderHistory = function() {
-      const selectedMonth = document.getElementById('historyMonthFilter').value; // Format: YYYY-MM
+      const selectedMonth = document.getElementById('historyMonthFilter').value;
       if (!selectedMonth) {
         renderRiderHistory(rawRiderHistory);
         return;
@@ -503,7 +586,7 @@
 
       const filtered = rawRiderHistory.filter(item => {
         if (!item.createdAt) return false;
-        const itemMonth = item.createdAt.substring(0, 7); // YYYY-MM
+        const itemMonth = item.createdAt.substring(0, 7);
         return itemMonth === selectedMonth;
       });
 
@@ -608,7 +691,7 @@
       document.getElementById('modalCurrentCash').innerText = `৳ ${cashBal}`;
       
       const inputAmount = document.getElementById('settlementAmount');
-      inputAmount.value = cashBal > 0 ? cashBal : ''; // Automatically filled with current cash balance
+      inputAmount.value = cashBal > 0 ? cashBal : ''; 
       inputAmount.setAttribute('max', cashBal);
       
       document.getElementById('settlementModal').classList.remove('hidden');
@@ -619,7 +702,6 @@
     }
 
     window.submitCashSettlement = async function() {
-      // ডাবল ক্লিক বা স্প্যামিং প্রতিরোধ করতে লক চেক করুন
       if (isSettlementSubmitting) return;
 
       const amount = Number(document.getElementById('settlementAmount').value);
@@ -646,7 +728,6 @@
         submitBtn.disabled = true;
         submitBtn.innerText = "প্রসেসিং হচ্ছে...";
 
-        // ১. সার্ভারে রিয়েল-টাইম চেক করুন এই রাইডারের কোনো রিকোয়েস্ট Pending আছে কি না
         const q = query(
           collection(db, "cash_settlements"),
           where("riderPhone", "==", currentRiderData.phone),
@@ -662,7 +743,6 @@
           return;
         }
 
-        // ২. পেন্ডিং না থাকলে নতুন রিকোয়েস্ট সাবমিট করুন
         await addDoc(collection(db, "cash_settlements"), {
           riderId: currentRiderData.id,
           riderName: currentRiderData.name,
