@@ -28,6 +28,7 @@
       getDocs, 
       deleteDoc, 
       doc, 
+      getDoc,
       setDoc,
       updateDoc,
       increment,
@@ -65,6 +66,7 @@
       getDocs, 
       deleteDoc, 
       doc, 
+      getDoc,
       setDoc, 
       updateDoc,
       increment,
@@ -594,17 +596,34 @@
     }
 
     async function approveRiderSettlement(settlementDocId, riderDocId, amount) {
-      if (!confirm(`৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
-
       const db = window.firebaseDb;
-      const { doc, updateDoc, increment } = window.firebaseServices;
+      const { doc, getDoc, updateDoc, increment } = window.firebaseServices;
 
       try {
+        // 1. Database validation to check rider's actual cash balance
+        if (riderDocId) {
+          const riderRef = doc(db, "riders", riderDocId);
+          const riderSnap = await getDoc(riderRef);
+
+          if (riderSnap.exists()) {
+            const currentCash = Number(riderSnap.data().cashBalance || 0);
+            
+            if (amount > currentCash) {
+              alert(`অনুমোদন করা সম্ভব নয়! রাইডারের বর্তমান ক্যাশ ইন হ্যান্ড আছে ৳ ${currentCash}, কিন্তু জমার রিকোয়েস্ট এসেছে ৳ ${amount}। এটি এপ্রুভ করলে ব্যালেন্স মাইনাস হয়ে যাবে!`);
+              return;
+            }
+          }
+        }
+
+        if (!confirm(`৳ ${amount} জমার রিকোয়েস্ট অনুমোদন করতে চান? রাইডারের ক্যাশ ব্যালেন্স হ্রাস পাবে।`)) return;
+
+        // 2. Approve Settlement Status
         await updateDoc(doc(db, "cash_settlements", settlementDocId), {
           status: "Approved",
           approvedAt: new Date().toISOString()
         });
 
+        // 3. Deduct Cash Balance
         if (riderDocId) {
           await updateDoc(doc(db, "riders", riderDocId), {
             cashBalance: increment(-amount)
