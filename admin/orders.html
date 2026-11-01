@@ -54,6 +54,20 @@
   <!-- Main Container -->
   <main class="max-w-6xl mx-auto p-4 space-y-5">
 
+    <!-- MONTHLY FILTER BAR (ড্যাশবোর্ডের উপরে) -->
+    <div class="bg-white p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div class="flex items-center space-x-2 text-xs font-bold text-gray-700">
+        <i class="fa-solid fa-calendar-days text-emerald-600 text-sm"></i>
+        <span>মাসিক ফিল্টার (Filter by Month):</span>
+      </div>
+      <div class="flex items-center space-x-2 w-full sm:w-auto">
+        <input type="month" id="orderMonthFilter" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        <button onclick="clearMonthFilter()" class="text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition">
+          রিসেট
+        </button>
+      </div>
+    </div>
+
     <!-- 1. ANALYTICS SUMMARY CARDS -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
@@ -165,8 +179,7 @@
         // Sort orders by newest first
         allOrdersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-        updateAnalyticsAndCounts();
-        renderOrdersList();
+        filterOrders();
 
       } catch (err) {
         console.error("Error loading orders:", err);
@@ -174,8 +187,34 @@
       }
     }
 
-    // Analytics and Counts Update
-    function updateAnalyticsAndCounts() {
+    // Dynamic Filter & Analytics Calculation
+    window.filterOrders = function() {
+      const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+      const monthFilter = document.getElementById('orderMonthFilter').value; // Format: YYYY-MM
+
+      let filteredList = allOrdersList.filter(ord => {
+        const matchSearch = (ord.userName || '').toLowerCase().includes(searchQuery) || (ord.userPhone || '').includes(searchQuery);
+        
+        let matchMonth = true;
+        if (monthFilter && ord.createdAt) {
+          const ordMonth = ord.createdAt.substring(0, 7); // YYYY-MM
+          matchMonth = (ordMonth === monthFilter);
+        }
+
+        return matchSearch && matchMonth;
+      });
+
+      updateAnalyticsAndCounts(filteredList);
+      renderOrdersList(filteredList);
+    };
+
+    window.clearMonthFilter = function() {
+      document.getElementById('orderMonthFilter').value = '';
+      filterOrders();
+    };
+
+    // Analytics and Counts Update based on filtered orders
+    function updateAnalyticsAndCounts(list) {
       let pendingCount = 0;
       let processingCount = 0;
       let onTheWayCount = 0;
@@ -183,7 +222,7 @@
       let cancelledCount = 0;
       let totalSales = 0;
 
-      allOrdersList.forEach(ord => {
+      list.forEach(ord => {
         const st = (ord.status || 'Pending').toLowerCase();
         if (st === 'pending') pendingCount++;
         else if (st === 'processing') processingCount++;
@@ -194,12 +233,12 @@
         } else if (st === 'cancelled') cancelledCount++;
       });
 
-      document.getElementById('statTotalOrders').innerText = allOrdersList.length;
+      document.getElementById('statTotalOrders').innerText = list.length;
       document.getElementById('statPendingOrders').innerText = pendingCount;
       document.getElementById('statDeliveredOrders').innerText = deliveredCount;
       document.getElementById('statTotalSales').innerText = '৳ ' + totalSales;
 
-      document.getElementById('cntAll').innerText = allOrdersList.length;
+      document.getElementById('cntAll').innerText = list.length;
       document.getElementById('cntPending').innerText = pendingCount;
       document.getElementById('cntProcessing').innerText = processingCount;
       if(document.getElementById('cntOnTheWay')) document.getElementById('cntOnTheWay').innerText = onTheWayCount;
@@ -207,7 +246,7 @@
       document.getElementById('cntCancelled').innerText = cancelledCount;
     }
 
-    // Set Status Filter
+    // Set Status Filter Tab
     window.setFilterStatus = function(status) {
       currentActiveStatus = status;
 
@@ -231,18 +270,15 @@
         }
       });
 
-      renderOrdersList();
+      filterOrders();
     };
 
-    // Filter and Render Orders List
-    function renderOrdersList() {
+    // Render Orders List
+    function renderOrdersList(listToRender) {
       const container = document.getElementById('ordersListContainer');
-      const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
 
-      let filtered = allOrdersList.filter(ord => {
-        const matchStatus = (currentActiveStatus === 'All') ? true : (ord.status || 'Pending').toLowerCase() === currentActiveStatus.toLowerCase();
-        const matchSearch = (ord.userName || '').toLowerCase().includes(searchQuery) || (ord.userPhone || '').includes(searchQuery);
-        return matchStatus && matchSearch;
+      let filtered = listToRender.filter(ord => {
+        return (currentActiveStatus === 'All') ? true : (ord.status || 'Pending').toLowerCase() === currentActiveStatus.toLowerCase();
       });
 
       if (filtered.length === 0) {
@@ -256,7 +292,9 @@
 
       let html = '';
       filtered.forEach(ord => {
-        // Items list with Quantity Edit and Remove options
+        const isDelivered = (ord.status || '').toLowerCase() === 'delivered';
+
+        // Items list with Quantity Edit and Remove options (Disabled if Delivered)
         const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
             <div>
@@ -265,28 +303,32 @@
             </div>
             
             <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
-              <!-- Quantity Edit Controller -->
-              <div class="flex items-center space-x-1 bg-white border rounded-lg px-2 py-0.5 shadow-sm">
-                <span class="text-[10px] text-gray-400 font-bold">Qty:</span>
-                <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
-                <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700" title="পরিমাণ আপডেট করুন">
-                  আপডেট
-                </button>
-              </div>
+              ${!isDelivered ? `
+                <!-- Quantity Edit Controller -->
+                <div class="flex items-center space-x-1 bg-white border rounded-lg px-2 py-0.5 shadow-sm">
+                  <span class="text-[10px] text-gray-400 font-bold">Qty:</span>
+                  <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
+                  <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700" title="পরিমাণ আপডেট করুন">
+                    আপডেট
+                  </button>
+                </div>
+              ` : `<span class="text-xs font-bold text-gray-600">Qty: ${i.qty}</span>`}
 
               <span class="font-extrabold text-emerald-700 text-xs w-16 text-right">৳ ${i.price * i.qty}</span>
 
-              <!-- Remove Item Button -->
-              <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition" title="পণ্যটি সম্পূর্ণ বাদ দিন">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
+              ${!isDelivered ? `
+                <!-- Remove Item Button -->
+                <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition" title="পণ্যটি সম্পূর্ণ বাদ দিন">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              ` : ''}
             </div>
           </div>
         `).join('') : '<p class="text-gray-400 text-center py-1">এই অর্ডারে কোনো আইটেম নেই</p>';
 
         const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString('bn-BD') : 'তারিখ পাওয়া যায়নি';
 
-        // যদি স্ট্যাটাস Processing হয়, তবে রাইডার অ্যাসাইন করার জন্য নিচে একটি বক্স দেখাবে
+        // Rider Section (Retained even when Delivered)
         let riderSectionHtml = '';
         if ((ord.status || '').toLowerCase() === 'processing') {
           riderSectionHtml = `
@@ -302,11 +344,15 @@
               </div>
             </div>
           `;
-        } else if (ord.assignedRiderName) {
+        } else if (ord.assignedRiderName || ord.riderName) {
+          const rName = ord.assignedRiderName || ord.riderName;
+          const rPhone = ord.riderPhone || ord.assignedRiderPhone || '';
           riderSectionHtml = `
-            <div class="bg-indigo-50 border border-indigo-100 p-2 rounded-xl text-xs flex items-center justify-between mt-2">
-              <span class="text-indigo-800 font-semibold"><i class="fa-solid fa-motorcycle mr-1"></i> অ্যাসাইনকৃত রাইডার: <b>${ord.assignedRiderName}</b></span>
-              <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold">অন দ্য ওয়ে</span>
+            <div class="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-xs flex items-center justify-between mt-2">
+              <span class="text-indigo-900 font-bold">
+                <i class="fa-solid fa-motorcycle mr-1 text-purple-600"></i> রাইডার: ${rName} ${rPhone ? `(<a href="tel:${rPhone}" class="text-blue-600 underline font-bold">${rPhone}</a>)` : ''}
+              </span>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">✓ ${ord.status || 'Delivered'}</span>
             </div>
           `;
         }
@@ -337,10 +383,18 @@
               </div>
             </div>
 
-            <!-- Items List & Delivery Address -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
+            <!-- Toggle Details Button (Click to open) -->
+            <div>
+              <button onclick="toggleDetails('${ord.id}')" class="w-full text-left font-bold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 flex justify-between items-center transition">
+                <span><i class="fa-solid fa-list-check mr-1.5"></i> অর্ডারকৃত পণ্যসমূহ ও ডেলিভারি ঠিকানা বিস্তারিত দেখুন</span>
+                <i id="arrow_${ord.id}" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+              </button>
+            </div>
+
+            <!-- Items List & Delivery Address (Hidden by default) -->
+            <div id="details_${ord.id}" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
-                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ (পরিমাণ এডিট বা বাদ দিতে পারবেন):</p>
+                <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
                 ${formattedItems}
               </div>
               <div class="space-y-1">
@@ -350,10 +404,10 @@
               </div>
             </div>
 
-            <!-- Rider Section if Processing -->
+            <!-- Rider Section -->
             ${riderSectionHtml}
 
-            <!-- Footer: Status Changing Controller -->
+            <!-- Footer: Status Changing Controller & Action Buttons -->
             <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
               <div class="flex items-center space-x-2 w-full sm:w-auto">
                 <label class="font-bold text-gray-500 whitespace-nowrap">স্ট্যাটাস আপডেট:</label>
@@ -371,9 +425,11 @@
                   <i class="fa-solid fa-print"></i>
                   <span>প্রিন্ট মেমো</span>
                 </button>
-                <button onclick="deleteOrder('${ord.id}')" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50">
-                  <i class="fa-solid fa-trash text-sm"></i>
-                </button>
+                ${!isDelivered ? `
+                  <button onclick="deleteOrder('${ord.id}')" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50" title="মুছে ফেলুন">
+                    <i class="fa-solid fa-trash text-sm"></i>
+                  </button>
+                ` : ''}
               </div>
             </div>
 
@@ -384,9 +440,17 @@
       container.innerHTML = html;
     }
 
-    // Dynamic Filter Trigger
-    window.filterOrders = function() {
-      renderOrdersList();
+    // Toggle Details Visibility
+    window.toggleDetails = function(orderId) {
+      const detailsBox = document.getElementById(`details_${orderId}`);
+      const arrowIcon = document.getElementById(`arrow_${orderId}`);
+      
+      if (detailsBox) {
+        detailsBox.classList.toggle('hidden');
+        if (arrowIcon) {
+          arrowIcon.classList.toggle('rotate-180');
+        }
+      }
     };
 
     // Badge styling logic
@@ -410,9 +474,7 @@
         const ord = allOrdersList.find(o => o.id === orderId);
         if (ord) ord.status = newStatus;
 
-        updateAnalyticsAndCounts();
-        renderOrdersList();
-        
+        filterOrders();
         alert("অর্ডার স্ট্যাটাস সফলভাবে আপডেট করা হয়েছে!");
       } catch (err) {
         alert("আপডেট ব্যর্থ হয়েছে: " + err.message);
@@ -467,16 +529,14 @@
       const { doc, updateDoc } = window.firebaseServices;
 
       try {
-        // Update order status to "On the Way" and save assigned rider info with both riderName and riderPhone
         await updateDoc(doc(db, "orders", orderId), {
           status: 'On the Way',
           assignedRiderId: riderId,
           assignedRiderName: riderName,
-          riderName: riderName,   // কাস্টমার অ্যাপের ট্র্যাকিংয়ের জন্য
-          riderPhone: riderPhone  // কাস্টমার অ্যাপের কল বাটনের জন্য
+          riderName: riderName,
+          riderPhone: riderPhone
         });
 
-        // Update rider status to Busy and set assigned order
         await updateDoc(doc(db, "riders", riderId), {
           status: 'Busy',
           assignedOrderId: orderId
@@ -490,7 +550,7 @@
       }
     };
 
-    // UPDATE PRODUCT QUANTITY IN ORDER (e.g., from 3 to 1 or 2)
+    // UPDATE PRODUCT QUANTITY IN ORDER
     window.updateProductQty = async function(orderId, itemIndex) {
       const qtyInput = document.getElementById(`qty_${orderId}_${itemIndex}`);
       const newQty = parseInt(qtyInput.value);
@@ -506,10 +566,8 @@
       const ord = allOrdersList.find(o => o.id === orderId);
       if (!ord || !ord.items || !ord.items[itemIndex]) return;
 
-      // Update quantity
       ord.items[itemIndex].qty = newQty;
 
-      // Recalculate Subtotal and Total Amount (Delivery Charge = 30 BDT)
       let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
       let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
 
@@ -520,13 +578,13 @@
         });
 
         alert("পণ্যের পরিমাণ সফলভাবে আপডেট করা হয়েছে এবং মোট বিল সামঞ্জস্য করা হয়েছে!");
-        loadAllOrders(); // Refresh data
+        loadAllOrders();
       } catch (err) {
         alert("পরিমাণ আপডেট করতে সমস্যা হয়েছে: " + err.message);
       }
     };
 
-    // REMOVE SINGLE PRODUCT FROM ORDER (STOCK NOT AVAILABLE)
+    // REMOVE SINGLE PRODUCT FROM ORDER
     window.removeProductFromOrder = async function(orderId, itemIndex) {
       if (!confirm("আপনি কি নিশ্চিত যে এই পণ্যটি অর্ডার থেকে সম্পূর্ণ বাদ দিতে চান?")) return;
 
@@ -536,10 +594,8 @@
       const ord = allOrdersList.find(o => o.id === orderId);
       if (!ord || !ord.items) return;
 
-      // Remove specific item from array
       ord.items.splice(itemIndex, 1);
 
-      // Recalculate Subtotal and Total Amount (Delivery Charge = 30 BDT)
       let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
       let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
 
@@ -550,7 +606,7 @@
         });
 
         alert("পণ্যটি সফলভাবে অর্ডার থেকে বাদ দেওয়া হয়েছে এবং মোট বিল আপডেট করা হয়েছে!");
-        loadAllOrders(); // Refresh data
+        loadAllOrders();
       } catch (err) {
         alert("পণ্য বাদ দিতে সমস্যা হয়েছে: " + err.message);
       }
@@ -567,16 +623,14 @@
         await deleteDoc(doc(db, "orders", orderId));
         allOrdersList = allOrdersList.filter(o => o.id !== orderId);
 
-        updateAnalyticsAndCounts();
-        renderOrdersList();
-
+        filterOrders();
         alert("অর্ডারটি সফলভাবে মুছে ফেলা হয়েছে!");
       } catch (err) {
         alert("ত্রুটি: " + err.message);
       }
     };
 
-    // Quick Memo / Invoice Print Concept
+    // Print Memo / Invoice
     window.printInvoice = function(orderId) {
       const ord = allOrdersList.find(o => o.id === orderId);
       if(!ord) return;
@@ -615,7 +669,7 @@
               <p><strong>মোবাইল:</strong> ${ord.userPhone || 'N/A'}</p>
               <p><strong>ঠিকানা:</strong> ${ord.address || 'N/A'}</p>
               <p><strong>তারিখ:</strong> ${ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('bn-BD') : ''}</p>
-              ${ord.assignedRiderName ? `<p><strong>অ্যাসাইনকৃত রাইডার:</strong> ${ord.assignedRiderName}</p>` : ''}
+              ${(ord.assignedRiderName || ord.riderName) ? `<p><strong>অ্যাসাইনকৃত রাইডার:</strong> ${ord.assignedRiderName || ord.riderName}</p>` : ''}
             </div>
             <table>
               <thead>
