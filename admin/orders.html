@@ -411,13 +411,17 @@
             <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
               <div class="flex items-center space-x-2 w-full sm:w-auto">
                 <label class="font-bold text-gray-500 whitespace-nowrap">স্ট্যাটাস আপডেট:</label>
-                <select onchange="updateOrderStatus('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
-                  <option value="Pending" ${ord.status === 'Pending' ? 'selected' : ''}>Pending (অপেক্ষাধীন)</option>
-                  <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing (প্রসেসিং)</option>
-                  <option value="On the Way" ${ord.status === 'On the Way' ? 'selected' : ''}>On the Way (অন দ্য ওয়ে)</option>
-                  <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered (ডেলিভারড)</option>
-                  <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled (বাতিল)</option>
-                </select>
+                ${!isDelivered ? `
+                  <select onchange="updateOrderStatus('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
+                    <option value="Pending" ${ord.status === 'Pending' ? 'selected' : ''}>Pending (অপেক্ষাধীন)</option>
+                    <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing (প্রসেসিং)</option>
+                    <option value="On the Way" ${ord.status === 'On the Way' ? 'selected' : ''}>On the Way (অন দ্য ওয়ে)</option>
+                    <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered (ডেলিভারড)</option>
+                    <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled (বাতিল)</option>
+                  </select>
+                ` : `
+                  <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs">Delivered (স্থায়ী)</span>
+                `}
               </div>
 
               <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
