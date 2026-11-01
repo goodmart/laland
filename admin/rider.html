@@ -278,7 +278,7 @@
 
         <div>
           <label class="font-bold text-gray-700 block mb-1">জমার পরিমাণ (টাকা):</label>
-          <input type="number" id="settlementAmount" placeholder="৳ 000" class="w-full px-3 py-2 border rounded-xl text-sm font-bold text-purple-700">
+          <input type="number" id="settlementAmount" min="1" placeholder="৳ 000" class="w-full px-3 py-2 border rounded-xl text-sm font-bold text-purple-700">
         </div>
 
         <div>
@@ -606,8 +606,13 @@
     };
 
     window.openSettlementModal = function() {
-      document.getElementById('modalCurrentCash').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
-      document.getElementById('settlementAmount').value = currentRiderData.cashBalance || '';
+      const cashBal = Number(currentRiderData.cashBalance || 0);
+      document.getElementById('modalCurrentCash').innerText = `৳ ${cashBal}`;
+      
+      const inputAmount = document.getElementById('settlementAmount');
+      inputAmount.value = cashBal > 0 ? cashBal : '';
+      inputAmount.setAttribute('max', cashBal); // Dynamically set max limit to available cash balance
+      
       document.getElementById('settlementModal').classList.remove('hidden');
     }
 
@@ -617,11 +622,18 @@
 
     window.submitCashSettlement = async function() {
       const amount = Number(document.getElementById('settlementAmount').value);
+      const currentCash = Number(currentRiderData.cashBalance || 0);
       const method = document.getElementById('settlementMethod').value;
       const trx = document.getElementById('settlementTrx').value.trim();
 
       if (!amount || amount <= 0) {
         alert("সঠিক টাকার পরিমাণ লিখুন!");
+        return;
+      }
+
+      // STRICT VALIDATION: Current available cash balance check
+      if (amount > currentCash) {
+        alert(`আপনার কাছে জমাযোগ্য ক্যাশ আছে ৳ ${currentCash}। আপনি ৳ ${amount} জমা দিতে পারবেন না!`);
         return;
       }
 
