@@ -40,11 +40,11 @@
           <span>Smart Time Filter:</span>
         </div>
 
-        <!-- Quick Preset Buttons -->
+        <!-- Quick Preset Buttons (Default: Today is emerald-600) -->
         <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold w-full sm:w-auto">
-          <button onclick="setQuickPreset('today')" id="presetToday" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">Today</button>
+          <button onclick="setQuickPreset('today')" id="presetToday" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition text-center">Today</button>
           <button onclick="setQuickPreset('yesterday')" id="presetYesterday" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">Yesterday</button>
-          <button onclick="setQuickPreset('thisMonth')" id="presetThisMonth" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition text-center">This Month</button>
+          <button onclick="setQuickPreset('thisMonth')" id="presetThisMonth" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">This Month</button>
           <button onclick="setQuickPreset('thisYear')" id="presetThisYear" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">This Year</button>
           <button onclick="setQuickPreset('all')" id="presetAll" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">All Time</button>
         </div>
@@ -53,10 +53,10 @@
       <!-- Cascading Sub-Panel for Month/Year Dropdowns & Custom Range -->
       <div id="subFilterPanel" class="pt-3 border-t border-gray-100 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3 text-xs">
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing:</span>
+          <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing: Today</span>
           
-          <!-- Month Select Dropdown -->
-          <div id="monthDropdownContainer" class="inline-block">
+          <!-- Month Select Dropdown (Hidden by default when Today is active) -->
+          <div id="monthDropdownContainer" class="inline-block" style="display: none;">
             <select id="monthSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
               <option value="01">January</option>
               <option value="02">February</option>
@@ -73,7 +73,7 @@
             </select>
           </div>
 
-          <!-- Year Select Dropdown -->
+          <!-- Year Select Dropdown (Hidden by default) -->
           <div id="yearDropdownContainer" class="inline-block" style="display: none;">
             <select id="yearSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
               <option value="2026" selected>2026</option>
@@ -193,13 +193,15 @@
 
     let allOrdersList = [];
     let currentActiveStatus = 'All';
-    let currentPreset = 'thisMonth';
+    let currentPreset = 'today'; // Default to Today
 
     window.addEventListener("DOMContentLoaded", () => {
       const currentMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
       const monthSelect = document.getElementById('monthSelectDropdown');
       if (monthSelect) monthSelect.value = currentMonthNum;
       
+      // Set initial UI preset styles for 'Today'
+      window.setQuickPreset('today');
       loadAllOrders();
     });
 
@@ -325,7 +327,7 @@
     window.clearDateFilter = function() {
       document.getElementById('orderStartDate').value = '';
       document.getElementById('orderEndDate').value = '';
-      window.setQuickPreset('thisMonth');
+      window.setQuickPreset('today');
     };
 
     function updateAnalyticsAndCounts(list) {
@@ -435,7 +437,6 @@
 
         let riderSectionHtml = '';
         if (orderStatus === 'processing') {
-          // Processing status = Unassigned, show rider selection button
           riderSectionHtml = `
             <div id="riderSection_${ord.id}" class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-2 mt-2">
               <div class="flex justify-between items-center">
@@ -450,7 +451,6 @@
             </div>
           `;
         } else if (ord.assignedRiderName || ord.riderName) {
-          // Rider assigned: Check if status is explicitly Delivered or On the Way
           const rName = ord.assignedRiderName || ord.riderName;
           const rPhone = ord.riderPhone || ord.assignedRiderPhone || '';
           
