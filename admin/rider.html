@@ -634,9 +634,23 @@
       }
 
       const db = window.firebaseDb;
-      const { collection, addDoc } = window.firebaseServices;
+      const { collection, getDocs, query, where, addDoc } = window.firebaseServices;
 
       try {
+        // ১. চেক করুন এই রাইডারের ইতিমধ্যে কোনো রিকোয়েস্ট Pending আছে কি না
+        const q = query(
+          collection(db, "cash_settlements"),
+          where("riderPhone", "==", currentRiderData.phone),
+          where("status", "==", "Pending")
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          alert("আপনার ক্যাশ জমার একটি রিকোয়েস্ট ইতিমধ্যে পেন্ডিং (Pending) রয়েছে। এডমিন এটি অনুমোদন না করা পর্যন্ত আপনি নতুন করে কোনো জমা রিকোয়েস্ট পাঠাতে পারবেন না!");
+          return;
+        }
+
+        // ২. পেন্ডিং না থাকলে নতুন রিকোয়েস্ট সাবমিট করুন
         await addDoc(collection(db, "cash_settlements"), {
           riderId: currentRiderData.id,
           riderName: currentRiderData.name,
@@ -648,7 +662,7 @@
           createdAt: new Date().toISOString()
         });
 
-        alert("এডমিনের কাছে ক্যাশ জমা রিকোয়েস্ট পাঠানো হয়েছে।");
+        alert("এডমিনের কাছে ক্যাশ জমা রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে।");
         closeSettlementModal();
         loadRiderSettlementHistory();
       } catch (err) {
