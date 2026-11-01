@@ -66,8 +66,8 @@
         <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold">
           <button onclick="setQuickPreset('today')" id="presetToday" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Today</button>
           <button onclick="setQuickPreset('yesterday')" id="presetYesterday" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Yesterday</button>
-          <button onclick="setQuickPreset('thisMonth')" id="presetThisMonth" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition">This Month (November)</button>
-          <button onclick="setQuickPreset('thisYear')" id="presetThisYear" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">2026 (This Year)</button>
+          <button onclick="setQuickPreset('thisMonth')" id="presetThisMonth" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition">This Month</button>
+          <button onclick="setQuickPreset('thisYear')" id="presetThisYear" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">This Year</button>
           <button onclick="setQuickPreset('all')" id="presetAll" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition">All Time</button>
         </div>
       </div>
@@ -75,7 +75,7 @@
       <!-- Cascading Sub-Panel for Month/Year Dropdowns & Custom Range -->
       <div id="subFilterPanel" class="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs">
         <div class="flex items-center space-x-2">
-          <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing: This Month (November)</span>
+          <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing: This Month</span>
           
           <!-- Month Select Dropdown (Active when This Month is selected) -->
           <div id="monthDropdownContainer" class="inline-block">
@@ -269,11 +269,11 @@
       if (preset === 'thisMonth') {
         monthContainer.style.display = 'inline-block';
         yearContainer.style.display = 'none';
-        activeLabel.innerText = 'Showing Month:';
+        activeLabel.innerText = 'Showing:';
       } else if (preset === 'thisYear') {
         monthContainer.style.display = 'none';
         yearContainer.style.display = 'inline-block';
-        activeLabel.innerText = 'Showing Year:';
+        activeLabel.innerText = 'Showing:';
       } else {
         monthContainer.style.display = 'none';
         yearContainer.style.display = 'none';
