@@ -9,28 +9,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Firebase SDKs (v10) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
-      authDomain: "laland-express.firebaseapp.com",
-      projectId: "laland-express",
-      storageBucket: "laland-express.firebasestorage.app",
-      messagingSenderId: "315462688826",
-      appId: "1:315462688826:web:a6b033e1ce664071201503",
-      measurementId: "G-J4S4EL5LE4"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    window.firebaseDb = db;
-    window.firebaseServices = { collection, getDocs, updateDoc, deleteDoc, doc, query, orderBy };
-  </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-10">
 
@@ -77,7 +55,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing:</span>
           
-          <!-- Month Select Dropdown (Active when This Month is selected) -->
+          <!-- Month Select Dropdown -->
           <div id="monthDropdownContainer" class="inline-block">
             <select id="monthSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
               <option value="01">January</option>
@@ -95,7 +73,7 @@
             </select>
           </div>
 
-          <!-- Year Select Dropdown (Active when This Year is selected) -->
+          <!-- Year Select Dropdown -->
           <div id="yearDropdownContainer" class="inline-block" style="display: none;">
             <select id="yearSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
               <option value="2026" selected>2026</option>
@@ -162,8 +140,6 @@
 
     <!-- 2. SEARCH & STATUS FILTER TABS -->
     <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border space-y-3">
-      
-      <!-- Top Actions: Search Box & Refresh -->
       <div class="flex flex-col sm:flex-row justify-between items-center gap-2">
         <div class="relative w-full sm:w-72">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
@@ -185,7 +161,6 @@
         <button onclick="setFilterStatus('Delivered')" id="btnFilterDelivered" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Delivered (<span id="cntDelivered">0</span>)</button>
         <button onclick="setFilterStatus('Cancelled')" id="btnFilterCancelled" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Cancelled (<span id="cntCancelled">0</span>)</button>
       </div>
-
     </div>
 
     <!-- 3. ORDERS LIST / CONTAINER -->
@@ -198,29 +173,40 @@
 
   </main>
 
-  <!-- SCRIPT LOGIC -->
-  <script>
+  <!-- FIREBASE APP LOGIC (Modular SDK Direct Integration) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
     let allOrdersList = [];
     let currentActiveStatus = 'All';
-    let currentPreset = 'thisMonth'; // Default preset
+    let currentPreset = 'thisMonth';
 
-    document.addEventListener("DOMContentLoaded", () => {
-      // Set current month dropdown to current running month automatically
+    window.addEventListener("DOMContentLoaded", () => {
       const currentMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
-      document.getElementById('monthSelectDropdown').value = currentMonthNum;
+      const monthSelect = document.getElementById('monthSelectDropdown');
+      if (monthSelect) monthSelect.value = currentMonthNum;
       
-      setTimeout(() => {
-        loadAllOrders();
-      }, 500);
+      loadAllOrders();
     });
 
-    // Fetch orders from Firebase
-    async function loadAllOrders() {
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
+    // Fetch orders from Firebase safely inside the module scope
+    window.loadAllOrders = async function() {
       const container = document.getElementById('ordersListContainer');
-
-      if (!db) return;
+      container.innerHTML = `<div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400"><i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>Loading orders...</div>`;
 
       try {
         const querySnapshot = await getDocs(collection(db, "orders"));
@@ -232,24 +218,20 @@
 
         // Sort orders by newest first
         allOrdersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-
-        filterOrders();
+        window.filterOrders();
 
       } catch (err) {
         console.error("Error loading orders:", err);
         container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 border">Failed to load orders: ${err.message}</div>`;
       }
-    }
+    };
 
-    // Set Quick Preset (Today, Yesterday, This Month, This Year, All)
+    // Set Quick Preset
     window.setQuickPreset = function(preset) {
       currentPreset = preset;
-
-      // Reset custom date inputs when preset is clicked
       document.getElementById('orderStartDate').value = '';
       document.getElementById('orderEndDate').value = '';
 
-      // Update button styles
       ['today', 'yesterday', 'thisMonth', 'thisYear', 'all'].forEach(p => {
         const btn = document.getElementById('preset' + p.charAt(0).toUpperCase() + p.slice(1));
         if (btn) {
@@ -261,7 +243,6 @@
         }
       });
 
-      // Show/Hide appropriate dropdowns
       const monthContainer = document.getElementById('monthDropdownContainer');
       const yearContainer = document.getElementById('yearDropdownContainer');
       const activeLabel = document.getElementById('activeFilterLabel');
@@ -280,10 +261,9 @@
         activeLabel.innerText = 'Showing: ' + preset.charAt(0).toUpperCase() + preset.slice(1);
       }
 
-      filterOrders();
+      window.filterOrders();
     };
 
-    // Handle custom date typing
     window.handleCustomDateChange = function() {
       currentPreset = 'custom';
       ['today', 'yesterday', 'thisMonth', 'thisYear', 'all'].forEach(p => {
@@ -293,10 +273,9 @@
       document.getElementById('activeFilterLabel').innerText = 'Showing: Custom Range';
       document.getElementById('monthDropdownContainer').style.display = 'none';
       document.getElementById('yearDropdownContainer').style.display = 'none';
-      filterOrders();
+      window.filterOrders();
     };
 
-    // Main Filtering Logic
     window.filterOrders = function() {
       const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
       const selectedMonth = document.getElementById('monthSelectDropdown').value;
@@ -305,13 +284,11 @@
       const endDateVal = document.getElementById('orderEndDate').value;
 
       const now = new Date();
-      const todayStr = now.toISOString().substring(0, 10); // YYYY-MM-DD
+      const todayStr = now.toISOString().substring(0, 10);
       
-      // Calculate yesterday's date string
       const yesterdayDate = new Date();
       yesterdayDate.setDate(now.getDate() - 1);
       const yesterdayStr = yesterdayDate.toISOString().substring(0, 10);
-
       const currentYearStr = String(now.getFullYear());
 
       let filteredList = allOrdersList.filter(ord => {
@@ -319,19 +296,17 @@
         
         let matchTime = true;
         if (ord.createdAt) {
-          const ordDateStr = ord.createdAt.substring(0, 10); // YYYY-MM-DD
-          const ordMonthStr = ord.createdAt.substring(5, 7); // MM
-          const ordYearStr = ord.createdAt.substring(0, 4); // YYYY
+          const ordDateStr = ord.createdAt.substring(0, 10);
+          const ordMonthStr = ord.createdAt.substring(5, 7);
+          const ordYearStr = ord.createdAt.substring(0, 4);
 
           if (currentPreset === 'today') {
             matchTime = (ordDateStr === todayStr);
           } else if (currentPreset === 'yesterday') {
             matchTime = (ordDateStr === yesterdayStr);
           } else if (currentPreset === 'thisMonth') {
-            // Filter by selected month for the current year
             matchTime = (ordYearStr === currentYearStr && ordMonthStr === selectedMonth);
           } else if (currentPreset === 'thisYear') {
-            // Filter by selected year
             matchTime = (ordYearStr === selectedYear);
           } else if (currentPreset === 'all') {
             matchTime = true;
@@ -340,7 +315,6 @@
             if (endDateVal && ordDateStr > endDateVal) matchTime = false;
           }
         }
-
         return matchSearch && matchTime;
       });
 
@@ -351,10 +325,9 @@
     window.clearDateFilter = function() {
       document.getElementById('orderStartDate').value = '';
       document.getElementById('orderEndDate').value = '';
-      setQuickPreset('thisMonth');
+      window.setQuickPreset('thisMonth');
     };
 
-    // Analytics and Counts Update based on filtered orders
     function updateAnalyticsAndCounts(list) {
       let pendingCount = 0;
       let processingCount = 0;
@@ -387,10 +360,8 @@
       document.getElementById('cntCancelled').innerText = cancelledCount;
     }
 
-    // Set Status Filter Tab
     window.setFilterStatus = function(status) {
       currentActiveStatus = status;
-
       const btnMap = {
         'All': 'btnFilterAll',
         'Pending': 'btnFilterPending',
@@ -411,13 +382,11 @@
         }
       });
 
-      filterOrders();
+      window.filterOrders();
     };
 
-    // Render Orders List
     function renderOrdersList(listToRender) {
       const container = document.getElementById('ordersListContainer');
-
       let filtered = listToRender.filter(ord => {
         return (currentActiveStatus === 'All') ? true : (ord.status || 'Pending').toLowerCase() === currentActiveStatus.toLowerCase();
       });
@@ -435,31 +404,25 @@
       filtered.forEach(ord => {
         const isDelivered = (ord.status || '').toLowerCase() === 'delivered';
 
-        // Items list with Quantity Edit and Remove options (Disabled if Delivered)
         const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
             <div>
               <span class="text-gray-800 font-bold">${i.name}</span>
               <span class="text-gray-500 ml-1 text-[11px]">(৳ ${i.price} each)</span>
             </div>
-            
             <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
               ${!isDelivered ? `
-                <!-- Quantity Edit Controller -->
                 <div class="flex items-center space-x-1 bg-white border rounded-lg px-2 py-0.5 shadow-sm">
                   <span class="text-[10px] text-gray-400 font-bold">Qty:</span>
                   <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
-                  <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700" title="Update quantity">
-                    Update
-                  </button>
+                  <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700">Update</button>
                 </div>
               ` : `<span class="text-xs font-bold text-gray-600">Qty: ${i.qty}</span>`}
 
               <span class="font-extrabold text-emerald-700 text-xs w-16 text-right">৳ ${i.price * i.qty}</span>
 
               ${!isDelivered ? `
-                <!-- Remove Item Button -->
-                <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition" title="Remove item">
+                <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition">
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               ` : ''}
@@ -469,7 +432,6 @@
 
         const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString() : 'Date not available';
 
-        // Rider Section (Retained even when Delivered)
         let riderSectionHtml = '';
         if ((ord.status || '').toLowerCase() === 'processing') {
           riderSectionHtml = `
@@ -500,8 +462,6 @@
 
         html += `
           <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border space-y-3 transition hover:shadow-md">
-            
-            <!-- Order Card Header -->
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
               <div>
                 <div class="flex flex-wrap items-center gap-1.5">
@@ -524,7 +484,6 @@
               </div>
             </div>
 
-            <!-- Toggle Details Button (Click to open) -->
             <div>
               <button onclick="toggleDetails('${ord.id}')" class="w-full text-left font-bold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 flex justify-between items-center transition">
                 <span><i class="fa-solid fa-list-check mr-1.5"></i> Order Details</span>
@@ -532,7 +491,6 @@
               </button>
             </div>
 
-            <!-- Items List & Delivery Address (Hidden by default) -->
             <div id="details_${ord.id}" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
               <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
                 <p class="font-bold text-gray-500 mb-1">Ordered Items:</p>
@@ -545,10 +503,8 @@
               </div>
             </div>
 
-            <!-- Rider Section -->
             ${riderSectionHtml}
 
-            <!-- Footer: Status Changing Controller & Action Buttons -->
             <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
               <div class="flex items-center space-x-2 w-full sm:w-auto">
                 ${!isDelivered ? `
@@ -560,7 +516,7 @@
                     <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
                     <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                   </select>
-                ` : ``;}
+                ` : ``}
               </div>
 
               <div class="flex items-center space-x-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
@@ -575,28 +531,22 @@
                 ` : ''}
               </div>
             </div>
-
           </div>
         `;
       });
 
       container.innerHTML = html;
-    }
+    };
 
-    // Toggle Details Visibility
     window.toggleDetails = function(orderId) {
       const detailsBox = document.getElementById(`details_${orderId}`);
       const arrowIcon = document.getElementById(`arrow_${orderId}`);
-      
       if (detailsBox) {
         detailsBox.classList.toggle('hidden');
-        if (arrowIcon) {
-          arrowIcon.classList.toggle('rotate-180');
-        }
+        if (arrowIcon) arrowIcon.classList.toggle('rotate-180');
       }
     };
 
-    // Badge styling logic
     function getStatusBadgeClass(status) {
       status = (status || '').toLowerCase();
       if (status === 'delivered') return 'bg-emerald-100 text-emerald-800';
@@ -606,31 +556,21 @@
       return 'bg-amber-100 text-amber-800';
     }
 
-    // Update Status in Firestore
     window.updateOrderStatus = async function(orderId, newStatus) {
-      const db = window.firebaseDb;
-      const { doc, updateDoc } = window.firebaseServices;
-
       try {
         await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-        
         const ord = allOrdersList.find(o => o.id === orderId);
         if (ord) ord.status = newStatus;
-
-        filterOrders();
+        window.filterOrders();
         alert("Order status updated successfully!");
       } catch (err) {
         alert("Update failed: " + err.message);
       }
     };
 
-    // Load active riders inside order card when status is processing
     window.loadActiveRiders = async function(orderId) {
       const container = document.getElementById(`ridersDropdownContainer_${orderId}`);
       container.innerHTML = `<p class="text-[11px] text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading riders...</p>`;
-
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
 
       try {
         const querySnapshot = await getDocs(collection(db, "riders"));
@@ -660,17 +600,12 @@
         });
         html += `</div>`;
         container.innerHTML = html;
-
       } catch (err) {
         container.innerHTML = `<p class="text-[11px] text-red-500">Loading failed: ${err.message}</p>`;
       }
     };
 
-    // Assign Rider, update rider status, and change order status to "On the Way"
     window.assignRiderAndMoveOnTheWay = async function(orderId, riderId, riderName, riderPhone) {
-      const db = window.firebaseDb;
-      const { doc, updateDoc } = window.firebaseServices;
-
       try {
         await updateDoc(doc(db, "orders", orderId), {
           status: 'On the Way',
@@ -686,31 +621,25 @@
         });
 
         alert(`Successfully assigned ${riderName} as rider and updated status to 'On the Way'!`);
-        loadAllOrders();
-
+        window.loadAllOrders();
       } catch (err) {
         alert("Failed to assign rider: " + err.message);
       }
     };
 
-    // UPDATE PRODUCT QUANTITY IN ORDER
     window.updateProductQty = async function(orderId, itemIndex) {
       const qtyInput = document.getElementById(`qty_${orderId}_${itemIndex}`);
       const newQty = parseInt(qtyInput.value);
 
       if (isNaN(newQty) || newQty <= 0) {
-        alert("Please enter a valid quantity (at least 1). Click 'X' to remove the item.");
+        alert("Please enter a valid quantity (at least 1).");
         return;
       }
-
-      const db = window.firebaseDb;
-      const { doc, updateDoc } = window.firebaseServices;
 
       const ord = allOrdersList.find(o => o.id === orderId);
       if (!ord || !ord.items || !ord.items[itemIndex]) return;
 
       ord.items[itemIndex].qty = newQty;
-
       let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
       let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
 
@@ -719,26 +648,20 @@
           items: ord.items,
           totalAmount: newTotalAmount
         });
-
-        alert("Product quantity updated successfully and total bill adjusted!");
-        loadAllOrders();
+        alert("Product quantity updated successfully!");
+        window.loadAllOrders();
       } catch (err) {
         alert("Failed to update quantity: " + err.message);
       }
     };
 
-    // REMOVE SINGLE PRODUCT FROM ORDER
     window.removeProductFromOrder = async function(orderId, itemIndex) {
       if (!confirm("Are you sure you want to remove this item from the order?")) return;
-
-      const db = window.firebaseDb;
-      const { doc, updateDoc } = window.firebaseServices;
 
       const ord = allOrdersList.find(o => o.id === orderId);
       if (!ord || !ord.items) return;
 
       ord.items.splice(itemIndex, 1);
-
       let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
       let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
 
@@ -747,33 +670,26 @@
           items: ord.items,
           totalAmount: newTotalAmount
         });
-
-        alert("Item removed successfully and total bill updated!");
-        loadAllOrders();
+        alert("Item removed successfully!");
+        window.loadAllOrders();
       } catch (err) {
         alert("Failed to remove item: " + err.message);
       }
     };
 
-    // Delete Order
     window.deleteOrder = async function(orderId) {
-      if (!confirm("Are you sure you want to delete this order from the database?")) return;
-
-      const db = window.firebaseDb;
-      const { doc, deleteDoc } = window.firebaseServices;
+      if (!confirm("Are you sure you want to delete this order?")) return;
 
       try {
         await deleteDoc(doc(db, "orders", orderId));
         allOrdersList = allOrdersList.filter(o => o.id !== orderId);
-
-        filterOrders();
+        window.filterOrders();
         alert("Order deleted successfully!");
       } catch (err) {
         alert("Error: " + err.message);
       }
     };
 
-    // Print Memo / Invoice
     window.printInvoice = function(orderId) {
       const ord = allOrdersList.find(o => o.id === orderId);
       if(!ord) return;
