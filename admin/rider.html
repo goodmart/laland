@@ -287,7 +287,7 @@
           <input type="text" id="settlementTrx" placeholder="উদাঃ রহিম ভাইয়ের কাছে জমাকৃত" class="w-full px-3 py-2 border rounded-xl">
         </div>
 
-        <button onclick="submitCashSettlement()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+        <button id="submitSettlementBtn" onclick="submitCashSettlement()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
           জমা রিকোয়েস্ট পাঠান
         </button>
       </div>
@@ -299,6 +299,7 @@
     let currentRiderData = null;
     let activeOrderForModal = null;
     let rawRiderHistory = [];
+    let isSettlementSubmitting = false; // Double-click & spam protection lock
 
     document.addEventListener("DOMContentLoaded", () => {
       setTimeout(initRiderAuthListener, 500);
@@ -618,6 +619,9 @@
     }
 
     window.submitCashSettlement = async function() {
+      // ডাবল ক্লিক বা স্প্যামিং প্রতিরোধ করতে লক চেক করুন
+      if (isSettlementSubmitting) return;
+
       const amount = Number(document.getElementById('settlementAmount').value);
       const currentCash = Number(currentRiderData.cashBalance || 0);
       const method = document.getElementById('settlementMethod').value;
@@ -635,9 +639,14 @@
 
       const db = window.firebaseDb;
       const { collection, getDocs, query, where, addDoc } = window.firebaseServices;
+      const submitBtn = document.getElementById('submitSettlementBtn');
 
       try {
-        // ১. চেক করুন এই রাইডারের ইতিমধ্যে কোনো রিকোয়েস্ট Pending আছে কি না
+        isSettlementSubmitting = true;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "প্রসেসিং হচ্ছে...";
+
+        // ১. সার্ভারে রিয়েল-টাইম চেক করুন এই রাইডারের কোনো রিকোয়েস্ট Pending আছে কি না
         const q = query(
           collection(db, "cash_settlements"),
           where("riderPhone", "==", currentRiderData.phone),
@@ -646,7 +655,10 @@
         const querySnapshot = await getDocs(q);
 
         if (!querySnapshot.empty) {
-          alert("আপনার ক্যাশ জমার একটি রিকোয়েস্ট ইতিমধ্যে পেন্ডিং (Pending) রয়েছে। এডমিন এটি অনুমোদন না করা পর্যন্ত আপনি নতুন করে কোনো জমা রিকোয়েস্ট পাঠাতে পারবেন না!");
+          alert("আপনার ক্যাশ জমার একটি রিকোয়েস্ট ইতিমধ্যে পেন্ডিং (Pending) রয়েছে। এডমিন এটি অনুমোদন না করা পর্যন্ত আপনি নতুন করে কোনো জমা রিকোয়েস্ট পাঠাতে পারবেন না!");
+          isSettlementSubmitting = false;
+          submitBtn.disabled = false;
+          submitBtn.innerText = "জমা রিকোয়েস্ট পাঠান";
           return;
         }
 
@@ -667,6 +679,10 @@
         loadRiderSettlementHistory();
       } catch (err) {
         alert("সমস্যা হয়েছে: " + err.message);
+      } finally {
+        isSettlementSubmitting = false;
+        submitBtn.disabled = false;
+        submitBtn.innerText = "জমা রিকোয়েস্ট পাঠান";
       }
     };
 
