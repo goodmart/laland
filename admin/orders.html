@@ -402,7 +402,8 @@
 
       let html = '';
       filtered.forEach(ord => {
-        const isDelivered = (ord.status || '').toLowerCase() === 'delivered';
+        const orderStatus = (ord.status || 'Pending').toLowerCase();
+        const isDelivered = orderStatus === 'delivered';
 
         const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
@@ -433,7 +434,7 @@
         const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString() : 'Date not available';
 
         let riderSectionHtml = '';
-        if ((ord.status || '').toLowerCase() === 'processing') {
+        if (orderStatus === 'processing') {
           riderSectionHtml = `
             <div id="riderSection_${ord.id}" class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-2 mt-2">
               <div class="flex justify-between items-center">
@@ -450,12 +451,17 @@
         } else if (ord.assignedRiderName || ord.riderName) {
           const rName = ord.assignedRiderName || ord.riderName;
           const rPhone = ord.riderPhone || ord.assignedRiderPhone || '';
+          
+          // Dynamically set status text and styling based on actual order status
+          const statusText = isDelivered ? '✓ Delivered' : (ord.status || 'On the Way');
+          const badgeBg = isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800';
+
           riderSectionHtml = `
             <div class="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 mt-2">
               <span class="text-indigo-900 font-bold">
                 <i class="fa-solid fa-motorcycle mr-1 text-purple-600"></i> Rider: ${rName} ${rPhone ? `(<a href="tel:${rPhone}" class="text-blue-600 underline font-bold">${rPhone}</a>)` : ''}
               </span>
-              <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">✓ Delivered</span>
+              <span class="text-[10px] ${badgeBg} px-2 py-0.5 rounded-full font-bold">${statusText}</span>
             </div>
           `;
         }
