@@ -54,15 +54,20 @@
   <!-- Main Container -->
   <main class="max-w-6xl mx-auto p-4 space-y-5">
 
-    <!-- MONTHLY FILTER BAR -->
+    <!-- DATE / MONTH / YEAR FILTER BAR -->
     <div class="bg-white p-3 rounded-2xl shadow-sm border border-emerald-100 flex flex-col sm:flex-row justify-between items-center gap-2">
       <div class="flex items-center space-x-2 text-xs font-bold text-gray-700">
         <i class="fa-solid fa-calendar-days text-emerald-600 text-sm"></i>
-        <span>Filter by Month:</span>
+        <span>Filter by Date / Month / Year:</span>
       </div>
-      <div class="flex items-center space-x-2 w-full sm:w-auto">
-        <input type="month" id="orderMonthFilter" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl text-xs bg-gray-50 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500">
-        <button onclick="clearMonthFilter()" class="text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition">
+      <div class="flex flex-wrap items-center space-x-2 w-full sm:w-auto text-xs">
+        <label class="text-gray-500 font-semibold text-[11px]">From:</label>
+        <input type="date" id="orderStartDate" onchange="filterOrders()" class="px-2 py-1.5 border rounded-xl bg-gray-50 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        
+        <label class="text-gray-500 font-semibold text-[11px]">To:</label>
+        <input type="date" id="orderEndDate" onchange="filterOrders()" class="px-2 py-1.5 border rounded-xl bg-gray-50 font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+
+        <button onclick="clearDateFilter()" class="text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100 transition">
           Reset
         </button>
       </div>
@@ -187,29 +192,36 @@
       }
     }
 
-    // Dynamic Filter & Analytics Calculation
+    // Dynamic Filter & Analytics Calculation (Supports Date, Month, and Year Ranges)
     window.filterOrders = function() {
       const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
-      const monthFilter = document.getElementById('orderMonthFilter').value; // Format: YYYY-MM
+      const startDateVal = document.getElementById('orderStartDate').value; // Format: YYYY-MM-DD
+      const endDateVal = document.getElementById('orderEndDate').value;   // Format: YYYY-MM-DD
 
       let filteredList = allOrdersList.filter(ord => {
         const matchSearch = (ord.userName || '').toLowerCase().includes(searchQuery) || (ord.userPhone || '').includes(searchQuery);
         
-        let matchMonth = true;
-        if (monthFilter && ord.createdAt) {
-          const ordMonth = ord.createdAt.substring(0, 7); // YYYY-MM
-          matchMonth = (ordMonth === monthFilter);
+        let matchDateRange = true;
+        if (ord.createdAt) {
+          const ordDateStr = ord.createdAt.substring(0, 10); // Extract YYYY-MM-DD part
+          if (startDateVal && ordDateStr < startDateVal) {
+            matchDateRange = false;
+          }
+          if (endDateVal && ordDateStr > endDateVal) {
+            matchDateRange = false;
+          }
         }
 
-        return matchSearch && matchMonth;
+        return matchSearch && matchDateRange;
       });
 
       updateAnalyticsAndCounts(filteredList);
       renderOrdersList(filteredList);
     };
 
-    window.clearMonthFilter = function() {
-      document.getElementById('orderMonthFilter').value = '';
+    window.clearDateFilter = function() {
+      document.getElementById('orderStartDate').value = '';
+      document.getElementById('orderEndDate').value = '';
       filterOrders();
     };
 
