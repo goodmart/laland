@@ -2,7 +2,7 @@
 <html lang="bn">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Laland Express - Your daily needs</title>
   
   <!-- Tailwind CSS CDN -->
@@ -23,7 +23,9 @@
       browserLocalPersistence,
       signInWithPhoneNumber,
       RecaptchaVerifier,
-      updatePassword
+      updatePassword,
+      EmailAuthProvider,
+      reauthenticateWithCredential
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, 
@@ -75,13 +77,14 @@
       updateDoc,
       signInWithPhoneNumber,
       RecaptchaVerifier,
-      updatePassword
+      updatePassword,
+      EmailAuthProvider,
+      reauthenticateWithCredential
     };
   </script>
 
   <style>
     body {
-      user-select: none;
       -webkit-tap-highlight-color: transparent;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
@@ -89,7 +92,7 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-800 pb-20 select-none">
+<body class="bg-gray-50 text-gray-800 pb-20">
 
   <!-- App Sticky Top Header -->
   <header class="sticky top-0 z-40 bg-emerald-600 text-white shadow-md">
@@ -167,6 +170,7 @@
     <section id="cartTab" class="p-4 hidden space-y-4">
       <h2 class="text-base font-bold text-gray-800">আপনার শপিং কার্ট</h2>
       <div id="tabCartContainer" class="space-y-3"></div>
+      <button onclick="toggleCartModal()" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow text-sm">অর্ডার করতে এগিয়ে যান</button>
     </section>
 
     <!-- Tab 4: Account Screen -->
@@ -229,8 +233,8 @@
         <!-- 3. PASSWORD RECOVERY FORM (BY SMS OTP) -->
         <form id="forgotForm" class="space-y-3 hidden">
           <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 text-center">
-            <h4 class="font-bold text-xs text-emerald-800">পাসওয়ার্ড রিকভারি (SMS OTP)</h4>
-            <p class="text-[11px] text-gray-600 mt-1">আপনার নিবন্ধিত মোবাইল নম্বর দিন।</p>
+            <h4 class="font-bold text-xs text-emerald-800">পাসওয়ার্ড রিকভারি</h4>
+            <p class="text-[11px] text-gray-600 mt-1">পাসওয়ার্ড ভুলে গেলে আমাদের সাপোর্ট টিমের সাথে যোগাযোগ করুন।</p>
           </div>
 
           <!-- Step 1: Mobile Input -->
@@ -238,7 +242,7 @@
             <label class="text-xs text-gray-600 block mb-1">Mobile Number *</label>
             <input type="tel" id="recoveryPhone" placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
             <button type="button" onclick="sendPasswordResetOTP()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm mt-3">
-              ওটিপি কোড পাঠান
+              সাপোর্টের সাথে যোগাযোগ করুন
             </button>
           </div>
 
@@ -301,7 +305,7 @@
               </div>
               <div>
                 <p class="text-[10px] text-emerald-100 uppercase font-semibold">Reward Points</p>
-                <p class="text-xs font-extrabold">150 Pts</p>
+                <p class="text-xs font-extrabold">0 Pts</p>
               </div>
             </div>
           </div>
@@ -437,7 +441,7 @@
         <span class="text-[10px] font-medium mt-0.5">হোম</span>
       </button>
       <button data-tab="categoriesTab" class="nav-btn text-gray-400 flex flex-col items-center">
-        <i class="fa-solid fa-grid-2 text-lg"></i>
+        <i class="fa-solid fa-table-cells-large text-lg"></i>
         <span class="text-[10px] font-medium mt-0.5">ক্যাটাগরি</span>
       </button>
       <button data-tab="cartTab" class="nav-btn text-gray-400 flex flex-col items-center relative">
@@ -475,6 +479,10 @@
           </select>
         </div>
 
+        <div class="flex space-x-2">
+          <input type="text" id="couponInput" placeholder="কুপন কোড" class="flex-1 px-3 py-2 border rounded-xl text-sm uppercase focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <button type="button" onclick="applyCoupon()" class="bg-amber-400 text-emerald-950 font-bold px-3 rounded-xl text-xs">প্রয়োগ</button>
+        </div>
         <div class="space-y-1 text-sm">
           <div class="flex justify-between text-gray-600">
             <span>পণ্য সাবটোটাল:</span>
@@ -484,6 +492,7 @@
             <span>ডেলিভারি চার্জ:</span>
             <span id="deliveryCharge">৳ 30</span>
           </div>
+          <div id="discountRow" class="flex justify-between text-emerald-600 hidden"><span>কুপন ছাড়:</span><span id="discountAmount">- ৳ 0</span></div>
           <div class="flex justify-between font-bold text-base text-gray-800 pt-2 border-t">
             <span>মোট খরচ:</span>
             <span id="totalPrice" class="text-emerald-600">৳ 30</span>
@@ -531,6 +540,33 @@
   <!-- Application Logic JS -->
   <script>
     let products = [];
+    const DELIVERY_CHARGE = 30;
+    const COUPONS = { 'LALAND50': 50 };
+    let appliedCoupon = null;
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function safeLoad(key) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+    }
+    // 01XXXXXXXXX ফরম্যাটে নরমালাইজ (+8801.., 8801.. সব একই হবে)
+    function normPhone(p) {
+      let d = String(p || '').replace(/[^0-9]/g, '');
+      if (d.startsWith('880')) d = d.slice(2);
+      else if (d.length === 10 && d.startsWith('1')) d = '0' + d;
+      return /^01[3-9][0-9]{8}$/.test(d) ? d : '';
+    }
+    function getDiscount(subtotal) {
+      if (!appliedCoupon || !COUPONS[appliedCoupon]) return 0;
+      return Math.min(COUPONS[appliedCoupon], subtotal);
+    }
+    window.applyCoupon = function() {
+      const code = (document.getElementById('couponInput').value || '').trim().toUpperCase();
+      if (!COUPONS[code]) { appliedCoupon = null; updateCartUI(); alert("কুপন কোডটি সঠিক নয়।"); return; }
+      appliedCoupon = code; updateCartUI();
+      alert(`কুপন প্রয়োগ হয়েছে! ৳ ${COUPONS[code]} ছাড়।`);
+    };
     let currentGlobalOrders = [];
     let currentOrderFilter = 'all';
 
@@ -542,32 +578,18 @@
       { id: 'snacks', name: 'স্ন্যাক্স ও পানীয়', icon: 'fa-cookie' }
     ];
 
-    let cart = JSON.parse(localStorage.getItem('laland_cart')) || [];
-    let wishlist = JSON.parse(localStorage.getItem('laland_wishlist')) || [];
+    let cart = safeLoad('laland_cart');
+    let wishlist = safeLoad('laland_wishlist');
     let selectedCategory = 'all';
     let rawLocationsData = [];
 
-    // TextBee Configuration
-    const TEXTBEE_API_KEY = "txb_sfITvlUG6MyMo8F8JJLQFDDK4KCMFLxF";
-    const TEXTBEE_DEVICE_ID = "6adfbd74a4996b8ebfc583fb";
-
-    async function sendTextBeeWelcomeSMS(phone, name) {
-      if(!phone) return;
-      let formattedPhone = phone.trim();
-      if (formattedPhone.startsWith('0')) formattedPhone = '+88' + formattedPhone;
-      else if (!formattedPhone.startsWith('+880')) formattedPhone = '+88' + formattedPhone;
-
-      const msg = `প্রিয় ${name}, Laland Express-এ আপনাকে স্বাগতম! আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে।`;
-
+    // SMS: API key ক্লায়েন্টে রাখা নিরাপদ নয়। Cloud Function বানিয়ে তার URL এখানে দিন।
+    const SMS_ENDPOINT = "";
+    async function sendWelcomeSMS(phone, name) {
+      if (!SMS_ENDPOINT) return;
       try {
-        const response = await fetch(`https://api.textbee.dev/api/v1/gateway/devices/${TEXTBEE_DEVICE_ID}/sendSMS`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': TEXTBEE_API_KEY },
-          body: JSON.stringify({ recipients: [formattedPhone], message: msg })
-        });
-        const result = await response.json();
-        console.log("TextBee SMS Response:", result);
-      } catch (err) { console.error("TextBee SMS Error:", err); }
+        await fetch(SMS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, name }) });
+      } catch (err) { console.error("SMS Error:", err); }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -587,6 +609,7 @@
       navButtons.forEach(btn => {
         btn.addEventListener('click', () => {
           document.getElementById('dedicatedOrdersPage').classList.add('hidden');
+          if (window.firebaseAuth && window.firebaseAuth.currentUser) document.getElementById('profileView').classList.remove('hidden');
           const targetTab = btn.getAttribute('data-tab');
           showTab(targetTab);
           localStorage.setItem('laland_active_tab', targetTab);
@@ -603,77 +626,70 @@
 
       // Checkout Button Handler
       document.getElementById('checkoutBtn').addEventListener('click', async () => {
-        if (cart.length === 0) {
-          alert("আপনার কার্ট খালি রয়েছে!");
+        const btn = document.getElementById('checkoutBtn');
+        if (btn.disabled) return;
+        if (cart.length === 0) { alert("আপনার কার্ট খালি রয়েছে!"); return; }
+
+        const user = window.firebaseAuth.currentUser;
+        if (!user) {
+          alert("অর্ডার করতে প্রথমে লগইন করুন।");
+          toggleCartModal(); showTab('accountTab');
+          localStorage.setItem('laland_active_tab', 'accountTab'); updateNavButtonsUI('accountTab');
           return;
         }
-
         const address = document.getElementById('checkoutAddressSelect').value;
-        if (!address) {
-          alert("অনুগ্রহ করে ডেলিভারি ঠিকানা সিলেক্ট করুন।");
-          return;
-        }
+        if (!address) { alert("অনুগ্রহ করে ডেলিভারি ঠিকানা সিলেক্ট করুন।"); return; }
 
-        const db = window.firebaseDb;
-        const { doc, getDoc, addDoc, collection } = window.firebaseServices;
-
-        for (let item of cart) {
-          try {
-            const prodRef = doc(db, "products", String(item.id));
-            const prodSnap = await getDoc(prodRef);
-
-            if (prodSnap.exists()) {
-              const liveStock = Number(prodSnap.data().stock || 0);
-              if (liveStock <= 0) {
-                alert(`দুঃখিত! "${item.name}" পণ্যটি বর্তমানে স্টক আউট (স্টক: ০)। কার্ট থেকে রিমুভ করুন।`);
-                return;
-              }
-              if (item.qty > liveStock) {
-                alert(`দুঃখিত! "${item.name}" পণ্যটির মাত্র ${liveStock} টি স্টকে আছে।`);
-                return;
-              }
-            } else {
-              alert(`দুঃখিত! "${item.name}" পণ্যটি বর্তমানে ডাটাবেজে পাওয়া যায়নি।`);
-              return;
-            }
-          } catch (err) {
-            console.error("Stock check error:", err);
-          }
-        }
-
-        const auth = window.firebaseAuth;
-        const user = auth.currentUser;
-        const userName = user ? (document.getElementById('userName').innerText || 'গ্রাহক') : 'অতিথি গ্রাহক';
-        const userPhone = user ? (document.getElementById('userPhone').innerText || 'নম্বর নেই') : 'N/A';
-        
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        const totalAmount = subtotal + 30;
-
-        const uniqueOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-
-        const orderData = {
-          orderId: uniqueOrderId,
-          userName: userName,
-          userPhone: userPhone,
-          userUid: user ? user.uid : 'guest',
-          items: cart,
-          totalAmount: totalAmount,
-          address: address,
-          status: 'Pending',
-          createdAt: new Date().toISOString()
-        };
-
+        btn.disabled = true; btn.classList.add('opacity-60');
         try {
-          await addDoc(collection(db, "orders"), orderData);
-          alert(`আপনার অর্ডারটি সফলভাবে সম্পন্ন হয়েছে!\nট্র্যাকিং আইডি: ${uniqueOrderId}`);
-          cart = [];
-          saveCart();
-          toggleCartModal();
-          
-          if(user) fetchCustomerOrderHistory();
+          const db = window.firebaseDb;
+          const { doc, getDoc, addDoc, collection } = window.firebaseServices;
 
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          if (!userSnap.exists()) { alert("প্রোফাইল তথ্য পাওয়া যায়নি। আবার লগইন করুন।"); return; }
+          const profile = userSnap.data();
+
+          // লাইভ ডাটাবেজ থেকে দাম ও স্টক যাচাই (কার্টের দাম বিশ্বাস করা হয় না)
+          const orderItems = [];
+          for (const item of cart) {
+            const snap = await getDoc(doc(db, "products", String(item.id)));
+            if (!snap.exists()) { alert(`দুঃখিত! "${item.name}" পণ্যটি আর পাওয়া যাচ্ছে না। কার্ট থেকে রিমুভ করুন।`); return; }
+            const d = snap.data();
+            const stock = Number(d.stock || 0);
+            if (stock <= 0) { alert(`দুঃখিত! "${d.name}" পণ্যটি স্টক আউট। কার্ট থেকে রিমুভ করুন।`); return; }
+            if (item.qty > stock) { alert(`দুঃখিত! "${d.name}" পণ্যটির মাত্র ${stock} টি স্টকে আছে।`); return; }
+            orderItems.push({ id: String(item.id), name: d.name, price: Number(d.discountPrice || d.mrp || 0), qty: item.qty, image: d.image || item.image || '' });
+          }
+
+          const subtotal = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+          const discount = getDiscount(subtotal);
+          const totalAmount = subtotal - discount + DELIVERY_CHARGE;
+          const uniqueOrderId = 'ORD-' + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 36).toString(36).toUpperCase();
+
+          await addDoc(collection(db, "orders"), {
+            orderId: uniqueOrderId,
+            userName: profile.name || 'গ্রাহক',
+            userPhone: profile.phone || '',
+            userUid: user.uid,
+            items: orderItems,
+            subtotal: subtotal,
+            discount: discount,
+            couponCode: discount > 0 ? appliedCoupon : null,
+            deliveryCharge: DELIVERY_CHARGE,
+            totalAmount: totalAmount,
+            address: address,
+            status: 'Pending',
+            createdAt: new Date().toISOString()
+          });
+
+          alert(`আপনার অর্ডারটি সফলভাবে সম্পন্ন হয়েছে!\nট্র্যাকিং আইডি: ${uniqueOrderId}`);
+          cart = []; appliedCoupon = null;
+          const ci = document.getElementById('couponInput'); if (ci) ci.value = '';
+          saveCart(); toggleCartModal(); fetchCustomerOrderHistory();
         } catch (err) {
-          alert("অর্ডার করতে সমস্যা হয়েছে: " + err.message);
+          alert("অর্ডার করতে সমস্যা হয়েছে: " + err.message);
+        } finally {
+          btn.disabled = false; btn.classList.remove('opacity-60');
         }
       });
 
@@ -719,71 +735,9 @@
       });
     }
 
-    // SMS OTP Password Reset Functions
-    window.sendPasswordResetOTP = async function() {
-      const phone = document.getElementById('recoveryPhone').value.trim();
-      if(!phone) {
-        alert("দয়া করে আপনার মোবাইল নম্বরটি দিন।");
-        return;
-      }
-
-      let formattedPhone = phone;
-      if (formattedPhone.startsWith('0')) formattedPhone = '+88' + formattedPhone;
-      else if (!formattedPhone.startsWith('+880')) formattedPhone = '+88' + formattedPhone;
-
-      const auth = window.firebaseAuth;
-      const { RecaptchaVerifier, signInWithPhoneNumber } = window.firebaseServices;
-
-      try {
-        if (!window.recaptchaVerifier) {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible'
-          });
-        }
-
-        const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
-        window.confirmationResult = confirmationResult;
-
-        alert("আপনার নম্বরে এসএমএস এর মাধ্যমে ওটিপি (OTP) পাঠানো হয়েছে!");
-        document.getElementById('otpStepMobile').classList.add('hidden');
-        document.getElementById('otpStepVerify').classList.remove('hidden');
-
-      } catch (error) {
-        console.error("OTP Error:", error);
-        alert("ওটিপি পাঠাতে সমস্যা হয়েছে: " + error.message);
-        if(window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
-      }
-    };
-
-    window.verifyOTPAndResetPassword = async function() {
-      const otpCode = document.getElementById('otpCodeInput').value.trim();
-      const newPassword = document.getElementById('newPasswordInput').value.trim();
-
-      if(!otpCode || newPassword.length < 6) {
-        alert("সঠিক OTP কোড এবং অন্তত ৬ ডিজিটের নতুন পাসওয়ার্ড দিন।");
-        return;
-      }
-
-      try {
-        const result = await window.confirmationResult.confirm(otpCode);
-        const user = result.user;
-
-        const { updatePassword } = window.firebaseServices;
-        await updatePassword(user, newPassword);
-
-        alert("আপনার পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে! এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।");
-        
-        await window.firebaseServices.signOut(window.firebaseAuth);
-        document.getElementById('otpStepVerify').classList.add('hidden');
-        document.getElementById('otpStepMobile').classList.remove('hidden');
-        document.getElementById('loginForm').classList.remove('hidden');
-        document.getElementById('forgotForm').classList.add('hidden');
-
-      } catch (error) {
-        console.error("Password reset error:", error);
-        alert("ভুল OTP কোড অথবা সমস্যা হয়েছে: " + error.message);
-      }
-    };
+    // পাসওয়ার্ড রিকভারি: আগের OTP পদ্ধতি আসল অ্যাকাউন্টের পাসওয়ার্ড বদলাতে পারত না, তাই সাপোর্টে পাঠানো হচ্ছে
+    window.sendPasswordResetOTP = function() { openSupportModal(); };
+    window.verifyOTPAndResetPassword = function() { openSupportModal(); };
 
     // Dedicated Orders Page Navigation & Filtering Functions
     window.openOrdersPageFilter = function(filterStatus) {
@@ -816,7 +770,7 @@
       document.getElementById('featureModalBody').innerHTML = `
         <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
           <p class="font-bold text-emerald-800 text-xs">বর্তমান প্রাইমারি ঠিকানা:</p>
-          <p id="modalCurrentAddressText" class="text-xs text-gray-700">${currentAddr}</p>
+          <p id="modalCurrentAddressText" class="text-xs text-gray-700">${esc(currentAddr)}</p>
         </div>
 
         <div class="space-y-3 pt-2 border-t">
@@ -887,7 +841,7 @@
 
         let html = `<option value="">-- এলাকা সিলেক্ট করুন --</option>`;
         primarySet.forEach(item => {
-          html += `<option value="${item}">${item}</option>`;
+          html += `<option value="${esc(item)}">${esc(item)}</option>`;
         });
         primarySelect.innerHTML = html;
       } catch (err) {
@@ -923,7 +877,7 @@
 
       let html = `<option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>`;
       subSet.forEach(sub => {
-        html += `<option value="${sub}">${sub}</option>`;
+        html += `<option value="${esc(sub)}">${esc(sub)}</option>`;
       });
       subSelect.innerHTML = html;
     };
@@ -953,7 +907,7 @@
 
       let html = `<option value="">-- রোড/সেকেন্ডারি সিলেক্ট করুন --</option>`;
       roadSet.forEach(road => {
-        html += `<option value="${road}">${road}</option>`;
+        html += `<option value="${esc(road)}">${esc(road)}</option>`;
       });
       roadSelect.innerHTML = html;
     };
@@ -1014,13 +968,32 @@
     };
 
     window.openSecurityModal = function() {
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> সিকিউরিটি ও পাসওয়ার্ড`;
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-shield-halved mr-1"></i> সিকিউরিটি ও পাসওয়ার্ড`;
       document.getElementById('featureModalBody').innerHTML = `
         <div class="space-y-2">
-          <p class="text-xs text-gray-600">আপনার অ্যাকাউন্ট সুরক্ষিত রাখতে পাসওয়ার্ড পরিবর্তন করতে পারেন।</p>
-        </div>
-      `;
+          <input type="password" id="curPassInput" placeholder="বর্তমান পাসওয়ার্ড" class="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <input type="password" id="newPassInput" placeholder="নতুন পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" class="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <button onclick="changeMyPassword()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700">পাসওয়ার্ড পরিবর্তন করুন</button>
+        </div>`;
       document.getElementById('featureModal').classList.remove('hidden');
+    };
+
+    window.changeMyPassword = async function() {
+      const user = window.firebaseAuth.currentUser;
+      if (!user) { alert("প্রথমে লগইন করুন!"); return; }
+      const cur = document.getElementById('curPassInput').value;
+      const nw = document.getElementById('newPassInput').value;
+      if (!cur || nw.length < 6) { alert("বর্তমান পাসওয়ার্ড এবং কমপক্ষে ৬ অক্ষরের নতুন পাসওয়ার্ড দিন।"); return; }
+      try {
+        const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = window.firebaseServices;
+        await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, cur));
+        await updatePassword(user, nw);
+        alert("পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!");
+        closeFeatureModal();
+      } catch (e) {
+        const wrong = e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password';
+        alert("পাসওয়ার্ড পরিবর্তন করা যায়নি: " + (wrong ? "বর্তমান পাসওয়ার্ড ভুল।" : e.message));
+      }
     };
 
     window.openSupportModal = function() {
@@ -1068,11 +1041,25 @@
             stock: Number(d.stock || 0)
           });
         });
+        syncCartWithProducts();
         renderProducts();
       } catch (e) {
         console.error("Error loading products from Firebase:", e);
         grid.innerHTML = `<p class="text-xs text-red-500 col-span-2 text-center">পণ্য লোড করতে সমস্যা হয়েছে।</p>`;
       }
+    }
+
+    function syncCartWithProducts() {
+      if (!products.length) return;
+      cart = cart.map(it => {
+        const p = products.find(x => String(x.id) === String(it.id));
+        if (!p || p.stock <= 0) return null;
+        return { ...p, qty: Math.min(it.qty, p.stock) };
+      }).filter(Boolean);
+      wishlist = wishlist.map(w => products.find(x => String(x.id) === String(w.id))).filter(Boolean);
+      localStorage.setItem('laland_cart', JSON.stringify(cart));
+      localStorage.setItem('laland_wishlist', JSON.stringify(wishlist));
+      updateCartUI(); updateWishlistUI();
     }
 
     function showTab(tabId) {
@@ -1111,7 +1098,8 @@
       renderProducts();
     };
 
-    function renderProducts(searchQuery = '') {
+    function renderProducts(searchQuery) {
+      if (searchQuery === undefined) { const si = document.getElementById('searchInput'); searchQuery = si ? si.value.toLowerCase() : ''; }
       let filtered = products;
       if (selectedCategory !== 'all') filtered = filtered.filter(p => p.category === selectedCategory);
       if (searchQuery.trim() !== '') filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery));
@@ -1136,7 +1124,7 @@
             ${isOutOfStock ? `<div class="absolute inset-0 bg-white/70 backdrop-blur-[0.5px] z-10 flex items-center justify-center"><span class="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow">স্টক আউট</span></div>` : ''}
             <div>
               <div class="h-28 rounded-xl overflow-hidden mb-2 bg-gray-100 relative">
-                <img src="${prod.image}" alt="${prod.name}" class="w-full h-full object-cover">
+                <img src="${esc(prod.image)}" alt="${esc(prod.name)}" class="w-full h-full object-cover">
                 <!-- Wishlist Heart Button -->
                 <button onclick="toggleWishlist('${prod.id}')" class="absolute top-1.5 right-1.5 w-7 h-7 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow transition hover:bg-white">
                   <i class="fa-solid fa-heart ${isWishlisted ? 'text-red-500' : 'text-gray-300'} text-xs"></i>
@@ -1147,7 +1135,7 @@
                   </span>
                 ` : ''}
               </div>
-              <h4 class="text-xs font-bold text-gray-800 line-clamp-2">${prod.name}</h4>
+              <h4 class="text-xs font-bold text-gray-800 line-clamp-2">${esc(prod.name)}</h4>
               <div class="flex items-baseline space-x-1 mt-1">
                 <span class="text-sm font-extrabold text-emerald-600">৳ ${prod.price}</span>
                 ${prod.oldPrice > prod.price ? `<span class="text-[10px] text-gray-400 line-through">৳ ${prod.oldPrice}</span>` : ''}
@@ -1224,9 +1212,9 @@
         drawer.innerHTML = wishlist.map(item => `
           <div class="flex items-center justify-between border-b pb-2">
             <div class="flex items-center space-x-2">
-              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
+              <img src="${esc(item.image)}" class="w-10 h-10 rounded-lg object-cover">
               <div>
-                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
+                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${esc(item.name)}</h5>
                 <p class="text-[10px] text-emerald-600 font-bold">৳ ${item.price}</p>
               </div>
             </div>
@@ -1333,9 +1321,9 @@
         const cartListHTML = cart.map(item => `
           <div class="flex items-center justify-between border-b pb-2">
             <div class="flex items-center space-x-2">
-              <img src="${item.image}" class="w-10 h-10 rounded-lg object-cover">
+              <img src="${esc(item.image)}" class="w-10 h-10 rounded-lg object-cover">
               <div>
-                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${item.name}</h5>
+                <h5 class="text-xs font-bold text-gray-800 line-clamp-1">${esc(item.name)}</h5>
                 <p class="text-[10px] text-gray-500">৳ ${item.price} × ${item.qty}</p>
               </div>
             </div>
@@ -1357,8 +1345,11 @@
         tabCartContainer.innerHTML = cartListHTML;
       }
 
+      const discount = getDiscount(subtotal);
       document.getElementById('subtotalPrice').innerText = `৳ ${subtotal}`;
-      document.getElementById('totalPrice').innerText = `৳ ${subtotal > 0 ? subtotal + 30 : 0}`;
+      const dr = document.getElementById('discountRow');
+      if (dr) { dr.classList.toggle('hidden', discount <= 0); document.getElementById('discountAmount').innerText = `- ৳ ${discount}`; }
+      document.getElementById('totalPrice').innerText = `৳ ${subtotal > 0 ? subtotal - discount + DELIVERY_CHARGE : 0}`;
     }
 
     function toggleCartModal() {
@@ -1396,7 +1387,7 @@
           let addressText = (p + s + r).trim();
 
           if(addressText) {
-            optionsHTML += `<option value="${addressText}">${addressText}</option>`;
+            optionsHTML += `<option value="${esc(addressText)}">${esc(addressText)}</option>`;
           }
         });
 
@@ -1481,15 +1472,15 @@
         
         const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
           <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
-            <span>${i.name} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
+            <span>${esc(i.name)} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
             <span class="font-semibold">৳ ${i.price * i.qty}</span>
           </div>
         `).join('') : '<p class="text-red-500 font-bold py-1">কোনো পণ্য নেই।</p>';
 
         const orderDate = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : '';
 
-        const isPending = status === 'pending' || status === 'processing' || status === 'delivered' || status === 'on the way' || status === 'on-the-way' || status === 'ontheway';
-        const isProcessing = status === 'processing' || status === 'delivered' || status === 'on the way' || status === 'on-the-way' || status === 'ontheway';
+        const isPending = status !== 'cancelled';
+        const isProcessing = ['processing','on the way','on-the-way','ontheway','delivered','completed'].includes(status);
         const isOnTheWay = status === 'on the way' || status === 'on-the-way' || status === 'ontheway' || status === 'delivered' || status === 'completed';
         const isDelivered = status === 'delivered' || status === 'completed';
 
@@ -1507,12 +1498,12 @@
                 </div>
                 <div>
                   <p class="text-[10px] text-purple-800 font-bold">ডেলিভারি রাইডার</p>
-                  <p class="text-xs font-extrabold text-gray-800">${assignedRiderName}</p>
-                  ${assignedRiderPhone ? `<p class="text-[10px] text-purple-700 font-semibold"><i class="fa-solid fa-phone mr-1"></i>${assignedRiderPhone}</p>` : ''}
+                  <p class="text-xs font-extrabold text-gray-800">${esc(assignedRiderName)}</p>
+                  ${assignedRiderPhone ? `<p class="text-[10px] text-purple-700 font-semibold"><i class="fa-solid fa-phone mr-1"></i>${esc(assignedRiderPhone)}</p>` : ''}
                 </div>
               </div>
               ${assignedRiderPhone ? `
-                <a href="tel:${assignedRiderPhone}" class="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-purple-700 transition">
+                <a href="tel:${esc(assignedRiderPhone)}" class="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 shadow hover:bg-purple-700 transition">
                   <i class="fa-solid fa-phone"></i>
                   <span>কল করুন</span>
                 </a>
@@ -1526,11 +1517,11 @@
             <!-- Order Header -->
             <div class="flex justify-between items-center border-b border-gray-100 pb-2">
               <div>
-                <span class="font-extrabold text-emerald-700 text-sm">${ord.orderId || '#ORD-N/A'}</span>
+                <span class="font-extrabold text-emerald-700 text-sm">${esc(ord.orderId || '#ORD-N/A')}</span>
                 <span class="text-[10px] text-gray-400 block">${orderDate}</span>
               </div>
               <span class="font-bold px-2.5 py-1 rounded-full text-[10px] ${getStatusBadgeStyle(ord.status)}">
-                ${ord.status || 'Pending'}
+                ${esc(ord.status || 'Pending')}
               </span>
             </div>
 
@@ -1641,59 +1632,58 @@
       // 1. SIGN UP HANDLER
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const name = document.getElementById('signupName').value;
-        const phone = document.getElementById('signupPhone').value.trim();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const name = document.getElementById('signupName').value.trim();
+        const phone = normPhone(document.getElementById('signupPhone').value);
         const password = document.getElementById('signupPassword').value;
         const baseAddress = document.getElementById('signupAddressSelect').value;
         const detailAddress = document.getElementById('signupDetailedAddress').value.trim();
 
-        if(!baseAddress) {
-          alert("Please select a delivery address.");
-          return;
-        }
+        if (!name) { alert("আপনার নাম দিন।"); return; }
+        if (!phone) { alert("সঠিক মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।"); return; }
+        if (password.length < 6) { alert("পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।"); return; }
+        if (!baseAddress) { alert("Please select a delivery address."); return; }
 
-        const fullCombinedAddress = `${baseAddress}, ${detailAddress}`;
-        const autoGeneratedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandexpress.com`;
+        const fullCombinedAddress = detailAddress ? `${baseAddress}, ${detailAddress}` : baseAddress;
+        const email = `${phone}@lalandexpress.com`;
+        let createdUser = null;
+        submitBtn.disabled = true;
 
         try {
-          const userCredential = await createUserWithEmailAndPassword(auth, autoGeneratedEmail, password);
-          const user = userCredential.user;
-
-          await setDoc(doc(db, "users", user.uid), {
-            name: name,
-            phone: phone,
-            email: autoGeneratedEmail,
-            address: fullCombinedAddress,
-            createdAt: new Date().toISOString()
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
+          createdUser = cred.user;
+          await setDoc(doc(db, "users", createdUser.uid), {
+            name: name, phone: phone, email: email, address: fullCombinedAddress, createdAt: new Date().toISOString()
           });
-
-          await sendTextBeeWelcomeSMS(phone, name);
-
-          alert("Account created successfully and welcome SMS sent!");
+          document.getElementById('userName').innerText = name;
+          document.getElementById('userPhone').innerText = phone;
+          window.currentUserAddress = fullCombinedAddress;
+          const addrText = document.getElementById('addressCountText');
+          if (addrText) addrText.innerText = "Primary: " + fullCombinedAddress;
+          sendWelcomeSMS(phone, name);
+          alert("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
         } catch (error) {
-          alert("Registration failed: " + error.message);
-        }
+          if (createdUser) { try { await createdUser.delete(); } catch (_) {} }
+          alert(error.code === 'auth/email-already-in-use'
+            ? "এই নম্বর দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।"
+            : "রেজিস্ট্রেশন ব্যর্থ: " + error.message);
+        } finally { submitBtn.disabled = false; }
       });
 
       // 2. LOGIN HANDLER
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const phone = document.getElementById('loginPhone').value.trim();
+        const raw = document.getElementById('loginPhone').value.trim();
         const password = document.getElementById('loginPassword').value;
+        const norm = normPhone(raw);
+        const rawDigits = raw.replace(/[^0-9]/g, '');
+        const emails = [...new Set([norm, rawDigits].filter(Boolean))].map(d => `${d}@lalandexpress.com`);
 
-        const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandexpress.com`;
-
-        try {
-          await signInWithEmailAndPassword(auth, formattedEmail, password);
-          alert("Login successful!");
-        } catch (error) {
-          try {
-            await signInWithEmailAndPassword(auth, phone, password);
-            alert("Login successful!");
-          } catch (err) {
-            alert("Login failed! Please check your credentials.");
-          }
+        let ok = false;
+        for (const em of emails) {
+          try { await signInWithEmailAndPassword(auth, em, password); ok = true; break; } catch (_) {}
         }
+        alert(ok ? "Login successful!" : "Login failed! Please check your credentials.");
       });
 
       // LOGOUT HANDLER
