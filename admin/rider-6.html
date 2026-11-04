@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Laland Express - Rider Portal</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDKs (v10) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, 
+      doc, 
+      getDoc,
+      collection,
+      getDocs,
+      query,
+      where,
+      updateDoc,
+      increment,
+      addDoc
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error("Auth persistence error:", error);
+    });
+
+    const db = getFirestore(app);
+
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseServices = {
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      doc,
+      getDoc,
+      collection,
+      getDocs,
+      query,
+      where,
+      updateDoc,
+      increment,
+      addDoc
+    };
+  </script>
+
+  <style>
+    body {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 pb-20 select-none">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-purple-700 text-white shadow-md">
+    <div class="px-4 py-3 flex items-center justify-between max-w-md mx-auto">
+      <div class="flex items-center space-x-2">
+        <div class="w-9 h-9 bg-white rounded-full flex items-center justify-center text-purple-700 font-extrabold text-lg shadow">
+          <i class="fa-solid fa-motorcycle"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold leading-tight">Laland Rider Portal</h1>
+          <p class="text-[10px] text-purple-200 font-light">ডেলিভারি পার্টনার ড্যাশবোর্ড</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <a href="admin/index.html" class="text-xs bg-purple-900 px-2 py-1.5 rounded-xl border border-purple-400 hover:bg-purple-950 transition font-semibold" title="অ্যাডমিন প্যানেল">
+          <i class="fa-solid fa-user-shield mr-1"></i> এডমিন
+        </a>
+        <a href="index.html" class="text-xs bg-purple-800 px-2.5 py-1.5 rounded-xl border border-purple-500 hover:bg-purple-900 transition font-semibold">
+          <i class="fa-solid fa-house mr-1"></i> হোম
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-md mx-auto p-4 space-y-4">
+
+    <!-- 1. RIDER LOGIN FORM -->
+    <div id="riderAuthCard" class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-4">
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto text-xl mb-2">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <h2 class="font-bold text-base text-gray-800">রাইডার লগইন করুন</h2>
+        <p class="text-xs text-gray-400">আপনার নিবন্ধিত মোবাইল নম্বর ও পাসওয়ার্ড দিয়ে প্রবেশ করুন।</p>
+      </div>
+
+      <form id="riderLoginForm" class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">রাইডার মোবাইল নম্বর</label>
+          <input type="tel" id="riderLoginPhone" required placeholder="017XXXXXXXX" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-purple-500">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 block mb-1">পাসওয়ার্ড</label>
+          <input type="password" id="riderLoginPassword" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-purple-500">
+        </div>
+        <button type="submit" class="w-full bg-purple-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-purple-700 text-sm transition">
+          লগইন করুন
+        </button>
+      </form>
+    </div>
+
+    <!-- 2. RIDER DASHBOARD VIEW -->
+    <div id="riderDashboardView" class="hidden space-y-4">
+      
+      <!-- Profile Hero Card with Balance & Settlement Action -->
+      <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-5 rounded-2xl shadow-md relative overflow-hidden space-y-3">
+        <div class="flex items-center justify-between relative z-10">
+          <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 bg-white/25 border-2 border-white/40 text-white rounded-full flex items-center justify-center text-xl font-extrabold backdrop-blur-sm">
+              <i class="fa-solid fa-user-gear"></i>
+            </div>
+            <div>
+              <h3 id="riderProfileName" class="font-extrabold text-base">রাইডার নাম</h3>
+              <p id="riderProfilePhone" class="text-xs text-purple-100">017XXXXXXXX</p>
+            </div>
+          </div>
+          <button onclick="logoutRider()" class="bg-white/25 hover:bg-white/30 text-white text-xs px-3 py-1.5 rounded-xl border border-white/20 transition font-bold">
+            লগআউট
+          </button>
+        </div>
+
+        <!-- Wallets Grid (Cash in hand vs Earnings) -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="bg-black/20 p-3 rounded-xl backdrop-blur-sm text-xs">
+            <span class="text-purple-200 block text-[10px]">ক্যাশ ইন হ্যান্ড (জমাযোগ্য)</span>
+            <strong id="riderCashBalance" class="text-sm text-white font-black">৳ 0</strong>
+            <button onclick="openSettlementModal()" class="mt-2 w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-1 px-2 rounded-lg text-[10px] shadow transition">
+              জমা দিন
+            </button>
+          </div>
+          <div class="bg-black/20 p-3 rounded-xl backdrop-blur-sm text-xs">
+            <span class="text-purple-200 block text-[10px]">আমার আয় / কমিশন ওয়ালেট</span>
+            <strong id="riderEarningsBalance" class="text-sm text-emerald-300 font-black">৳ 0</strong>
+            <span class="block text-[9px] text-purple-200 mt-2">ফিক্সড স্যালারি + কমিশন</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Assigned Orders Section with Filter Tabs -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div class="flex items-center justify-between border-b pb-2">
+          <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-boxes-packing text-purple-600 mr-1.5"></i> অ্যাসাইনকৃত অর্ডারসমূহ</h3>
+          <button onclick="loadRiderOrders()" class="text-xs text-purple-600 font-bold p-1" title="Refresh">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+        </div>
+
+        <!-- Filter Menu Tabs -->
+        <div class="grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl text-xs font-semibold text-center">
+          <button id="tabMyOrders" onclick="switchOrderTab('myOrders')" class="py-2 rounded-lg bg-purple-600 text-white shadow-sm transition">
+            My Orders
+          </button>
+          <button id="tabMyDelivered" onclick="switchOrderTab('myDelivered')" class="py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition">
+            My Delivered
+          </button>
+          <button id="tabCancelled" onclick="switchOrderTab('cancelled')" class="py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition">
+            Cancelled
+          </button>
+        </div>
+
+        <div id="riderOrdersContainer" class="space-y-3">
+          <p class="text-xs text-gray-400 text-center py-6">অর্ডার তথ্য লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+      <!-- SETTLEMENT HISTORY WITH MONTHLY FILTER & EXCEL EXPORT -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+        <div class="flex flex-col space-y-2 border-b pb-2">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-clock-rotate-left text-purple-600 mr-1.5"></i> ক্যাশ জমা হিস্ট্রি ও এক্সপোর্ট</h3>
+            <button onclick="exportHistoryToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow transition flex items-center space-x-1">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>এক্সেল এক্সপোর্ট</span>
+            </button>
+          </div>
+
+          <!-- Monthly Filter Bar -->
+          <div class="flex items-center space-x-2 pt-1">
+            <label class="text-[11px] text-gray-600 font-medium">মাস নির্বাচন:</label>
+            <input type="month" id="historyMonthFilter" onchange="filterRiderHistory()" class="px-2 py-1 border rounded-lg text-xs bg-gray-50 font-semibold focus:outline-none">
+            <button onclick="clearMonthFilter()" class="text-[10px] text-gray-500 underline">রিসেট</button>
+          </div>
+        </div>
+
+        <div id="riderHistoryContainer" class="space-y-2 max-h-48 overflow-y-auto text-xs">
+          <p class="text-xs text-gray-400 text-center py-4">হিস্ট্রি লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL 1: ORDER PAYMENT COLLECTION MODAL -->
+  <div id="paymentModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-wallet text-purple-600 mr-1"></i> পেমেন্ট কালেকশন নিশ্চিত করুন</h3>
+        <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold px-2">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <input type="hidden" id="modalDocId">
+        
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">পেমেন্টের মাধ্যম:</label>
+          <select id="paymentMethodSelect" onchange="togglePaymentFields()" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold">
+            <option value="Cash">ক্যাশ (Cash on Delivery)</option>
+            <option value="bKash">বিকাশ (bKash)</option>
+            <option value="Nagad">নগদ (Nagad)</option>
+            <option value="BanglaQR">বাংলা কিউআর (Bangla QR)</option>
+            <option value="POS">ব্যাংক পিওএস (POS Machine)</option>
+          </select>
+        </div>
+
+        <div id="onlinePaymentFields" class="hidden space-y-2 bg-purple-50 p-3 rounded-xl border border-purple-100">
+          <div>
+            <label class="text-gray-600 block mb-1 font-semibold" id="trxLabel">ট্রানজেকশন আইডি (TrxID):</label>
+            <input type="text" id="paymentTrxId" placeholder="উদাঃ 9G87H65K" class="w-full px-3 py-2 border bg-white rounded-xl uppercase font-bold text-sm">
+          </div>
+        </div>
+
+        <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center">
+          <span class="text-gray-500">মোটবিল:</span>
+          <strong id="modalDisplayAmount" class="text-sm text-purple-700 font-extrabold">৳ 0</strong>
+        </div>
+
+        <button onclick="submitCompletedDelivery()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+          ডেলিভারি কনফার্ম ও কমিশন যুক্ত করুন
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: CASH SETTLEMENT / TRANSFER TO ADMIN MODAL -->
+  <div id="settlementModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-4 shadow-xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 class="font-bold text-sm text-gray-800"><i class="fa-solid fa-hand-holding-dollar text-emerald-600 mr-1"></i> এডমিনকে ক্যাশ জমা পাঠান</h3>
+        <button onclick="closeSettlementModal()" class="text-gray-400 hover:text-gray-600 text-sm font-bold px-2">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex justify-between items-center">
+          <span class="text-emerald-800 font-medium">বর্তমান ক্যাশ ইন হ্যান্ড:</span>
+          <strong id="modalCurrentCash" class="text-emerald-700 text-sm font-extrabold">৳ 0</strong>
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">জমার মাধ্যম:</label>
+          <select id="settlementMethod" class="w-full px-3 py-2 border rounded-xl bg-gray-50 font-semibold">
+            <option value="Direct Cash to Office">সরাসরি ক্যাশ প্রদান</option>
+            <option value="bKash Cash-In">বিকাশ জমা</option>
+            <option value="Nagad Cash-In">নগদ জমা</option>
+            <option value="Bank Deposit">ব্যাংক ডিপোজিট</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">জমার পরিমাণ (টাকা):</label>
+          <input type="number" id="settlementAmount" readonly class="w-full px-3 py-2 border rounded-xl text-sm font-bold text-purple-700 bg-gray-100 cursor-not-allowed" title="ক্যাশ ইন হ্যান্ড ব্যালেন্স স্বয়ংক্রিয়ভাবে নির্ধারিত">
+          <span class="text-[10px] text-gray-500 mt-0.5 block">ক্যাশ ইন হ্যান্ড থেকে সম্পূর্ণ পরিমাণ স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে।</span>
+        </div>
+
+        <div>
+          <label class="font-bold text-gray-700 block mb-1">নোট / ট্রানজেকশন আইডি:</label>
+          <input type="text" id="settlementTrx" placeholder="উদাঃ রহিম ভাইয়ের কাছে জমাকৃত" class="w-full px-3 py-2 border rounded-xl">
+        </div>
+
+        <button id="submitSettlementBtn" onclick="submitCashSettlement()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+          জমা রিকোয়েস্ট পাঠান
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Logic -->
+  <script>
+    let currentRiderData = null;
+    let activeOrderForModal = null;
+    let rawRiderHistory = [];
+    let allRiderOrders = [];
+    let currentOrderTab = 'myOrders'; // Default tab
+    let isSettlementSubmitting = false;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(initRiderAuthListener, 500);
+    });
+
+    function initRiderAuthListener() {
+      const auth = window.firebaseAuth;
+      const db = window.firebaseDb;
+      const { onAuthStateChanged, doc, getDoc } = window.firebaseServices;
+
+      if (!auth || !db) {
+        setTimeout(initRiderAuthListener, 500);
+        return;
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          try {
+            const docRef = doc(db, "riders", user.uid);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+              currentRiderData = { id: docSnap.id, ...docSnap.data() };
+              
+              document.getElementById('riderAuthCard').classList.add('hidden');
+              document.getElementById('riderDashboardView').classList.remove('hidden');
+
+              document.getElementById('riderProfileName').innerText = currentRiderData.name || 'রাইডার';
+              document.getElementById('riderProfilePhone').innerText = currentRiderData.phone || user.email;
+              document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
+              document.getElementById('riderEarningsBalance').innerText = `৳ ${currentRiderData.earningsBalance || 0}`;
+
+              loadRiderOrders();
+              loadRiderSettlementHistory();
+            } else {
+              alert("রাইডার প্রোফাইল পাওয়া যায়নি!");
+              await window.firebaseServices.signOut(auth);
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        } else {
+          document.getElementById('riderAuthCard').classList.remove('hidden');
+          document.getElementById('riderDashboardView').classList.add('hidden');
+        }
+      });
+
+      document.getElementById('riderLoginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById('riderLoginPhone').value.trim();
+        const password = document.getElementById('riderLoginPassword').value;
+        const formattedEmail = `${phone.replace(/[^0-9]/g, '')}@lalandrider.com`;
+
+        try {
+          await window.firebaseServices.signInWithEmailAndPassword(auth, formattedEmail, password);
+        } catch (err) {
+          alert("লগইন ব্যর্থ হয়েছে!");
+        }
+      });
+    }
+
+    // Switch Order Tabs Function
+    window.switchOrderTab = function(tabName) {
+      currentOrderTab = tabName;
+
+      // Update Tab Buttons UI Style
+      const tabMyOrders = document.getElementById('tabMyOrders');
+      const tabMyDelivered = document.getElementById('tabMyDelivered');
+      const tabCancelled = document.getElementById('tabCancelled');
+
+      tabMyOrders.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+      tabMyDelivered.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+      tabCancelled.className = "py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition";
+
+      if (tabName === 'myOrders') {
+        tabMyOrders.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      } else if (tabName === 'myDelivered') {
+        tabMyDelivered.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      } else if (tabName === 'cancelled') {
+        tabCancelled.className = "py-2 rounded-lg bg-purple-600 text-white shadow-sm transition";
+      }
+
+      renderRiderOrders();
+    }
+
+    async function loadRiderOrders() {
+      if (!currentRiderData) return;
+
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where, doc, getDoc } = window.firebaseServices;
+
+      try {
+        const riderDocSnap = await getDoc(doc(db, "riders", currentRiderData.id));
+        if (riderDocSnap.exists()) {
+          currentRiderData = { id: riderDocSnap.id, ...riderDocSnap.data() };
+          document.getElementById('riderCashBalance').innerText = `৳ ${currentRiderData.cashBalance || 0}`;
+          document.getElementById('riderEarningsBalance').innerText = `৳ ${currentRiderData.earningsBalance || 0}`;
+        }
+
+        const q = query(collection(db, "orders"), where("riderPhone", "==", currentRiderData.phone));
+        const querySnapshot = await getDocs(q);
+
+        allRiderOrders = [];
+        querySnapshot.forEach(docSnap => allRiderOrders.push({ id: docSnap.id, ...docSnap.data() }));
+
+        // Sorting: "On the way" (Active) orders on top, Delivered / Cancelled orders down
+        allRiderOrders.sort((a, b) => {
+          const statusA = (a.status || '').toLowerCase();
+          const statusB = (b.status || '').toLowerCase();
+          const isAActive = statusA !== 'delivered' && statusA !== 'completed' && statusA !== 'cancelled';
+          const isBActive = statusB !== 'delivered' && statusB !== 'completed' && statusB !== 'cancelled';
+
+          if (isAActive && !isBActive) return -1;
+          if (!isAActive && isBActive) return 1;
+          return 0;
+        });
+
+        renderRiderOrders();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Render Orders based on selected tab
+    function renderRiderOrders() {
+      const container = document.getElementById('riderOrdersContainer');
+      let filteredOrders = [];
+
+      if (currentOrderTab === 'myOrders') {
+        // "On the way" orders (Admin or Rider received, not delivered/completed & not cancelled)
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s !== 'delivered' && s !== 'completed' && s !== 'cancelled';
+        });
+      } else if (currentOrderTab === 'myDelivered') {
+        // Delivered Orders
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s === 'delivered' || s === 'completed';
+        });
+      } else if (currentOrderTab === 'cancelled') {
+        // Cancelled Orders
+        filteredOrders = allRiderOrders.filter(ord => {
+          const s = (ord.status || '').toLowerCase();
+          return s === 'cancelled';
+        });
+      }
+
+      if (filteredOrders.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-6">এই সেকশনে কোনো অর্ডার পাওয়া যায়নি।</p>`;
+        return;
+      }
+
+      let html = '';
+      filteredOrders.forEach(ord => {
+        const isDelivered = (ord.status || '').toLowerCase() === 'delivered' || (ord.status || '').toLowerCase() === 'completed';
+        const isCancelled = (ord.status || '').toLowerCase() === 'cancelled';
+
+        let itemsHtml = '';
+        if (ord.items && ord.items.length > 0) {
+          itemsHtml = `<div class="bg-white p-2 rounded-lg border space-y-1 my-1"><p class="font-bold text-gray-500 text-[10px]">পণ্যের বিবরণ (ক্রস-চেক):</p>`;
+          ord.items.forEach(item => {
+            itemsHtml += `
+              <div class="flex justify-between text-xs text-gray-700 border-b border-dashed py-0.5">
+                <span>${item.name || 'পণ্য'} <strong class="text-purple-700">(${item.qty || 1}x)</strong></span>
+                <span>৳ ${(item.price || 0) * (item.qty || 1)}</span>
+              </div>
+            `;
+          });
+          itemsHtml += `</div>`;
+        }
+
+        let badgeColor = 'bg-purple-100 text-purple-800';
+        if (isDelivered) badgeColor = 'bg-emerald-100 text-emerald-800';
+        else if (isCancelled) badgeColor = 'bg-red-100 text-red-800';
+
+        html += `
+          <div class="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
+            <div class="flex justify-between items-center border-b pb-1.5">
+              <span class="font-extrabold text-purple-700 text-sm">${ord.orderId || 'ORD'}</span>
+              <span class="font-bold px-2 py-0.5 rounded-full text-[10px] ${badgeColor}">${ord.status || 'Pending'}</span>
+            </div>
+            <div class="space-y-0.5">
+              <p class="font-bold text-gray-800"><i class="fa-solid fa-user text-purple-600 mr-1"></i>গ্রাহক: ${ord.userName || ''}</p>
+              <p class="text-gray-600"><i class="fa-solid fa-location-dot text-purple-600 mr-1"></i>ঠিকানা: ${ord.address || ''}</p>
+              <p class="text-gray-600"><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>ফোন: <a href="tel:${ord.userPhone}" class="text-blue-600 underline font-bold">${ord.userPhone || ''}</a></p>
+            </div>
+
+            ${itemsHtml}
+
+            <div class="flex justify-between items-center pt-1 font-bold border-t">
+              <span>মোট বিল: ৳ ${ord.totalAmount || 0}</span>
+              ${(!isDelivered && !isCancelled) ? `
+                <button onclick='openPaymentModal(${JSON.stringify(ord)})' class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs shadow">ডেলিভারি সম্পন্ন করুন</button>
+              ` : isDelivered ? `<span class="text-emerald-700 font-bold">✓ ডেলিভারড (${ord.paymentMethod || 'Cash'})</span>` : `<span class="text-red-600 font-bold">✕ বাতিলকৃত</span>`}
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Load Settlement History for Rider
+    async function loadRiderSettlementHistory() {
+      if (!currentRiderData) return;
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where } = window.firebaseServices;
+
+      try {
+        const q = query(
+          collection(db, "cash_settlements"), 
+          where("riderPhone", "==", currentRiderData.phone)
+        );
+        const querySnapshot = await getDocs(q);
+
+        rawRiderHistory = [];
+        querySnapshot.forEach(docSnap => {
+          rawRiderHistory.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        rawRiderHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        renderRiderHistory(rawRiderHistory);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Render History List
+    function renderRiderHistory(list) {
+      const container = document.getElementById('riderHistoryContainer');
+
+      if (list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-gray-400 text-center py-3">কোনো হিস্ট্রি পাওয়া যায়নি।</p>`;
+        return;
+      }
+
+      let html = '';
+      list.forEach(item => {
+        let badge = '';
+        if (item.status === 'Approved') badge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold text-[10px]">অনুমোদিত</span>`;
+        else if (item.status === 'Rejected') badge = `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-bold text-[10px]">বাতিল</span>`;
+        else badge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold text-[10px]">পেন্ডিং</span>`;
+
+        html += `
+          <div class="bg-gray-50 p-2.5 rounded-xl border flex justify-between items-center text-xs">
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <strong>৳ ${item.amount}</strong>
+                ${badge}
+              </div>
+              <p class="text-[10px] text-gray-500">মাধ্যম: ${item.method} | নোট: ${item.trxRef || 'N/A'}</p>
+              <span class="text-[9px] text-gray-400">${new Date(item.createdAt).toLocaleString()}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // MONTHLY FILTER FUNCTION
+    window.filterRiderHistory = function() {
+      const selectedMonth = document.getElementById('historyMonthFilter').value;
+      if (!selectedMonth) {
+        renderRiderHistory(rawRiderHistory);
+        return;
+      }
+
+      const filtered = rawRiderHistory.filter(item => {
+        if (!item.createdAt) return false;
+        const itemMonth = item.createdAt.substring(0, 7);
+        return itemMonth === selectedMonth;
+      });
+
+      renderRiderHistory(filtered);
+    }
+
+    window.clearMonthFilter = function() {
+      document.getElementById('historyMonthFilter').value = '';
+      renderRiderHistory(rawRiderHistory);
+    }
+
+    // EXCEL / CSV EXPORT FUNCTION
+    window.exportHistoryToExcel = function() {
+      if (rawRiderHistory.length === 0) {
+        alert("এক্সপোর্ট করার মতো কোনো ডেটা নেই!");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+      csvContent += "ID,Amount,Method,Note,Status,Date\r\n";
+
+      rawRiderHistory.forEach(item => {
+        const row = [
+          item.id,
+          item.amount,
+          `"${item.method || ''}"`,
+          `"${item.trxRef || ''}"`,
+          item.status,
+          `"${item.createdAt || ''}"`
+        ];
+        csvContent += row.join(",") + "\r\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `rider_settlement_history_${currentRiderData.phone}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Modal Helpers
+    window.openPaymentModal = function(ord) {
+      activeOrderForModal = ord;
+      document.getElementById('modalDocId').value = ord.id;
+      document.getElementById('modalDisplayAmount').innerText = `৳ ${ord.totalAmount}`;
+      document.getElementById('paymentModal').classList.remove('hidden');
+    }
+
+    window.closePaymentModal = function() {
+      document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    window.togglePaymentFields = function() {
+      const method = document.getElementById('paymentMethodSelect').value;
+      if (method === 'Cash') document.getElementById('onlinePaymentFields').classList.add('hidden');
+      else document.getElementById('onlinePaymentFields').classList.remove('hidden');
+    }
+
+    // SUBMIT COMPLETED DELIVERY & ADD COMMISSION AUTOMATICALLY TO EARNINGS WALLET
+    window.submitCompletedDelivery = async function() {
+      if (!activeOrderForModal) return;
+
+      const docId = document.getElementById('modalDocId').value;
+      const paymentMethod = document.getElementById('paymentMethodSelect').value;
+      const trxId = document.getElementById('paymentTrxId').value.trim();
+      const orderAmount = Number(activeOrderForModal.totalAmount || 0);
+
+      const commissionAmount = Number(currentRiderData.deliveryCommission || 30);
+
+      const db = window.firebaseDb;
+      const { doc, updateDoc, increment } = window.firebaseServices;
+
+      try {
+        await updateDoc(doc(db, "orders", docId), {
+          status: 'Delivered',
+          paymentMethod: paymentMethod,
+          paymentTrxId: trxId || '',
+          deliveredAt: new Date().toISOString()
+        });
+
+        let riderUpdatePayload = {};
+        if (paymentMethod === 'Cash') {
+          riderUpdatePayload.cashBalance = increment(orderAmount);
+        }
+
+        riderUpdatePayload.earningsBalance = increment(commissionAmount);
+
+        await updateDoc(doc(db, "riders", currentRiderData.id), riderUpdatePayload);
+
+        alert(`অর্ডার সফলভাবে সম্পন্ন হয়েছে! আপনার ওয়ালেটে ৳ ${commissionAmount} ডেলিভারি কমিশন যুক্ত হয়েছে।`);
+        closePaymentModal();
+        loadRiderOrders();
+      } catch (err) {
+        alert("ত্রুটি: " + err.message);
+      }
+    };
+
+    window.openSettlementModal = function() {
+      const cashBal = Number(currentRiderData.cashBalance || 0);
+      document.getElementById('modalCurrentCash').innerText = `৳ ${cashBal}`;
+      
+      const inputAmount = document.getElementById('settlementAmount');
+      inputAmount.value = cashBal > 0 ? cashBal : ''; 
+      inputAmount.setAttribute('max', cashBal);
+      
+      document.getElementById('settlementModal').classList.remove('hidden');
+    }
+
+    window.closeSettlementModal = function() {
+      document.getElementById('settlementModal').classList.add('hidden');
+    }
+
+    window.submitCashSettlement = async function() {
+      if (isSettlementSubmitting) return;
+
+      const amount = Number(document.getElementById('settlementAmount').value);
+      const currentCash = Number(currentRiderData.cashBalance || 0);
+      const method = document.getElementById('settlementMethod').value;
+      const trx = document.getElementById('settlementTrx').value.trim();
+
+      if (!amount || amount <= 0) {
+        alert("জমা দেওয়ার মতো কোনো ক্যাশ ব্যালেন্স নেই!");
+        return;
+      }
+
+      if (amount > currentCash) {
+        alert(`আপনার কাছে জমাযোগ্য ক্যাশ আছে ৳ ${currentCash}।`);
+        return;
+      }
+
+      const db = window.firebaseDb;
+      const { collection, getDocs, query, where, addDoc } = window.firebaseServices;
+      const submitBtn = document.getElementById('submitSettlementBtn');
+
+      try {
+        isSettlementSubmitting = true;
+        submitBtn.disabled = true;
+        submitBtn.innerText = "প্রসেসিং হচ্ছে...";
+
+        const q = query(
+          collection(db, "cash_settlements"),
+          where("riderPhone", "==", currentRiderData.phone),
+          where("status", "==", "Pending")
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          alert("আপনার ক্যাশ জমার একটি রিকোয়েস্ট ইতিমধ্যে পেন্ডিং (Pending) রয়েছে। এডমিন এটি অনুমোদন না করা পর্যন্ত আপনি নতুন করে কোনো জমা রিকোয়েস্ট পাঠাতে পারবেন না!");
+          isSettlementSubmitting = false;
+          submitBtn.disabled = false;
+          submitBtn.innerText = "জমা রিকোয়েস্ট পাঠান";
+          return;
+        }
+
+        await addDoc(collection(db, "cash_settlements"), {
+          riderId: currentRiderData.id,
+          riderName: currentRiderData.name,
+          riderPhone: currentRiderData.phone,
+          amount: amount,
+          method: method,
+          trxRef: trx,
+          status: 'Pending',
+          createdAt: new Date().toISOString()
+        });
+
+        alert("এডমিনের কাছে ক্যাশ জমা রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে।");
+        closeSettlementModal();
+        loadRiderSettlementHistory();
+      } catch (err) {
+        alert("সমস্যা হয়েছে: " + err.message);
+      } finally {
+        isSettlementSubmitting = false;
+        submitBtn.disabled = false;
+        submitBtn.innerText = "জমা রিকোয়েস্ট পাঠান";
+      }
+    };
+
+    window.logoutRider = async function() {
+      await window.firebaseServices.signOut(window.firebaseAuth);
+    }
+  </script>
+</body>
+</html>
