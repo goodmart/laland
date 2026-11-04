@@ -1662,6 +1662,7 @@
         }
       });
 
+      // 1. SIGN UP HANDLER
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -1702,21 +1703,48 @@
         } finally { submitBtn.disabled = false; }
       });
 
+      // 2. LOGIN HANDLER (সংশোধিত ও আপডেট করা কোড)
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const raw = document.getElementById('loginPhone').value.trim();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const rawPhone = document.getElementById('loginPhone').value.trim();
         const password = document.getElementById('loginPassword').value;
-        const norm = normPhone(raw);
-        const rawDigits = raw.replace(/[^0-9]/g, '');
-        const emails = [...new Set([norm, rawDigits].filter(Boolean))].map(d => `${d}@lalandexpress.com`);
 
-        let ok = false;
-        for (const em of emails) {
-          try { await signInWithEmailAndPassword(auth, em, password); ok = true; break; } catch (_) {}
+        const norm = normPhone(rawPhone);
+        const rawDigits = rawPhone.replace(/[^0-9]/g, '');
+        
+        // সব সম্ভাব্য ফরম্যাটের ইমেল চেক করবে
+        const emailsToTry = [
+          norm ? `${norm}@lalandexpress.com` : null,
+          rawDigits ? `${rawDigits}@lalandexpress.com` : null,
+          norm ? `88${norm}@lalandexpress.com` : null
+        ].filter(Boolean);
+
+        const uniqueEmails = [...new Set(emailsToTry)];
+
+        submitBtn.disabled = true;
+        let loginSuccess = false;
+
+        for (const em of uniqueEmails) {
+          try {
+            await signInWithEmailAndPassword(auth, em, password);
+            loginSuccess = true;
+            break;
+          } catch (_) {}
         }
-        alert(ok ? "Login successful!" : "Login failed! Please check your credentials.");
+
+        submitBtn.disabled = false;
+
+        if (loginSuccess) {
+          alert("Login successful!");
+          document.getElementById('loginPhone').value = '';
+          document.getElementById('loginPassword').value = '';
+        } else {
+          alert("Login failed! Please check your credentials.");
+        }
       });
 
+      // LOGOUT HANDLER
       document.getElementById('logoutBtn').addEventListener('click', async () => {
         await signOut(auth);
         alert("Signed out successfully.");
