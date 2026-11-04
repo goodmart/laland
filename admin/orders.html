@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Management - Laland Express Admin</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- ADMIN GUARD: লগইন ও admins যাচাই না হওয়া পর্যন্ত পেজ ও ডেটা লোড বন্ধ -->
+  <style id="authGate">html { visibility: hidden; }</style>
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    window.isAdminUser = async (uid) => (await getDoc(doc(db, "admins", uid))).exists();
+
+    const goLogin = () => location.replace('index.html');
+    window.adminReady = new Promise((resolve) => {
+      const failSafe = setTimeout(goLogin, 15000);
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) { goLogin(); return; }
+        try {
+          if (await window.isAdminUser(user.uid)) {
+            clearTimeout(failSafe);
+            const g = document.getElementById('authGate'); if (g) g.remove();
+            resolve(user);
+          } else {
+            alert("This account does not have admin access.");
+            await signOut(auth);
+            goLogin();
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Admin verification failed: " + e.message);
+          goLogin();
+        }
+      });
+    });
+  </script>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-3 py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-cart-shopping text-xl"></i>
+        <h1 class="font-bold text-base sm:text-lg">Order Dashboard - Laland Express</h1>
+      </div>
+      <nav class="flex flex-wrap justify-center gap-2 text-xs">
+        <a href="index.html" class="hover:underline px-2 py-1">Dashboard</a>
+        <a href="products.html" class="hover:underline px-2 py-1">Products</a>
+        <a href="orders.html" class="underline font-bold px-2 py-1">Orders</a>
+        <a href="locations.html" class="hover:underline px-2 py-1">Locations</a>
+        <a href="delivery-riders.html" class="hover:underline text-amber-200 px-2 py-1">Riders</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-6xl mx-auto p-3 sm:p-4 space-y-4">
+
+    <!-- SMART FILTER BAR (Presets & Dropdowns) -->
+    <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-emerald-100 space-y-3">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div class="flex items-center space-x-2 text-xs font-bold text-gray-700">
+          <i class="fa-solid fa-calendar-days text-emerald-600 text-sm"></i>
+          <span>Smart Time Filter:</span>
+        </div>
+
+        <!-- Quick Preset Buttons (Default: Today is emerald-600) -->
+        <div class="flex flex-wrap items-center gap-1.5 text-xs font-bold w-full sm:w-auto">
+          <button onclick="setQuickPreset('today')" id="presetToday" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition text-center">Today</button>
+          <button onclick="setQuickPreset('yesterday')" id="presetYesterday" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">Yesterday</button>
+          <button onclick="setQuickPreset('thisMonth')" id="presetThisMonth" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">This Month</button>
+          <button onclick="setQuickPreset('thisYear')" id="presetThisYear" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">This Year</button>
+          <button onclick="setQuickPreset('all')" id="presetAll" class="flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition text-center">All Time</button>
+        </div>
+      </div>
+
+      <!-- Cascading Sub-Panel for Month/Year Dropdowns & Custom Range -->
+      <div id="subFilterPanel" class="pt-3 border-t border-gray-100 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3 text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-gray-500 font-semibold" id="activeFilterLabel">Showing: Today</span>
+          
+          <!-- Month Select Dropdown (Hidden by default when Today is active) -->
+          <div id="monthDropdownContainer" class="inline-block" style="display: none;">
+            <select id="monthSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="01">January</option>
+              <option value="02">February</option>
+              <option value="03">March</option>
+              <option value="04">April</option>
+              <option value="05">May</option>
+              <option value="06">June</option>
+              <option value="07">July</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">October</option>
+              <option value="11" selected>November</option>
+              <option value="12">December</option>
+            </select>
+          </div>
+
+          <!-- Year Select Dropdown (Hidden by default) -->
+          <div id="yearDropdownContainer" class="inline-block" style="display: none;">
+            <select id="yearSelectDropdown" onchange="filterOrders()" class="px-3 py-1.5 border rounded-xl bg-emerald-50 text-emerald-800 font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <option value="2026" selected>2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Custom Date Inputs (From / To) -->
+        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <span class="text-gray-400 whitespace-nowrap">Custom:</span>
+          <input type="date" id="orderStartDate" onchange="handleCustomDateChange()" class="px-2 py-1 border rounded-lg bg-gray-50 font-semibold text-[11px]">
+          <span class="whitespace-nowrap">to</span>
+          <input type="date" id="orderEndDate" onchange="handleCustomDateChange()" class="px-2 py-1 border rounded-lg bg-gray-50 font-semibold text-[11px]">
+          <button onclick="clearDateFilter()" class="text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 whitespace-nowrap">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. ANALYTICS SUMMARY CARDS -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] sm:text-[11px] font-semibold text-gray-500">Total Orders</p>
+          <h3 id="statTotalOrders" class="text-lg sm:text-xl font-extrabold text-gray-800">0</h3>
+        </div>
+        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-box text-sm sm:text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] sm:text-[11px] font-semibold text-gray-500">Pending Orders</p>
+          <h3 id="statPendingOrders" class="text-lg sm:text-xl font-extrabold text-amber-600">0</h3>
+        </div>
+        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-clock text-sm sm:text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] sm:text-[11px] font-semibold text-gray-500">Delivered Orders</p>
+          <h3 id="statDeliveredOrders" class="text-lg sm:text-xl font-extrabold text-blue-600">0</h3>
+        </div>
+        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-truck-ramp-box text-sm sm:text-lg"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
+        <div>
+          <p class="text-[10px] sm:text-[11px] font-semibold text-gray-500">Total Sales (BDT)</p>
+          <h3 id="statTotalSales" class="text-lg sm:text-xl font-extrabold text-emerald-700">৳ 0</h3>
+        </div>
+        <div class="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center">
+          <i class="fa-solid fa-bangladeshi-taka-sign text-sm sm:text-lg"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SEARCH & STATUS FILTER TABS -->
+    <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border space-y-3">
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div class="relative w-full sm:w-72">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+          <input type="text" id="orderSearchInput" onkeyup="filterOrders()" placeholder="Customer name or mobile..." class="w-full pl-9 pr-3 py-1.5 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+        
+        <button onclick="loadAllOrders()" class="w-full sm:w-auto bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-100 shadow-sm flex items-center justify-center space-x-1">
+          <i class="fa-solid fa-rotate"></i>
+          <span>Refresh Data</span>
+        </button>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="flex overflow-x-auto space-x-2 pt-2 border-t text-xs font-bold no-scrollbar pb-1">
+        <button onclick="setFilterStatus('All')" id="btnFilterAll" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm">All (<span id="cntAll">0</span>)</button>
+        <button onclick="setFilterStatus('Pending')" id="btnFilterPending" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Pending (<span id="cntPending">0</span>)</button>
+        <button onclick="setFilterStatus('Processing')" id="btnFilterProcessing" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Processing (<span id="cntProcessing">0</span>)</button>
+        <button onclick="setFilterStatus('On the Way')" id="btnFilterOnTheWay" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">On the Way (<span id="cntOnTheWay">0</span>)</button>
+        <button onclick="setFilterStatus('Delivered')" id="btnFilterDelivered" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Delivered (<span id="cntDelivered">0</span>)</button>
+        <button onclick="setFilterStatus('Cancelled')" id="btnFilterCancelled" class="px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap">Cancelled (<span id="cntCancelled">0</span>)</button>
+      </div>
+    </div>
+
+    <!-- 3. ORDERS LIST / CONTAINER -->
+    <div id="ordersListContainer" class="space-y-3">
+      <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400">
+        <i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>
+        Loading orders...
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FIREBASE APP LOGIC (Modular SDK Direct Integration) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let allOrdersList = [];
+    let currentActiveStatus = 'All';
+    let currentPreset = 'today'; // Default to Today
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const currentMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
+      const monthSelect = document.getElementById('monthSelectDropdown');
+      if (monthSelect) monthSelect.value = currentMonthNum;
+      
+      // Set initial UI preset styles for 'Today'
+      window.setQuickPreset('today');
+      window.adminReady.then(() => loadAllOrders());
+    });
+
+    // Fetch orders from Firebase safely inside the module scope
+    window.loadAllOrders = async function() {
+      const container = document.getElementById('ordersListContainer');
+      container.innerHTML = `<div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400"><i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>Loading orders...</div>`;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "orders"));
+        allOrdersList = [];
+
+        querySnapshot.forEach((docSnap) => {
+          allOrdersList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Sort orders by newest first
+        allOrdersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        window.filterOrders();
+
+      } catch (err) {
+        console.error("Error loading orders:", err);
+        container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 border">Failed to load orders: ${err.message}</div>`;
+      }
+    };
+
+    // Set Quick Preset
+    window.setQuickPreset = function(preset) {
+      currentPreset = preset;
+      document.getElementById('orderStartDate').value = '';
+      document.getElementById('orderEndDate').value = '';
+
+      ['today', 'yesterday', 'thisMonth', 'thisYear', 'all'].forEach(p => {
+        const btn = document.getElementById('preset' + p.charAt(0).toUpperCase() + p.slice(1));
+        if (btn) {
+          if (p === preset) {
+            btn.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-emerald-600 text-white shadow-sm transition font-bold text-center";
+          } else {
+            btn.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition font-bold text-center";
+          }
+        }
+      });
+
+      const monthContainer = document.getElementById('monthDropdownContainer');
+      const yearContainer = document.getElementById('yearDropdownContainer');
+      const activeLabel = document.getElementById('activeFilterLabel');
+
+      if (preset === 'thisMonth') {
+        monthContainer.style.display = 'inline-block';
+        yearContainer.style.display = 'none';
+        activeLabel.innerText = 'Showing:';
+      } else if (preset === 'thisYear') {
+        monthContainer.style.display = 'none';
+        yearContainer.style.display = 'inline-block';
+        activeLabel.innerText = 'Showing:';
+      } else {
+        monthContainer.style.display = 'none';
+        yearContainer.style.display = 'none';
+        activeLabel.innerText = 'Showing: ' + preset.charAt(0).toUpperCase() + preset.slice(1);
+      }
+
+      window.filterOrders();
+    };
+
+    window.handleCustomDateChange = function() {
+      currentPreset = 'custom';
+      ['today', 'yesterday', 'thisMonth', 'thisYear', 'all'].forEach(p => {
+        const btn = document.getElementById('preset' + p.charAt(0).toUpperCase() + p.slice(1));
+        if (btn) btn.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition font-bold text-center";
+      });
+      document.getElementById('activeFilterLabel').innerText = 'Showing: Custom Range';
+      document.getElementById('monthDropdownContainer').style.display = 'none';
+      document.getElementById('yearDropdownContainer').style.display = 'none';
+      window.filterOrders();
+    };
+
+    window.filterOrders = function() {
+      const searchQuery = document.getElementById('orderSearchInput').value.toLowerCase().trim();
+      const selectedMonth = document.getElementById('monthSelectDropdown').value;
+      const selectedYear = document.getElementById('yearSelectDropdown').value;
+      const startDateVal = document.getElementById('orderStartDate').value;
+      const endDateVal = document.getElementById('orderEndDate').value;
+
+      const now = new Date();
+      const todayStr = now.toISOString().substring(0, 10);
+      
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(now.getDate() - 1);
+      const yesterdayStr = yesterdayDate.toISOString().substring(0, 10);
+      const currentYearStr = String(now.getFullYear());
+
+      let filteredList = allOrdersList.filter(ord => {
+        const matchSearch = (ord.userName || '').toLowerCase().includes(searchQuery) || (ord.userPhone || '').includes(searchQuery);
+        
+        let matchTime = true;
+        if (ord.createdAt) {
+          const ordDateStr = ord.createdAt.substring(0, 10);
+          const ordMonthStr = ord.createdAt.substring(5, 7);
+          const ordYearStr = ord.createdAt.substring(0, 4);
+
+          if (currentPreset === 'today') {
+            matchTime = (ordDateStr === todayStr);
+          } else if (currentPreset === 'yesterday') {
+            matchTime = (ordDateStr === yesterdayStr);
+          } else if (currentPreset === 'thisMonth') {
+            matchTime = (ordYearStr === currentYearStr && ordMonthStr === selectedMonth);
+          } else if (currentPreset === 'thisYear') {
+            matchTime = (ordYearStr === selectedYear);
+          } else if (currentPreset === 'all') {
+            matchTime = true;
+          } else if (currentPreset === 'custom') {
+            if (startDateVal && ordDateStr < startDateVal) matchTime = false;
+            if (endDateVal && ordDateStr > endDateVal) matchTime = false;
+          }
+        }
+        return matchSearch && matchTime;
+      });
+
+      updateAnalyticsAndCounts(filteredList);
+      renderOrdersList(filteredList);
+    };
+
+    window.clearDateFilter = function() {
+      document.getElementById('orderStartDate').value = '';
+      document.getElementById('orderEndDate').value = '';
+      window.setQuickPreset('today');
+    };
+
+    function updateAnalyticsAndCounts(list) {
+      let pendingCount = 0;
+      let processingCount = 0;
+      let onTheWayCount = 0;
+      let deliveredCount = 0;
+      let cancelledCount = 0;
+      let totalSales = 0;
+
+      list.forEach(ord => {
+        const st = (ord.status || 'Pending').toLowerCase();
+        if (st === 'pending') pendingCount++;
+        else if (st === 'processing') processingCount++;
+        else if (st === 'on the way') onTheWayCount++;
+        else if (st === 'delivered') {
+          deliveredCount++;
+          totalSales += Number(ord.totalAmount || 0);
+        } else if (st === 'cancelled') cancelledCount++;
+      });
+
+      document.getElementById('statTotalOrders').innerText = list.length;
+      document.getElementById('statPendingOrders').innerText = pendingCount;
+      document.getElementById('statDeliveredOrders').innerText = deliveredCount;
+      document.getElementById('statTotalSales').innerText = '৳ ' + totalSales;
+
+      document.getElementById('cntAll').innerText = list.length;
+      document.getElementById('cntPending').innerText = pendingCount;
+      document.getElementById('cntProcessing').innerText = processingCount;
+      if(document.getElementById('cntOnTheWay')) document.getElementById('cntOnTheWay').innerText = onTheWayCount;
+      document.getElementById('cntDelivered').innerText = deliveredCount;
+      document.getElementById('cntCancelled').innerText = cancelledCount;
+    }
+
+    window.setFilterStatus = function(status) {
+      currentActiveStatus = status;
+      const btnMap = {
+        'All': 'btnFilterAll',
+        'Pending': 'btnFilterPending',
+        'Processing': 'btnFilterProcessing',
+        'On the Way': 'btnFilterOnTheWay',
+        'Delivered': 'btnFilterDelivered',
+        'Cancelled': 'btnFilterCancelled'
+      };
+
+      Object.keys(btnMap).forEach(key => {
+        const btn = document.getElementById(btnMap[key]);
+        if (btn) {
+          if (key === status) {
+            btn.className = "px-3 py-1.5 rounded-xl bg-emerald-600 text-white whitespace-nowrap shadow-sm font-bold";
+          } else {
+            btn.className = "px-3 py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 whitespace-nowrap font-bold";
+          }
+        }
+      });
+
+      window.filterOrders();
+    };
+
+    function renderOrdersList(listToRender) {
+      const container = document.getElementById('ordersListContainer');
+      let filtered = listToRender.filter(ord => {
+        return (currentActiveStatus === 'All') ? true : (ord.status || 'Pending').toLowerCase() === currentActiveStatus.toLowerCase();
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400">
+            <i class="fa-solid fa-box-open text-2xl text-gray-300 mb-2 block"></i>
+            No orders found.
+          </div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(ord => {
+        const orderStatus = (ord.status || 'Pending').toLowerCase();
+        const isDelivered = orderStatus === 'delivered';
+
+        const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
+            <div>
+              <span class="text-gray-800 font-bold">${i.name}</span>
+              <span class="text-gray-500 ml-1 text-[11px]">(৳ ${i.price} each)</span>
+            </div>
+            <div class="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
+              ${!isDelivered ? `
+                <div class="flex items-center space-x-1 bg-white border rounded-lg px-2 py-0.5 shadow-sm">
+                  <span class="text-[10px] text-gray-400 font-bold">Qty:</span>
+                  <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
+                  <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700">Update</button>
+                </div>
+              ` : `<span class="text-xs font-bold text-gray-600">Qty: ${i.qty}</span>`}
+
+              <span class="font-extrabold text-emerald-700 text-xs w-16 text-right">৳ ${i.price * i.qty}</span>
+
+              ${!isDelivered ? `
+                <button onclick="removeProductFromOrder('${ord.id}', ${index})" class="text-red-500 hover:text-red-700 text-[10px] bg-red-50 px-2 py-1 rounded border border-red-200 font-bold transition">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('') : '<p class="text-gray-400 text-center py-1">No items in this order</p>';
+
+        const dateString = ord.createdAt ? new Date(ord.createdAt).toLocaleString() : 'Date not available';
+
+        let riderSectionHtml = '';
+        if (orderStatus === 'processing') {
+          riderSectionHtml = `
+            <div id="riderSection_${ord.id}" class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-2 mt-2">
+              <div class="flex justify-between items-center">
+                <p class="text-xs font-bold text-amber-800"><i class="fa-solid fa-motorcycle mr-1"></i> Select a rider for this order:</p>
+                <button onclick="loadActiveRiders('${ord.id}')" class="text-[10px] bg-amber-600 text-white px-2 py-1 rounded font-bold hover:bg-amber-700">Refresh Riders</button>
+              </div>
+              <div id="ridersDropdownContainer_${ord.id}" class="text-xs text-gray-600">
+                <button onclick="loadActiveRiders('${ord.id}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-emerald-700">
+                  <i class="fa-solid fa-list mr-1"></i> View Active Riders
+                </button>
+              </div>
+            </div>
+          `;
+        } else if (ord.assignedRiderName || ord.riderName) {
+          const rName = ord.assignedRiderName || ord.riderName;
+          const rPhone = ord.riderPhone || ord.assignedRiderPhone || '';
+          
+          const statusDisplay = isDelivered ? '✓ Delivered' : 'On the Way';
+          const badgeBg = isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800';
+
+          riderSectionHtml = `
+            <div class="bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 mt-2">
+              <span class="text-indigo-900 font-bold">
+                <i class="fa-solid fa-motorcycle mr-1 text-purple-600"></i> Rider: ${rName} ${rPhone ? `(<a href="tel:${rPhone}" class="text-blue-600 underline font-bold">${rPhone}</a>)` : ''}
+              </span>
+              <span class="text-[10px] ${badgeBg} px-2 py-0.5 rounded-full font-bold">${statusDisplay}</span>
+            </div>
+          `;
+        }
+
+        html += `
+          <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border space-y-3 transition hover:shadow-md">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-2 gap-2">
+              <div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <h4 class="font-bold text-sm text-gray-800">${ord.userName || 'Unknown Customer'}</h4>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(ord.status)}">
+                    ${ord.status || 'Pending'}
+                  </span>
+                  <span class="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">${ord.orderId || '#ORD'}</span>
+                </div>
+                <p class="text-[11px] text-gray-500 flex flex-wrap items-center gap-x-2 mt-0.5">
+                  <span><i class="fa-solid fa-phone text-emerald-600 mr-1"></i>${ord.userPhone || 'No phone'}</span>
+                  <span class="hidden sm:inline">•</span>
+                  <span><i class="fa-regular fa-clock text-gray-400 mr-1"></i>${dateString}</span>
+                </p>
+              </div>
+
+              <div class="text-left sm:text-right w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-dashed border-gray-200">
+                <span class="text-[11px] text-gray-400 block">Total Bill (inc. Delivery charge)</span>
+                <span class="text-sm font-extrabold text-emerald-700">৳ ${ord.totalAmount || 0}</span>
+              </div>
+            </div>
+
+            <div>
+              <button onclick="toggleDetails('${ord.id}')" class="w-full text-left font-bold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-xl border border-emerald-200 flex justify-between items-center transition">
+                <span><i class="fa-solid fa-list-check mr-1.5"></i> Order Details</span>
+                <i id="arrow_${ord.id}" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+              </button>
+            </div>
+
+            <div id="details_${ord.id}" class="hidden grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
+              <div class="md:col-span-2 space-y-1 border-b md:border-b-0 md:border-r border-gray-200 pr-0 md:pr-3 pb-2 md:pb-0">
+                <p class="font-bold text-gray-500 mb-1">Ordered Items:</p>
+                ${formattedItems}
+              </div>
+              <div class="space-y-1">
+                <p class="font-bold text-gray-500">Delivery Address:</p>
+                <p class="text-gray-700 font-medium">${ord.address || 'No address provided'}</p>
+                ${ord.note ? `<p class="text-[10px] text-amber-600 bg-amber-50 p-1 rounded mt-1"><strong>Note:</strong> ${ord.note}</p>` : ''}
+              </div>
+            </div>
+
+            ${riderSectionHtml}
+
+            <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-2 text-xs">
+              <div class="flex items-center space-x-2 w-full sm:w-auto">
+                ${!isDelivered ? `
+                  <label class="font-bold text-gray-500 whitespace-nowrap">Update Status:</label>
+                  <select onchange="updateOrderStatus('${ord.id}', this.value)" class="w-full sm:w-auto px-3 py-1.5 border rounded-xl bg-white font-semibold focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm">
+                    <option value="Pending" ${ord.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                    <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                    <option value="On the Way" ${ord.status === 'On the Way' ? 'selected' : ''}>On the Way</option>
+                    <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                    <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                  </select>
+                ` : ``}
+              </div>
+
+              <div class="flex items-center space-x-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                <button onclick="printInvoice('${ord.id}')" class="bg-gray-100 text-gray-700 font-bold px-3 py-1.5 rounded-xl hover:bg-gray-200 flex items-center space-x-1">
+                  <i class="fa-solid fa-print"></i>
+                  <span>Print Memo</span>
+                </button>
+                ${!isDelivered ? `
+                  <button onclick="deleteOrder('${ord.id}')" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50" title="Delete">
+                    <i class="fa-solid fa-trash text-sm"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    };
+
+    window.toggleDetails = function(orderId) {
+      const detailsBox = document.getElementById(`details_${orderId}`);
+      const arrowIcon = document.getElementById(`arrow_${orderId}`);
+      if (detailsBox) {
+        detailsBox.classList.toggle('hidden');
+        if (arrowIcon) arrowIcon.classList.toggle('rotate-180');
+      }
+    };
+
+    function getStatusBadgeClass(status) {
+      status = (status || '').toLowerCase();
+      if (status === 'delivered') return 'bg-emerald-100 text-emerald-800';
+      if (status === 'processing') return 'bg-blue-100 text-blue-800';
+      if (status === 'on the way') return 'bg-indigo-100 text-indigo-800';
+      if (status === 'cancelled') return 'bg-red-100 text-red-800';
+      return 'bg-amber-100 text-amber-800';
+    }
+
+    window.updateOrderStatus = async function(orderId, newStatus) {
+      try {
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        const ord = allOrdersList.find(o => o.id === orderId);
+        if (ord) ord.status = newStatus;
+        window.filterOrders();
+        alert("Order status updated successfully!");
+      } catch (err) {
+        alert("Update failed: " + err.message);
+      }
+    };
+
+    window.loadActiveRiders = async function(orderId) {
+      const container = document.getElementById(`ridersDropdownContainer_${orderId}`);
+      container.innerHTML = `<p class="text-[11px] text-gray-400 py-2"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading riders...</p>`;
+
+      try {
+        const querySnapshot = await getDocs(collection(db, "riders"));
+        let riders = [];
+        querySnapshot.forEach(docSnap => {
+          riders.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        if (riders.length === 0) {
+          container.innerHTML = `<p class="text-[11px] text-red-500 py-1">No riders found! <a href="delivery-riders.html" target="_blank" class="underline font-bold">Add rider</a></p>`;
+          return;
+        }
+
+        let html = `<div class="space-y-1.5 pt-1">`;
+        riders.forEach(r => {
+          html += `
+            <div class="flex justify-between items-center p-2 bg-white border rounded-lg shadow-sm">
+              <div>
+                <span class="font-bold text-gray-800">${r.name}</span> 
+                <span class="text-[10px] text-gray-500">(${r.phone} - ${r.area || 'No area'})</span>
+              </div>
+              <button onclick="assignRiderAndMoveOnTheWay('${orderId}', '${r.id}', '${r.name}', '${r.phone}')" class="bg-emerald-600 text-white px-2.5 py-1 rounded text-[11px] font-bold hover:bg-emerald-700">
+                Assign
+              </button>
+            </div>
+          `;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<p class="text-[11px] text-red-500">Loading failed: ${err.message}</p>`;
+      }
+    };
+
+    window.assignRiderAndMoveOnTheWay = async function(orderId, riderId, riderName, riderPhone) {
+      try {
+        await updateDoc(doc(db, "orders", orderId), {
+          status: 'On the Way',
+          assignedRiderId: riderId,
+          assignedRiderName: riderName,
+          riderName: riderName,
+          riderPhone: riderPhone
+        });
+
+        await updateDoc(doc(db, "riders", riderId), {
+          status: 'Busy',
+          assignedOrderId: orderId
+        });
+
+        alert(`Successfully assigned ${riderName} as rider and updated status to 'On the Way'!`);
+        window.loadAllOrders();
+      } catch (err) {
+        alert("Failed to assign rider: " + err.message);
+      }
+    };
+
+    window.updateProductQty = async function(orderId, itemIndex) {
+      const qtyInput = document.getElementById(`qty_${orderId}_${itemIndex}`);
+      const newQty = parseInt(qtyInput.value);
+
+      if (isNaN(newQty) || newQty <= 0) {
+        alert("Please enter a valid quantity (at least 1).");
+        return;
+      }
+
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if (!ord || !ord.items || !ord.items[itemIndex]) return;
+
+      ord.items[itemIndex].qty = newQty;
+      let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
+      let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), {
+          items: ord.items,
+          totalAmount: newTotalAmount
+        });
+        alert("Product quantity updated successfully!");
+        window.loadAllOrders();
+      } catch (err) {
+        alert("Failed to update quantity: " + err.message);
+      }
+    };
+
+    window.removeProductFromOrder = async function(orderId, itemIndex) {
+      if (!confirm("Are you sure you want to remove this item from the order?")) return;
+
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if (!ord || !ord.items) return;
+
+      ord.items.splice(itemIndex, 1);
+      let newSubtotal = ord.items.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.qty || 0)), 0);
+      let newTotalAmount = newSubtotal > 0 ? newSubtotal + 30 : 0;
+
+      try {
+        await updateDoc(doc(db, "orders", orderId), {
+          items: ord.items,
+          totalAmount: newTotalAmount
+        });
+        alert("Item removed successfully!");
+        window.loadAllOrders();
+      } catch (err) {
+        alert("Failed to remove item: " + err.message);
+      }
+    };
+
+    window.deleteOrder = async function(orderId) {
+      if (!confirm("Are you sure you want to delete this order?")) return;
+
+      try {
+        await deleteDoc(doc(db, "orders", orderId));
+        allOrdersList = allOrdersList.filter(o => o.id !== orderId);
+        window.filterOrders();
+        alert("Order deleted successfully!");
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    };
+
+    window.printInvoice = function(orderId) {
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if(!ord) return;
+
+      const printWindow = window.open('', '_blank');
+      const itemsTable = ord.items ? ord.items.map(i => `
+        <tr>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">${i.qty}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price * i.qty}</td>
+        </tr>
+      `).join('') : '';
+
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Invoice - ${ord.userName || 'Order'}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+              .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
+              .details { margin: 15px 0; font-size: 13px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+              th { background: #f3f4f6; padding: 6px; text-align: left; border-bottom: 1px solid #ddd; }
+              .total { text-align: right; font-weight: bold; font-size: 15px; margin-top: 15px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>Laland Express / Good Mart Enterprise</h2>
+              <p style="font-size: 11px;">Kamarpara, Rangpur | Customer Support Memo</p>
+              <p style="font-size: 12px; color: #047857;"><strong>Order ID:</strong> ${ord.orderId || '#ORD'}</p>
+            </div>
+            <div class="details">
+              <p><strong>Customer Name:</strong> ${ord.userName || 'N/A'}</p>
+              <p><strong>Mobile:</strong> ${ord.userPhone || 'N/A'}</p>
+              <p><strong>Address:</strong> ${ord.address || 'N/A'}</p>
+              <p><strong>Date:</strong> ${ord.createdAt ? new Date(ord.createdAt).toLocaleDateString() : ''}</p>
+              ${(ord.assignedRiderName || ord.riderName) ? `<p><strong>Assigned Rider:</strong> ${ord.assignedRiderName || ord.riderName}</p>` : ''}
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th style="text-align: center;">Qty</th>
+                  <th style="text-align: right;">Price</th>
+                  <th style="text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsTable}
+              </tbody>
+            </table>
+            <div style="margin-top: 15px; font-size: 13px; text-align: right;">
+              <p>Subtotal: ৳ ${(ord.totalAmount || 30) - 30}</p>
+              <p>Delivery Charge: ৳ 30</p>
+            </div>
+            <div class="total">
+              Grand Total: ৳ ${ord.totalAmount || 0}
+            </div>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
+    };
+  </script>
+</body>
+</html>
