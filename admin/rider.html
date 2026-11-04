@@ -32,12 +32,13 @@ small{color:#6b7280}
 <div id="rlist"></div></section>
 
 <section id="admin" hidden>
-<div class="t"><button id="at-o" class="on" onclick="aTab('o')">অর্ডার</button><button id="at-r" onclick="aTab('r')">রাইডার</button></div>
+<div class="t"><button id="at-o" class="on" onclick="aTab('o')">অর্ডার</button><button id="at-r" onclick="aTab('r')">রাইডার</button><button id="at-s" onclick="aTab('s')">ক্যাশ জমা<span id="pc"></span></button></div>
 <div id="aOrders"><select id="of" onchange="renderA()"><option value="un">অ্যাসাইন হয়নি</option><option value="of">অফার পাঠানো</option><option value="ac">চলমান</option><option value="dn">সম্পন্ন/বাতিল</option><option value="all">সব</option></select><div id="olist"></div></div>
+<div id="aStl" hidden><b>অপেক্ষমাণ অনুরোধ</b><div id="stP"></div><div class="c"><b>হিস্ট্রি</b><div class="row"><input id="hm" type="month" onchange="renderS()"><select id="hs" onchange="renderS()"><option value="ALL">সব</option><option value="Approved">অনুমোদিত</option><option value="Rejected">বাতিল</option></select></div><input id="hq" placeholder="রাইডারের নাম/নম্বর" oninput="renderS()"><button class="g" onclick="expS()">এক্সেল (CSV)</button></div><div id="stH"></div></div>
 <div id="aRiders" hidden>
 <div class="c"><b>নতুন রাইডার</b><input id="rn" placeholder="নাম"><input id="rp" placeholder="মোবাইল (01XXXXXXXXX)"><input id="rw" type="password" placeholder="পাসওয়ার্ড (৬+)"><input id="ra" placeholder="এলাকা"><input id="rv" placeholder="বাহন (বাইক/সাইকেল)">
 <div class="row"><input id="rs" type="number" placeholder="বেতন"><input id="rc" type="number" placeholder="কমিশন/ডেলিভারি" value="30"></div><button onclick="addRider()">রাইডার তৈরি করুন</button></div>
-<div id="rlistA"></div><small>ক্যাশ জমা অনুমোদন: delivery-riders.html</small></div></section>
+<div id="rlistA"></div></div></section>
 </main>
 
 <div id="offer" class="m" hidden><div><div class="ph">📞</div><h2>নতুন ডেলিভারি অফার</h2><div id="offT"></div><h1 id="cd">60</h1>
@@ -48,12 +49,12 @@ small{color:#6b7280}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import {getFirestore,collection,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,onSnapshot,query,where,increment} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import {getFirestore,collection,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,onSnapshot,query,where,increment,runTransaction,writeBatch} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 const cfg={apiKey:"AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",authDomain:"laland-express.firebaseapp.com",projectId:"laland-express",storageBucket:"laland-express.firebasestorage.app",messagingSenderId:"315462688826",appId:"1:315462688826:web:a6b033e1ce664071201503"};
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FIN=['Delivered','Completed','Cancelled'];
-let me,orders=[],riders=[],stls=[],unsub=[],rt='act',offerId,cdT,ringT,ctx,payId;
+let me,orders=[],riders=[],stls=[],allS=[],busyF=0,unsub=[],rt='act',offerId,cdT,ringT,ctx,payId;
 const iso=()=>new Date().toISOString();
 
 // ---- sound/vibration
@@ -69,7 +70,7 @@ onAuthStateChanged(auth,async u=>{
 unsub.forEach(f=>f());unsub=[];hideOffer();['login','rider','admin'].forEach(i=>$(i).hidden=true);$('hd').hidden=!u;
 if(!u){$('login').hidden=false;return}
 try{if((await getDoc(doc(db,'admins',u.uid))).exists())startAdmin();
-else{const s=await getDoc(doc(db,'riders',u.uid));if(!s.exists())throw 0;me={id:s.id,...s.data()};startRider()}}
+else{const s=await getDoc(doc(db,'riders',u.uid));if(!s.exists())throw 0;me={id:s.id,...s.data()};if(me.status=='Inactive')throw 0;startRider()}}
 catch(x){alert('এই অ্যাকাউন্টের অনুমতি নেই');signOut(auth)}});
 const snap=(q,f)=>unsub.push(onSnapshot(q,f,e=>console.error(e)));
 const list=s=>s.docs.map(d=>({id:d.id,...d.data()}));
@@ -99,40 +100,59 @@ window.respond=async ok=>{const id=offerId;hideOffer();if(!id)return;
 try{await updateDoc(doc(db,'orders',id),ok?{status:'Out for Delivery',acceptedAt:iso()}:{status:'Pending',riderPhone:'',riderId:'',riderName:'',offeredAt:''})}catch(e){alert(e.message)}};
 
 window.openPay=id=>{payId=id;$('payAmt').textContent='৳'+orders.find(o=>o.id==id).totalAmount;$('pay').hidden=false};
-window.donePay=async()=>{const o=orders.find(x=>x.id==payId),m=$('pm').value,amt=Number(o.totalAmount||0),com=Number(me.deliveryCommission||30);
-try{await updateDoc(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso()})}catch(e){return alert('ধাপ ১ ব্যর্থ (অর্ডার আপডেট): '+e.message)}
-try{await updateDoc(doc(db,'riders',me.id),{...(m=='Cash'?{cashBalance:increment(amt)}:{}),earningsBalance:increment(com)})}catch(e){$('pay').hidden=true;return alert('ধাপ ২ ব্যর্থ (ওয়ালেট আপডেট): অর্ডার Delivered হয়েছে কিন্তু ক্যাশ/আয় যোগ হয়নি। '+e.message)}
-$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন! কমিশন ৳'+com)};
+window.donePay=async()=>{if(busyF)return;const o=orders.find(x=>x.id==payId);if(!o||o.status=='Delivered')return;const m=$('pm').value,amt=Number(o.totalAmount||0),com=Number(me.deliveryCommission||30);busyF=1;
+try{const b=writeBatch(db);b.update(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso()});b.update(doc(db,'riders',me.id),{...(m=='Cash'?{cashBalance:increment(amt)}:{}),earningsBalance:increment(com)});await b.commit();$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন! কমিশন ৳'+com)}catch(e){alert('ব্যর্থ: '+e.message)}busyF=0};
 
 window.openStl=()=>{const c=Number(me.cashBalance||0);$('sa').value=c>0?c:'';$('stl').hidden=false};
 window.sendStl=async()=>{const a=Number($('sa').value),c=Number(me.cashBalance||0);
 if(!a||a<=0||a>c)return alert('সঠিক পরিমাণ দিন (সর্বোচ্চ ৳'+c+')');
 if(stls.some(s=>s.status=='Pending'))return alert('আগের অনুরোধ এখনো অপেক্ষায় আছে');
+if(busyF)return;busyF=1;setTimeout(()=>busyF=0,3000);
 try{await addDoc(collection(db,'cash_settlements'),{riderId:me.id,riderName:me.name,riderPhone:me.phone,amount:a,method:$('sm').value,trxRef:$('sr').value.trim(),status:'Pending',createdAt:iso()});$('stl').hidden=true;alert('অনুরোধ পাঠানো হয়েছে')}catch(e){alert(e.message)}};
 
 // ================= ADMIN =================
 function startAdmin(){$('admin').hidden=false;$('who').textContent='👑 অ্যাডমিন';
 snap(collection(db,'orders'),s=>{orders=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderA()});
-snap(collection(db,'riders'),s=>{riders=list(s);renderA()})}
-window.aTab=t=>{$('aOrders').hidden=t!='o';$('aRiders').hidden=t!='r';$('at-o').className=t=='o'?'on':'';$('at-r').className=t=='r'?'on':''};
+snap(collection(db,'riders'),s=>{riders=list(s);renderA()});
+snap(collection(db,'cash_settlements'),s=>{allS=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderS()})}
+window.aTab=t=>{['o','r','s'].forEach(x=>{$({o:'aOrders',r:'aRiders',s:'aStl'}[x]).hidden=x!=t;$('at-'+x).className=x==t?'on':''})};
 const busy=r=>orders.filter(o=>o.riderPhone==r.phone&&!FIN.includes(o.status)).length;
-window.renderA=()=>{const f=$('of').value;
+window.renderA=()=>{const f=$('of').value,keep={};document.querySelectorAll('#olist select').forEach(x=>keep[x.id]=x.value);
 const l=orders.filter(o=>f=='all'||(f=='un'&&!o.riderPhone&&!FIN.includes(o.status))||(f=='of'&&o.status=='Offered')||(f=='ac'&&o.riderPhone&&o.status!='Offered'&&!FIN.includes(o.status))||(f=='dn'&&FIN.includes(o.status))).slice(0,60);
 $('olist').innerHTML=l.map(o=>`<div class="c"><div class="sp"><b>${E(o.orderId||o.id)}</b><span class="b">${E(o.status)}</span></div>
 <div>👤 ${E(o.userName)} · ${E(o.userPhone)}</div><div>📍 ${E(o.address)}</div><div class="sp"><b>৳${o.totalAmount||0}</b><small>${o.riderName?'🏍 '+E(o.riderName):''}</small></div>
-${FIN.includes(o.status)?'':`<div class="row"><select id="s_${o.id}">${riders.map(r=>`<option value="${r.id}" ${r.id==o.riderId?'selected':''}>${E(r.name)} (${busy(r)?'ব্যস্ত '+busy(r):'ফ্রি'})</option>`).join('')}</select><button style="flex:0 0 90px" onclick="assign('${o.id}')">অ্যাসাইন</button></div>`}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
-$('rlistA').innerHTML=riders.map(r=>`<div class="c"><div class="sp"><b>${E(r.name)}</b><span class="b">${busy(r)?'ব্যস্ত ('+busy(r)+')':'ফ্রি'}</span></div>
+${FIN.includes(o.status)?'':`<div class="row"><select id="s_${o.id}">${riders.filter(r=>r.status!='Inactive').map(r=>`<option value="${r.id}" ${r.id==o.riderId?'selected':''}>${E(r.name)} (${busy(r)?'ব্যস্ত '+busy(r):'ফ্রি'})</option>`).join('')}</select><button style="flex:0 0 90px" onclick="assign('${o.id}')">অ্যাসাইন</button></div>`}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
+Object.entries(keep).forEach(([k,v])=>{const e=$(k);if(e)e.value=v});
+$('rlistA').innerHTML=riders.map(r=>`<div class="c"><div class="sp"><b>${E(r.name)}</b><span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':busy(r)?'ব্যস্ত ('+busy(r)+')':'ফ্রি'}</span></div>
 <small>${E(r.phone)} · ${E(r.area)} · ${E(r.vehicle)}</small><div>ক্যাশ বাকি ৳${r.cashBalance||0} · আয় ৳${r.earningsBalance||0}</div><small>বেতন ৳${r.fixedSalary||0} · কমিশন ৳${r.deliveryCommission||0}</small>
-<div class="row"><button class="s" onclick="editR('${r.id}')">এডিট</button><button class="r" onclick="delR('${r.id}')">মুছুন</button></div></div>`).join('')};
+<div class="row"><button class="s" onclick="editR('${r.id}')">এডিট</button><button class="${r.status=='Inactive'?'g':'r'}" onclick="toggleR('${r.id}')">${r.status=='Inactive'?'সক্রিয় করুন':'নিষ্ক্রিয় করুন'}</button></div></div>`).join('')};
 window.assign=async id=>{const r=riders.find(x=>x.id==$('s_'+id).value);if(!r)return;
 try{await updateDoc(doc(db,'orders',id),{status:'Offered',riderId:r.id,riderPhone:r.phone,riderName:r.name,offeredAt:iso()})}catch(e){alert(e.message)}};
-window.addRider=async()=>{const n=$('rn').value.trim(),p=$('rp').value.replace(/\D/g,''),w=$('rw').value;
-if(!n||p.length<10||w.length<6)return alert('নাম, সঠিক নম্বর ও ৬+ পাসওয়ার্ড দিন');
+window.addRider=async()=>{const n=$('rn').value.trim(),w=$('rw').value;let p=$('rp').value.replace(/\D/g,'');if(p.startsWith('880'))p=p.slice(2);if(p.length==10&&p[0]=='1')p='0'+p;
+if(!n||!/^01[3-9]\d{8}$/.test(p)||w.length<6)return alert('নাম, সঠিক নম্বর (01XXXXXXXXX) ও ৬+ পাসওয়ার্ড দিন');
+if(riders.some(r=>r.phone==p))return alert('এই নম্বরে রাইডার আছে');
 const sa=getAuth(initializeApp(cfg,'sec'+Date.now())),em=p+'@lalandrider.com';
 try{const u=await createUserWithEmailAndPassword(sa,em,w);
 await setDoc(doc(db,'riders',u.user.uid),{uid:u.user.uid,name:n,phone:p,email:em,area:$('ra').value.trim(),vehicle:$('rv').value.trim(),fixedSalary:Number($('rs').value)||0,deliveryCommission:Number($('rc').value)||30,cashBalance:0,earningsBalance:0,status:'Active',createdAt:iso()});
 await signOut(sa);['rn','rp','rw','ra','rv','rs'].forEach(i=>$(i).value='');alert('রাইডার তৈরি হয়েছে')}catch(e){alert(e.message)}};
 window.editR=async id=>{const r=riders.find(x=>x.id==id),c=prompt('কমিশন/ডেলিভারি',r.deliveryCommission),s=prompt('মাসিক বেতন',r.fixedSalary);
 if(c===null||s===null)return;try{await updateDoc(doc(db,'riders',id),{deliveryCommission:Number(c)||0,fixedSalary:Number(s)||0})}catch(e){alert(e.message)}};
-window.delR=async id=>{if(confirm('রাইডার মুছবেন? (Authentication থেকে আলাদা মুছতে হবে)'))try{await deleteDoc(doc(db,'riders',id))}catch(e){alert(e.message)}};
+window.toggleR=async id=>{const r=riders.find(x=>x.id==id),n=r.status=='Inactive'?'Active':'Inactive';if(confirm((n=='Inactive'?'নিষ্ক্রিয়':'সক্রিয়')+' করবেন? '+r.name))try{await updateDoc(doc(db,'riders',id),{status:n})}catch(e){alert(e.message)}};
+
+// ---- ক্যাশ জমা (অ্যাডমিন)
+const fmtD=d=>d?new Date(d).toLocaleString():'';
+const hist=()=>{const m=$('hm').value,st=$('hs').value,q=$('hq').value.trim().toLowerCase();return allS.filter(s=>s.status!='Pending'&&(!m||(s.createdAt||'').startsWith(m))&&(st=='ALL'||s.status==st)&&(!q||((s.riderName||'')+(s.riderPhone||'')).toLowerCase().includes(q)))};
+window.renderS=()=>{const P=allS.filter(s=>s.status=='Pending');$('pc').textContent=P.length?' ('+P.length+')':'';
+$('stP').innerHTML=P.map(s=>`<div class="c"><div class="sp"><b>${E(s.riderName)}</b><span class="b">${E(s.method)}</span></div><small>${E(s.riderPhone)} · ${E(s.trxRef)||'N/A'} · ${fmtD(s.createdAt)}</small><div><b>৳${Number(s.amount)||0}</b></div><div class="row"><button class="g" onclick="apvS('${s.id}')">অনুমোদন</button><button class="r" onclick="rejS('${s.id}')">বাতিল</button></div></div>`).join('')||'<small>কোনো অপেক্ষমাণ অনুরোধ নেই</small>';
+$('stH').innerHTML=hist().map(s=>`<div class="c sp"><span><b>${E(s.riderName)}</b> <small>${E(s.method)} · ${E(s.trxRef)} · ${fmtD(s.approvedAt||s.rejectedAt||s.createdAt)}</small></span><span><b>৳${Number(s.amount)||0}</b> <span class="b">${s.status=='Approved'?'অনুমোদিত':'বাতিল'}</span></span></div>`).join('')||'<small>কিছু নেই</small>'};
+window.apvS=async id=>{if(!confirm('অনুমোদন করবেন? রাইডারের ক্যাশ বাকি থেকে টাকা কাটা হবে।'))return;
+try{await runTransaction(db,async tx=>{const sr=doc(db,'cash_settlements',id),s=await tx.get(sr);if(!s.exists()||s.data().status!='Pending')throw new Error('এটি আর অপেক্ষমাণ নেই');
+const rr=doc(db,'riders',s.data().riderId),r=await tx.get(rr),a=Number(s.data().amount),c=Number((r.data()||{}).cashBalance||0);
+if(!(a>0)||a>c)throw new Error('রাইডারের ক্যাশ বাকি ৳'+c+', অনুরোধ ৳'+a);
+tx.update(sr,{status:'Approved',approvedAt:iso()});tx.update(rr,{cashBalance:c-a})});alert('অনুমোদিত')}catch(e){alert(e.message)}};
+window.rejS=async id=>{if(!confirm('বাতিল করবেন?'))return;try{await runTransaction(db,async tx=>{const sr=doc(db,'cash_settlements',id),s=await tx.get(sr);if(!s.exists()||s.data().status!='Pending')throw new Error('এটি আর অপেক্ষমাণ নেই');tx.update(sr,{status:'Rejected',rejectedAt:iso()})})}catch(e){alert(e.message)}};
+window.expS=()=>{const l=hist();if(!l.length)return alert('ডেটা নেই');
+const q=v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
+const csv='\uFEFFID,Rider,Phone,Amount,Method,Note,Status,Date\r\n'+l.map(s=>[s.id,s.riderName,s.riderPhone,s.amount,s.method,s.trxRef,s.status,s.createdAt].map(q).join(',')).join('\r\n');
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='settlements.csv';a.click()};
 </script></body></html>
