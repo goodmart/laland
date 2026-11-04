@@ -1703,55 +1703,39 @@
         } finally { submitBtn.disabled = false; }
       });
 
-      // 2. LOGIN HANDLER (সংশোধিত ও ফিক্সড ভার্সন)
+      // 2. LOGIN HANDLER (error code সহ)
       document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const submitBtn = e.target.querySelector('button[type="submit"]');
-        const rawPhoneInput = document.getElementById('loginPhone').value.trim();
+        const raw = document.getElementById('loginPhone').value.trim();
         const password = document.getElementById('loginPassword').value;
 
-        // ইউজার যেভাবে বা যে ফরম্যাটেই নম্বর বা ইমেল দিক না কেন, সবগুলো সম্ভাব্য ফরম্যাট এক সাথে চেক করবে
-        let cleanDigits = rawPhoneInput.replace(/[^0-9]/g, '');
-        let trimmedPhone = cleanDigits;
-        if (cleanDigits.startsWith('880')) {
-          trimmedPhone = cleanDigits.slice(2);
-        } else if (cleanDigits.length === 10 && cleanDigits.startsWith('1')) {
-          trimmedPhone = '0' + cleanDigits;
-        }
-
-        const possibleEmails = [
-          rawPhoneInput.includes('@') ? rawPhoneInput : null,
-          trimmedPhone ? `${trimmedPhone}@lalandexpress.com` : null,
-          cleanDigits ? `${cleanDigits}@lalandexpress.com` : null,
-          `88${trimmedPhone}@lalandexpress.com`,
-          `0${trimmedPhone}@lalandexpress.com`
-        ].filter(Boolean);
-
-        const uniqueEmails = [...new Set(possibleEmails)];
+        const phone = normPhone(raw);
+        const email = raw.includes('@') ? raw : (phone ? `${phone}@lalandexpress.com` : '');
+        if (!email) { alert("সঠিক মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।"); return; }
 
         submitBtn.disabled = true;
-        let loginSuccess = false;
-        let lastError = null;
-
-        for (const em of uniqueEmails) {
-          try {
-            await signInWithEmailAndPassword(auth, em, password);
-            loginSuccess = true;
-            break;
-          } catch (err) {
-            lastError = err;
-          }
-        }
-
-        submitBtn.disabled = false;
-
-        if (loginSuccess) {
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
           alert("Login successful!");
           document.getElementById('loginPhone').value = '';
           document.getElementById('loginPassword').value = '';
-        } else {
-          alert("Login failed! Please check your credentials or password.");
-        }
+        } catch (err) {
+          console.error('Login error:', err.code, err.message);
+          const msgs = {
+            'auth/invalid-credential': 'নম্বর বা পাসওয়ার্ড ভুল।',
+            'auth/invalid-login-credentials': 'নম্বর বা পাসওয়ার্ড ভুল।',
+            'auth/user-not-found': 'এই নম্বরে অ্যাকাউন্ট নেই। Register করুন।',
+            'auth/wrong-password': 'পাসওয়ার্ড ভুল।',
+            'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।',
+            'auth/network-request-failed': 'ইন্টারনেট সংযোগ চেক করুন।',
+            'auth/unauthorized-domain': 'এই ডোমেইন Firebase-এ authorize করা নেই।',
+            'auth/operation-not-allowed': 'Email/Password sign-in চালু নেই।',
+            'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'API Key সঠিক নয়।',
+            'auth/requests-from-referer-' : ''
+          };
+          alert(msgs[err.code] || ('Login failed: ' + (err.code || err.message)));
+        } finally { submitBtn.disabled = false; }
       });
 
       // LOGOUT HANDLER
