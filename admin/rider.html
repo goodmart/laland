@@ -100,9 +100,9 @@ try{await updateDoc(doc(db,'orders',id),ok?{status:'Out for Delivery',acceptedAt
 
 window.openPay=id=>{payId=id;$('payAmt').textContent='৳'+orders.find(o=>o.id==id).totalAmount;$('pay').hidden=false};
 window.donePay=async()=>{const o=orders.find(x=>x.id==payId),m=$('pm').value,amt=Number(o.totalAmount||0),com=Number(me.deliveryCommission||30);
-try{await updateDoc(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso()});
-await updateDoc(doc(db,'riders',me.id),{...(m=='Cash'?{cashBalance:increment(amt)}:{}),earningsBalance:increment(com)});
-$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন! কমিশন ৳'+com)}catch(e){alert(e.message)}};
+try{await updateDoc(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso()})}catch(e){return alert('ধাপ ১ ব্যর্থ (অর্ডার আপডেট): '+e.message)}
+try{await updateDoc(doc(db,'riders',me.id),{...(m=='Cash'?{cashBalance:increment(amt)}:{}),earningsBalance:increment(com)})}catch(e){$('pay').hidden=true;return alert('ধাপ ২ ব্যর্থ (ওয়ালেট আপডেট): অর্ডার Delivered হয়েছে কিন্তু ক্যাশ/আয় যোগ হয়নি। '+e.message)}
+$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন! কমিশন ৳'+com)};
 
 window.openStl=()=>{const c=Number(me.cashBalance||0);$('sa').value=c>0?c:'';$('stl').hidden=false};
 window.sendStl=async()=>{const a=Number($('sa').value),c=Number(me.cashBalance||0);
