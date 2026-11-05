@@ -33,7 +33,7 @@ small{color:#6b7280}
 
 <section id="admin" hidden>
 <div class="t"><button id="at-o" class="on" onclick="aTab('o')">অর্ডার</button><button id="at-r" onclick="aTab('r')">রাইডার</button><button id="at-s" onclick="aTab('s')">ক্যাশ জমা<span id="pc"></span></button></div>
-<div id="aOrders"><select id="of" onchange="renderA()"><option value="un">অ্যাসাইন হয়নি</option><option value="of">অফার পাঠানো</option><option value="ac">চলমান</option><option value="dn">সম্পন্ন/বাতিল</option><option value="all">সব</option></select><div id="olist"></div></div>
+<div id="aOrders"><select id="of" onchange="renderA()"><option value="un">অ্যাসাইন হয়নি</option><option value="of">অফার পাঠানো</option><option value="ac">চলমান</option><option value="dn">সম্পন্ন</option><option value="cx">বাতিল</option><option value="all">সব</option></select><div id="olist"></div></div>
 <div id="aStl" hidden><b>অপেক্ষমাণ অনুরোধ</b><div id="stP"></div><div class="c"><b>হিস্ট্রি</b><div class="row"><input id="hm" type="month" onchange="renderS()"><select id="hs" onchange="renderS()"><option value="ALL">সব</option><option value="Approved">অনুমোদিত</option><option value="Rejected">বাতিল</option></select></div><input id="hq" placeholder="রাইডারের নাম/নম্বর" oninput="renderS()"><button class="g" onclick="expS()">এক্সেল (CSV)</button></div><div id="stH"></div></div>
 <div id="aRiders" hidden>
 <div class="c"><b>নতুন রাইডার</b><input id="rn" placeholder="নাম"><input id="rp" placeholder="মোবাইল (01XXXXXXXXX)"><input id="rw" type="password" placeholder="পাসওয়ার্ড (৬+)"><input id="ra" placeholder="এলাকা"><input id="rv" placeholder="বাহন (বাইক/সাইকেল)">
@@ -118,10 +118,11 @@ snap(collection(db,'cash_settlements'),s=>{allS=list(s).sort((a,b)=>(b.createdAt
 window.aTab=t=>{['o','r','s'].forEach(x=>{$({o:'aOrders',r:'aRiders',s:'aStl'}[x]).hidden=x!=t;$('at-'+x).className=x==t?'on':''})};
 const busy=r=>orders.filter(o=>o.riderPhone==r.phone&&!FIN.includes(o.status)).length;
 window.renderA=()=>{const f=$('of').value,keep={};document.querySelectorAll('#olist select').forEach(x=>keep[x.id]=x.value);
-const l=orders.filter(o=>f=='all'||(f=='un'&&!o.riderPhone&&!FIN.includes(o.status))||(f=='of'&&o.status=='Offered')||(f=='ac'&&o.riderPhone&&o.status!='Offered'&&!FIN.includes(o.status))||(f=='dn'&&FIN.includes(o.status))).slice(0,60);
+const l=orders.filter(o=>f=='all'||(f=='un'&&!o.riderPhone&&!FIN.includes(o.status))||(f=='of'&&o.status=='Offered')||(f=='ac'&&o.riderPhone&&o.status!='Offered'&&!FIN.includes(o.status))||(f=='dn'&&['Delivered','Completed'].includes(o.status))||(f=='cx'&&o.status=='Cancelled')).slice(0,60);
 $('olist').innerHTML=l.map(o=>`<div class="c"><div class="sp"><b>${E(o.orderId||o.id)}</b><span class="b">${E(o.status)}</span></div>
 <div>👤 ${E(o.userName)} · ${E(o.userPhone)}</div><div>📍 ${E(o.address)}</div><div class="sp"><b>৳${o.totalAmount||0}</b><small>${o.riderName?'🏍 '+E(o.riderName):''}</small></div>
-${FIN.includes(o.status)?'':`<div class="row"><select id="s_${o.id}">${riders.filter(r=>r.status!='Inactive').map(r=>`<option value="${r.id}" ${r.id==o.riderId?'selected':''}>${E(r.name)} (${busy(r)?'ব্যস্ত '+busy(r):'ফ্রি'})</option>`).join('')}</select><button style="flex:0 0 90px" onclick="assign('${o.id}')">অ্যাসাইন</button></div>`}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
+${detailsHtml(o)}
+${FIN.includes(o.status)?'':`<div class="row"><select id="s_${o.id}">${riders.filter(r=>r.status!='Inactive').map(r=>`<option value="${r.id}" ${r.id==o.riderId?'selected':''}>${E(r.name)} (${busy(r)?'ব্যস্ত '+busy(r):'ফ্রি'})</option>`).join('')}</select><button style="flex:0 0 90px" onclick="assign('${o.id}')">অ্যাসাইন</button><button class="r" style="flex:0 0 70px" onclick="cancelO('${o.id}')">বাতিল</button></div>`}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
 Object.entries(keep).forEach(([k,v])=>{const e=$(k);if(e)e.value=v});
 $('rlistA').innerHTML=riders.map(r=>`<div class="c"><div class="sp"><b>${E(r.name)}</b><span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':busy(r)?'ব্যস্ত ('+busy(r)+')':'ফ্রি'}</span></div>
 <small>${E(r.phone)} · ${E(r.area)} · ${E(r.vehicle)}</small><div>ক্যাশ বাকি ৳${r.cashBalance||0} · আয় ৳${r.earningsBalance||0}</div><small>বেতন ৳${r.fixedSalary||0} · কমিশন ৳${r.deliveryCommission||0}</small>
@@ -155,4 +156,33 @@ window.expS=()=>{const l=hist();if(!l.length)return alert('ডেটা নে�
 const q=v=>{v=String(v??'');if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
 const csv='\uFEFFID,Rider,Phone,Amount,Method,Note,Status,Date\r\n'+l.map(s=>[s.id,s.riderName,s.riderPhone,s.amount,s.method,s.trxRef,s.status,s.createdAt].map(q).join(',')).join('\r\n');
 const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='settlements.csv';a.click()};
+
+// ---- অর্ডার বিস্তারিত ও মেমো প্রিন্ট (অ্যাডমিন)
+const N=v=>Number(v)||0,openD=new Set(),tk=v=>'৳'+(Math.round(N(v)*100)/100);
+function calc(o){const it=o.items||[],sub=N(o.subtotal)||it.reduce((s,i)=>s+N(i.price)*N(i.qty),0),rows=[['পণ্যের মোট',sub]];let t=sub;
+const sav=it.reduce((s,i)=>s+(N(i.mrp)>N(i.price)?(N(i.mrp)-N(i.price))*N(i.qty):0),0);
+const ds=Array.isArray(o.discounts)&&o.discounts.length?o.discounts:(N(o.discount)>0?[{label:'কুপন',code:o.couponCode,amount:o.discount}]:[]);
+ds.forEach(d=>{rows.push([(d.label||'ছাড়')+(d.code?' ('+d.code+')':''),-N(d.amount)]);t-=N(d.amount)});
+const dc=o.deliveryCharge==null?30:N(o.deliveryCharge);rows.push(['ডেলিভারি চার্জ',dc,dc?0:'ফ্রি']);t+=dc;
+if(N(o.vat)){rows.push(['ভ্যাট',N(o.vat)]);t+=N(o.vat)}
+['walletUsed','pointsUsed'].forEach(k=>{if(N(o[k])){rows.push([k=='walletUsed'?'ওয়ালেট থেকে':'পয়েন্ট থেকে',-N(o[k])]);t-=N(o[k])}});
+return{rows,sav,calc:t,stored:N(o.totalAmount)}}
+const rowH=r=>`<div class="sp"><span>${E(r[0])}</span><b>${r[2]||(r[1]<0?'−':'')+tk(Math.abs(r[1]))}</b></div>`;
+function detailsHtml(o){const c=calc(o),it=o.items||[];
+return `<details ${openD.has(o.id)?'open':''} ontoggle="tg('${o.id}',this.open)"><summary style="cursor:pointer;color:#6d28d9;font-weight:700;padding:6px 0">📦 পণ্যের বিস্তারিত (${it.length}টি)</summary>
+${it.map(i=>`<div class="sp" style="border-bottom:1px dashed #e5e7eb;padding:3px 0"><span>${E(i.name)}<br><small>${tk(i.price)} × ${N(i.qty)}</small></span><b>${tk(N(i.price)*N(i.qty))}</b></div>`).join('')||'<small>কোনো পণ্য নেই</small>'}
+<div style="margin-top:6px">${c.rows.map(rowH).join('')}<div class="sp" style="border-top:1px solid #d1d5db;margin-top:4px;padding-top:4px"><b>সর্বমোট</b><b>${tk(c.stored)}</b></div></div>
+${c.sav?`<small>🎉 পণ্যে সাশ্রয়: ${tk(c.sav)}</small><br>`:''}${Math.abs(c.calc-c.stored)>.5?`<small style="color:#dc2626">⚠ হিসাব মেলেনি (গণনা ${tk(c.calc)}, সেভ করা ${tk(c.stored)})</small><br>`:''}
+${o.note?`<small>📝 ${E(o.note)}</small><br>`:''}<button class="s" onclick="printMemo('${o.id}')">🖨 মেমো প্রিন্ট</button></details>`}
+window.tg=(id,v)=>{v?openD.add(id):openD.delete(id)};
+window.cancelO=async id=>{if(confirm('অর্ডার বাতিল করবেন?'))try{await updateDoc(doc(db,'orders',id),{status:'Cancelled',cancelledAt:iso()})}catch(e){alert(e.message)}};
+window.printMemo=id=>{const o=orders.find(x=>x.id==id);if(!o)return;const c=calc(o),it=o.items||[],w=window.open('','_blank');if(!w)return alert('পপআপ ব্লক করা আছে, অনুমতি দিন');
+w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${E(o.orderId||o.id)}</title><style>@page{size:80mm auto;margin:4mm}body{font:12px Arial,sans-serif;width:72mm;margin:0 auto;color:#000}h3,p{margin:2px 0;text-align:center}table{width:100%;border-collapse:collapse;margin:6px 0}td,th{padding:3px 0;border-bottom:1px dashed #999;text-align:left;vertical-align:top}.r{text-align:right}.s{display:flex;justify-content:space-between}.b{border-top:2px solid #000;margin-top:4px;padding-top:4px;font-weight:700;font-size:14px}.n{border:1px solid #000;padding:4px;margin-top:6px;text-align:center;font-weight:700}@media print{button{display:none}}</style></head><body>
+<h3>Laland Express</h3><p>ডেলিভারি মেমো</p><p><b>${E(o.orderId||o.id)}</b></p><p>${o.createdAt?E(new Date(o.createdAt).toLocaleString()):''}</p><hr>
+<p style="text-align:left"><b>গ্রাহক:</b> ${E(o.userName)}<br><b>মোবাইল:</b> ${E(o.userPhone)}<br><b>ঠিকানা:</b> ${E(o.address)}${o.note?'<br><b>নোট:</b> '+E(o.note):''}${o.riderName?'<br><b>রাইডার:</b> '+E(o.riderName):''}</p>
+<table><tr><th>পণ্য</th><th class="r">পরিমাণ</th><th class="r">টাকা</th></tr>${it.map(i=>`<tr><td>${E(i.name)}<br>${tk(i.price)}</td><td class="r">${N(i.qty)}</td><td class="r">${tk(N(i.price)*N(i.qty))}</td></tr>`).join('')}</table>
+${c.rows.map(r=>`<div class="s"><span>${E(r[0])}</span><span>${r[2]||(r[1]<0?'−':'')+tk(Math.abs(r[1]))}</span></div>`).join('')}
+<div class="s b"><span>সর্বমোট</span><span>${tk(c.stored)}</span></div><div class="n">গ্রাহকের কাছ থেকে নিতে হবে: ${tk(c.stored)}</div>
+<p style="margin-top:8px">☐ পণ্য বুঝে নিয়েছি (রাইডারের স্বাক্ষর): ________</p><p>ধন্যবাদ!</p><button onclick="print()" style="width:100%;padding:10px;margin-top:8px">🖨 প্রিন্ট</button></body></html>`);
+w.document.close();setTimeout(()=>w.print(),400)};
 </script></body></html>
