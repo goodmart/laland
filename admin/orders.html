@@ -498,7 +498,7 @@
           const rName = ord.assignedRiderName || ord.riderName;
           const rPhone = ord.riderPhone || ord.assignedRiderPhone || '';
           
-          const statusDisplay = isDelivered ? '✓ Delivered' : 'On the Way';
+          const statusDisplay = isDelivered ? '✓ Delivered' : (ord.status || 'On the Way');
           const badgeBg = isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800';
 
           riderSectionHtml = `
@@ -565,6 +565,7 @@
                     <option value="Processing" ${ord.status === 'Processing' ? 'selected' : ''}>Processing</option>
                     <option value="On the Way" ${ord.status === 'On the Way' ? 'selected' : ''}>On the Way</option>
                     <option value="Delivered" ${ord.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                    <option value="Returned" ${ord.status === 'Returned' ? 'selected' : ''}>Returned</option>
                     <option value="Cancelled" ${ord.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                   </select>
                 ` : ``}
@@ -603,13 +604,20 @@
       if (status === 'delivered') return 'bg-emerald-100 text-emerald-800';
       if (status === 'processing') return 'bg-blue-100 text-blue-800';
       if (status === 'on the way') return 'bg-indigo-100 text-indigo-800';
+      if (status === 'returned') return 'bg-orange-100 text-orange-800';
       if (status === 'cancelled') return 'bg-red-100 text-red-800';
       return 'bg-amber-100 text-amber-800';
     }
 
     window.updateOrderStatus = async function(orderId, newStatus) {
       try {
-        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        const cur = allOrdersList.find(o => o.id === orderId);
+        if (newStatus === 'Delivered' && cur && (cur.riderPhone || cur.riderName || cur.assignedRiderName)) {
+          alert("রাইডার অ্যাসাইন করা অর্ডার এখান থেকে Delivered করা যাবে না — ক্যাশ/কমিশন হিসাব মিলবে না।\nrider.html (অ্যাডমিন) থেকে ✅ Delivered চাপুন।");
+          window.filterOrders();
+          return;
+        }
+        await updateDoc(doc(db, "orders", orderId), newStatus === 'Processing' ? { status: newStatus, processingAt: new Date().toISOString() } : { status: newStatus });
         const ord = allOrdersList.find(o => o.id === orderId);
         if (ord) ord.status = newStatus;
         window.filterOrders();
@@ -660,6 +668,10 @@
       try {
         await updateDoc(doc(db, "orders", orderId), {
           status: 'On the Way',
+          riderId: riderId,
+          offerState: 'Offered',
+          offeredAt: new Date().toISOString(),
+          onTheWayAt: new Date().toISOString(),
           assignedRiderId: riderId,
           assignedRiderName: riderName,
           riderName: riderName,
