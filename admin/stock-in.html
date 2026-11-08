@@ -525,6 +525,13 @@
       const status = items.every(it => it.receivedQty >= it.qty) ? 'Received' : 'Partially Received';
       const history = [...(po.history || []), { at: new Date().toISOString(), by: 'Admin', action: status, note: 'Stock-in ' + currentInvoiceNo }];
       await updateDoc(doc(db, "purchase_orders", po.docId), { items, status, history });
+      // MRP that admin changed/accepted on the PO is applied to the product
+      for (const it of items) {
+        const got = stockCart.find(c => c.id === it.id);
+        if (got && it.mrp != null && it.supplierMrp != null && Number(it.mrp) !== Number(it.supplierMrp)) {
+          await updateDoc(doc(db, "products", String(it.id)), { mrp: Number(it.mrp) });
+        }
+      }
     }
 
     // Update Cart Quantity or TP
