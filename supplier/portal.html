@@ -15,9 +15,10 @@
       <button onclick="logout()" class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg font-bold"><i class="fa-solid fa-right-from-bracket mr-1"></i>Logout</button>
     </div>
     <div class="max-w-4xl mx-auto px-2 flex text-xs font-bold">
-      <button id="tab-products" onclick="showTab('products')" class="tabbtn flex-1 py-2.5 border-b-2">Products & Stock</button>
+      <button id="tab-products" onclick="showTab('products')" class="tabbtn flex-1 py-2.5 border-b-2">Products</button>
       <button id="tab-newpo" onclick="showTab('newpo')" class="tabbtn flex-1 py-2.5 border-b-2">New PO <span id="cartCount" class="ml-1 bg-amber-400 text-gray-900 rounded-full px-1.5 hidden"></span></button>
       <button id="tab-mypos" onclick="showTab('mypos')" class="tabbtn flex-1 py-2.5 border-b-2">My POs</button>
+      <button id="tab-profile" onclick="showTab('profile')" class="tabbtn flex-1 py-2.5 border-b-2">Profile</button>
     </div>
   </header>
 
@@ -44,6 +45,12 @@
 
     <!-- MY POs -->
     <section id="view-mypos" class="hidden space-y-2"><div id="poList" class="space-y-2"></div></section>
+
+    <!-- PROFILE (view only) -->
+    <section id="view-profile" class="hidden space-y-3">
+      <p class="text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2"><i class="fa-solid fa-lock mr-1"></i> View only. To change any information, please contact the admin.</p>
+      <div id="profileBox" class="space-y-3"></div>
+    </section>
   </main>
 
   <!-- PO DETAIL MODAL -->
@@ -85,14 +92,59 @@
       } catch (e) { alert('Error: ' + e.message); }
     });
 
+    // ---- Profile & account (read-only) ----
+    let profileLoaded = false;
+    async function loadProfile() {
+      if (profileLoaded) return;
+      const box = $('profileBox');
+      box.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Loading...</p>';
+      try {
+        const [sSnap, stSnap, pySnap] = await Promise.all([
+          getDoc(doc(db, 'suppliers', me.supplierId)),
+          getDocs(query(collection(db, 'stock_in_history'), where('supplier', '==', me.companyName))),
+          getDocs(query(collection(db, 'supplier_payments'), where('supplier', '==', me.companyName)))
+        ]);
+        const s = sSnap.exists() ? sSnap.data() : {};
+        const stock = []; stSnap.forEach(d => stock.push(d.data()));
+        const pays = []; pySnap.forEach(d => pays.push(d.data()));
+        stock.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+        pays.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+        const billed = stock.reduce((t, x) => t + Number(x.totalCost || 0), 0);
+        const paid = pays.reduce((t, x) => t + Number(x.amount || 0), 0);
+        const row = (k, v) => v ? `<div class="flex justify-between gap-3 py-1.5 border-b text-xs"><span class="text-gray-500">${k}</span><span class="font-semibold text-right">${esc(v)}</span></div>` : '';
+        box.innerHTML = `
+          <div class="bg-white p-4 rounded-2xl border shadow-sm">
+            <h3 class="font-bold text-sm text-emerald-700 mb-2"><i class="fa-solid fa-id-card mr-1"></i> My Information</h3>
+            ${row('Supplier ID', s.uniqueId)}${row('Company Name', s.companyName || me.companyName)}${row('Supplier Type', s.supplierCategory)}
+            ${row('Dealer Name', s.dealerName)}${row('Third Party Name', s.thirdPartyName)}${row('Mobile (Login ID)', s.contactNumber)}
+            ${row('Payment Method', s.paymentMethod)}${s.paymentMethod === 'Bank' ? row('Bank Name', s.bankName) + row('Bank Account', s.bankAccount) : ''}
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-white p-3 rounded-xl border"><p class="text-[10px] text-gray-500">Total Bill</p><p class="font-extrabold text-sm">৳ ${billed}</p></div>
+            <div class="bg-white p-3 rounded-xl border"><p class="text-[10px] text-gray-500">Total Paid</p><p class="font-extrabold text-sm text-emerald-700">৳ ${paid}</p></div>
+            <div class="bg-white p-3 rounded-xl border"><p class="text-[10px] text-gray-500">Due</p><p class="font-extrabold text-sm ${billed - paid > 0 ? 'text-red-600' : 'text-emerald-700'}">৳ ${billed - paid}</p></div>
+          </div>
+          <div class="bg-white p-4 rounded-2xl border shadow-sm">
+            <h3 class="font-bold text-sm text-emerald-700 mb-2"><i class="fa-solid fa-truck-ramp-box mr-1"></i> Goods Received (Stock-In)</h3>
+            ${stock.length ? stock.map(x => `<div class="flex justify-between py-1.5 border-b text-xs"><span><b>${esc(x.invoiceNo)}</b>${x.poNo ? ' <span class="text-gray-400">(' + esc(x.poNo) + ')</span>' : ''}<span class="block text-[10px] text-gray-400">${new Date(x.createdAt || x.updatedAt).toLocaleDateString()} | ${x.totalItems || 0} pcs</span></span><b>৳ ${x.totalCost}</b></div>`).join('') : '<p class="text-xs text-gray-400">No records yet.</p>'}
+          </div>
+          <div class="bg-white p-4 rounded-2xl border shadow-sm">
+            <h3 class="font-bold text-sm text-emerald-700 mb-2"><i class="fa-solid fa-money-bill-wave mr-1"></i> Payments Received</h3>
+            ${pays.length ? pays.map(x => `<div class="flex justify-between py-1.5 border-b text-xs"><span><b>${esc(x.voucherNo)}</b> <span class="text-gray-400">for ${esc(x.invoiceNo)}</span><span class="block text-[10px] text-gray-400">${new Date(x.createdAt).toLocaleDateString()} | ${esc(x.method)}</span></span><b class="text-emerald-700">৳ ${x.amount}</b></div>`).join('') : '<p class="text-xs text-gray-400">No payments yet.</p>'}
+          </div>`;
+        profileLoaded = true;
+      } catch (e) { box.innerHTML = '<p class="text-xs text-red-600 text-center py-6">Could not load: ' + esc(e.message) + '</p>'; }
+    }
+
     window.logout = async () => { await signOut(auth); location.replace('index.html'); };
 
     window.showTab = (t) => {
-      ['products', 'newpo', 'mypos'].forEach(x => {
+      ['products', 'newpo', 'mypos', 'profile'].forEach(x => {
         $('view-' + x).classList.toggle('hidden', x !== t);
         $('tab-' + x).className = 'tabbtn flex-1 py-2.5 border-b-2 ' + (x === t ? 'border-white' : 'border-transparent text-emerald-200');
       });
       if (t === 'newpo') renderCart();
+      if (t === 'profile') loadProfile();
     };
 
     async function loadProducts() {
@@ -110,7 +162,7 @@
         return `<div class="bg-white p-3 rounded-xl border flex justify-between items-center gap-2">
           <div class="min-w-0">
             <p class="font-bold text-sm truncate">${esc(p.name)}</p>
-            <p class="text-[11px] text-gray-500">TP: ৳${Number(p.tp || 0)}</p>
+            <p class="text-[11px] text-gray-500">TP: ৳${Number(p.tp || 0)} | MRP: ৳${Number(p.mrp || 0)}</p>
             <p class="text-xs font-bold ${low ? 'text-red-600' : 'text-emerald-700'}">Stock: ${stock} ${low ? '<span class="text-[10px] bg-red-100 px-1.5 rounded">LOW</span>' : ''}</p>
           </div>
           <button onclick="addToPo('${p.id}')" class="shrink-0 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
@@ -120,7 +172,7 @@
 
     window.addToPo = (id) => {
       const p = products.find(x => x.id === id); if (!p) return;
-      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, stock: Number(p.stock || 0), tp: Number(p.tp || 0), qty: 1, proposedTp: '' });
+      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, stock: Number(p.stock || 0), tp: Number(p.tp || 0), mrp: Number(p.mrp || 0), qty: 1, proposedTp: '', proposedMrp: '' });
       updateCartCount(); showTab('newpo');
     };
     const updateCartCount = () => { $('cartCount').textContent = cart.length; $('cartCount').classList.toggle('hidden', !cart.length); };
@@ -129,23 +181,24 @@
       $('cartList').innerHTML = cart.length ? cart.map((c, i) => `
         <div class="border rounded-xl p-3 space-y-2">
           <div class="flex justify-between"><p class="font-bold text-sm">${esc(c.name)}</p><button onclick="cartRemove(${i})" class="text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>
-          <p class="text-[11px] text-gray-500">Current stock: ${c.stock} | TP: ৳${c.tp}</p>
-          <div class="grid grid-cols-2 gap-2">
+          <p class="text-[11px] text-gray-500">Current stock: ${c.stock} | TP: ৳${c.tp} | MRP: ৳${c.mrp}</p>
+          <div class="grid grid-cols-3 gap-2">
             <label class="text-[10px] text-gray-500">Quantity<input type="number" min="1" value="${c.qty}" onchange="cartSet(${i},'qty',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
-            <label class="text-[10px] text-gray-500">Proposed price (optional)<input type="number" min="0" value="${c.proposedTp}" placeholder="৳${c.tp}" onchange="cartSet(${i},'proposedTp',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
+            <label class="text-[10px] text-gray-500">Propose TP (If Required)<input type="number" min="0" value="${c.proposedTp}" placeholder="৳${c.tp}" onchange="cartSet(${i},'proposedTp',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
+            <label class="text-[10px] text-gray-500">Propose MRP (If Required)<input type="number" min="0" value="${c.proposedMrp}" placeholder="৳${c.mrp}" onchange="cartSet(${i},'proposedMrp',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
           </div>
           <p class="text-right text-xs font-bold text-emerald-700">৳ ${c.qty * c.tp}</p>
         </div>`).join('') : '<p class="text-center text-xs text-gray-400 py-6">No items yet. Add products from the Products tab.</p>';
       $('cartTotal').textContent = '৳ ' + cart.reduce((s, c) => s + c.qty * c.tp, 0);
     }
-    window.cartSet = (i, f, v) => { if (f === 'qty') cart[i].qty = Math.max(1, Math.floor(Number(v) || 1)); else cart[i].proposedTp = v === '' ? '' : Math.max(0, Number(v)); renderCart(); };
+    window.cartSet = (i, f, v) => { if (f === 'qty') cart[i].qty = Math.max(1, Math.floor(Number(v) || 1)); else if (f === 'proposedMrp') cart[i].proposedMrp = v === '' ? '' : Math.max(0, Number(v)); else cart[i].proposedTp = v === '' ? '' : Math.max(0, Number(v)); renderCart(); };
     window.cartRemove = (i) => { cart.splice(i, 1); updateCartCount(); renderCart(); };
 
     window.submitPo = async () => {
       if (!cart.length) { alert('Add at least one product.'); return; }
       if (!confirm('Submit this PO to admin for approval?')) return;
       const now = new Date().toISOString();
-      const items = cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, tp: c.tp, supplierQty: c.qty, supplierTp: c.tp, proposedTp: c.proposedTp === '' ? null : Number(c.proposedTp), receivedQty: 0 }));
+      const items = cart.map(c => ({ id: c.id, name: c.name, qty: c.qty, tp: c.tp, supplierQty: c.qty, supplierTp: c.tp, proposedTp: c.proposedTp === '' ? null : Number(c.proposedTp), mrp: c.mrp, supplierMrp: c.mrp, proposedMrp: c.proposedMrp === '' ? null : Number(c.proposedMrp), receivedQty: 0 }));
       const po = {
         poNo: 'PO-' + Math.floor(100000 + Math.random() * 900000),
         supplierId: me.supplierId, supplier: me.companyName, items,
@@ -181,7 +234,7 @@
       $('mTitle').textContent = p.poNo;
       const rows = p.items.map(it => {
         const changed = it.qty !== it.supplierQty || it.tp !== it.supplierTp;
-        return `<tr class="border-b"><td class="p-1.5">${esc(it.name)}${it.proposedTp != null && it.proposedTp !== it.tp ? `<span class="block text-[10px] text-gray-400">You proposed ৳${it.proposedTp}</span>` : ''}</td>
+        return `<tr class="border-b"><td class="p-1.5">${esc(it.name)}${it.mrp != null ? `<span class="block text-[10px] text-gray-500">MRP: ${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<s>৳${it.supplierMrp}</s> ` : ''}৳${it.mrp}${it.proposedMrp != null && it.proposedMrp !== it.mrp ? ` (you proposed ৳${it.proposedMrp})` : ''}</span>` : ''}${it.proposedTp != null && it.proposedTp !== it.tp ? `<span class="block text-[10px] text-gray-400">You proposed ৳${it.proposedTp}</span>` : ''}</td>
           <td class="p-1.5 text-center">${changed && it.qty !== it.supplierQty ? `<s class="text-gray-400">${it.supplierQty}</s> ` : ''}<b>${it.qty}</b>${p.status.includes('Received') ? `<span class="block text-[10px] text-purple-600">got ${it.receivedQty || 0}</span>` : ''}</td>
           <td class="p-1.5 text-right">${changed && it.tp !== it.supplierTp ? `<s class="text-gray-400">৳${it.supplierTp}</s> ` : ''}৳${it.tp}</td>
           <td class="p-1.5 text-right font-bold">৳${it.qty * it.tp}</td></tr>`;
