@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Orders - Laland Express Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- ADMIN GUARD: লগইন ও admins যাচাই না হওয়া পর্যন্ত পেজ ও ডেটা লোড বন্ধ -->
+  <style id="authGate">html { visibility: hidden; }</style>
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
+      authDomain: "laland-express.firebaseapp.com",
+      projectId: "laland-express",
+      storageBucket: "laland-express.firebasestorage.app",
+      messagingSenderId: "315462688826",
+      appId: "1:315462688826:web:a6b033e1ce664071201503",
+      measurementId: "G-J4S4EL5LE4"
+    };
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    window.isAdminUser = async (uid) => (await getDoc(doc(db, "admins", uid))).exists();
+
+    const goLogin = () => location.replace('index.html');
+    window.adminReady = new Promise((resolve) => {
+      const failSafe = setTimeout(goLogin, 15000);
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) { goLogin(); return; }
+        try {
+          if (await window.isAdminUser(user.uid)) {
+            clearTimeout(failSafe);
+            const g = document.getElementById('authGate'); if (g) g.remove();
+            resolve(user);
+          } else {
+            alert("This account does not have admin access.");
+            await signOut(auth);
+            goLogin();
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Admin verification failed: " + e.message);
+          goLogin();
+        }
+      });
+    });
+  </script>
+
+</head>
+<body class="bg-gray-100 text-gray-800 pb-10">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2"><i class="fa-solid fa-file-invoice text-xl"></i><h1 class="font-bold text-lg">Purchase Orders - Laland Express</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border space-y-3">
+      <div class="flex flex-wrap gap-2 text-xs items-center">
+        <select id="fStatus" onchange="render()" class="px-3 py-2 border rounded-xl bg-white font-semibold">
+          <option value="">All Status</option><option>Submitted</option><option>Under Review</option><option>Approved</option><option>Partially Received</option><option>Received</option><option>Rejected</option><option>Cancelled</option>
+        </select>
+        <input id="fSearch" oninput="render()" placeholder="Search PO no / supplier..." class="flex-1 min-w-40 px-3 py-2 border rounded-xl">
+        <button onclick="loadPos()" class="bg-gray-200 px-3 py-2 rounded-xl font-bold">Refresh</button>
+      </div>
+      <div id="poList" class="space-y-2"><p class="text-xs text-gray-400 text-center py-4">Loading...</p></div>
+    </div>
+  </main>
+
+  <div id="poModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-4 space-y-3 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 id="mTitle" class="font-bold text-sm text-emerald-700"></h3>
+        <button onclick="closeModal()" class="text-xl px-2 text-gray-500">&times;</button>
+      </div>
+      <div id="mBody" class="space-y-3 text-xs"></div>
+      <div id="mActions" class="flex flex-wrap gap-2 justify-end pt-2 border-t"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const db = getFirestore(getApps().length ? getApp() : initializeApp(cfg));
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const COLORS = { Submitted: 'bg-blue-100 text-blue-700', 'Under Review': 'bg-amber-100 text-amber-700', Approved: 'bg-emerald-100 text-emerald-700', Rejected: 'bg-red-100 text-red-700', Cancelled: 'bg-gray-200 text-gray-600', 'Partially Received': 'bg-purple-100 text-purple-700', Received: 'bg-emerald-200 text-emerald-800' };
+    const badge = s => `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${COLORS[s] || 'bg-gray-100'}">${esc(s)}</span>`;
+    const EDITABLE = ['Submitted', 'Under Review'];
+    let pos = [], cur = null, adminEmail = 'Admin';
+
+    window.adminReady.then(u => { adminEmail = u.email || 'Admin'; loadPos(); });
+
+    window.loadPos = async () => {
+      const snap = await getDocs(collection(db, 'purchase_orders'));
+      pos = []; snap.forEach(d => pos.push({ docId: d.id, ...d.data() }));
+      pos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      render();
+    };
+
+    window.render = () => {
+      const st = $('fStatus').value, q = $('fSearch').value.toLowerCase().trim();
+      const list = pos.filter(p => (!st || p.status === st) && (!q || (p.poNo + ' ' + p.supplier).toLowerCase().includes(q)));
+      $('poList').innerHTML = list.length ? list.map(p => `
+        <div onclick="openPo('${p.docId}')" class="border rounded-xl p-3 cursor-pointer hover:bg-emerald-50 flex justify-between items-center gap-2">
+          <div><p class="font-bold text-sm">${esc(p.poNo)} <span class="text-gray-500 font-normal">- ${esc(p.supplier)}</span></p><p class="text-[11px] text-gray-500">${new Date(p.createdAt).toLocaleString()} | ${p.totalItems} pcs</p></div>
+          <div class="text-right space-y-1"><p class="font-bold text-sm text-emerald-700">৳ ${p.totalCost}</p>${badge(p.status)}</div>
+        </div>`).join('') : '<p class="text-xs text-gray-400 text-center py-4">No purchase orders found.</p>';
+    };
+
+    window.openPo = (id) => {
+      cur = pos.find(p => p.docId === id); const p = cur;
+      const edit = EDITABLE.includes(p.status);
+      $('mTitle').innerHTML = `${esc(p.poNo)} - ${esc(p.supplier)} ${badge(p.status)}`;
+      const rows = p.items.map((it, i) => `
+        <tr class="border-b align-top">
+          <td class="p-1.5">${esc(it.name)}
+            ${it.supplierQty !== it.qty || it.supplierTp !== it.tp ? `<span class="block text-[10px] text-gray-400">Supplier sent: ${it.supplierQty} x ৳${it.supplierTp}</span>` : ''}
+            ${edit && it.proposedTp != null && it.proposedTp !== it.tp ? `<button onclick="acceptPrice(${i},${it.proposedTp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed ৳${it.proposedTp}</button>` : ''}
+          </td>
+          <td class="p-1.5 text-center">${edit ? `<input id="q${i}" type="number" min="0" value="${it.qty}" oninput="recalc()" class="w-16 px-1 py-1 border rounded text-center">` : `${it.qty}<span class="block text-[10px] text-purple-600">got ${it.receivedQty || 0}</span>`}</td>
+          <td class="p-1.5 text-right">${edit ? `<input id="t${i}" type="number" min="0" value="${it.tp}" oninput="recalc()" class="w-20 px-1 py-1 border rounded text-right">` : '৳' + it.tp}</td>
+          <td class="p-1.5 text-right font-bold" id="r${i}">৳ ${it.qty * it.tp}</td>
+        </tr>`).join('');
+      $('mBody').innerHTML = `
+        <p class="text-gray-500">${new Date(p.createdAt).toLocaleString()}</p>
+        <div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-gray-500"><th class="p-1.5">Product</th><th class="p-1.5 text-center">Qty</th><th class="p-1.5 text-right">TP</th><th class="p-1.5 text-right">Total</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="text-right font-extrabold text-emerald-700 text-sm">Total: <span id="grand">৳ ${p.totalCost}</span></p>
+        ${p.note ? `<p><b>Supplier note:</b> ${esc(p.note)}</p>` : ''}
+        ${edit ? `<textarea id="corrNote" rows="2" placeholder="Correction note for supplier (required if you change qty/price)" class="w-full px-3 py-2 border rounded-xl">${esc(p.correctionNote || '')}</textarea>` : (p.correctionNote ? `<p><b>Correction note:</b> ${esc(p.correctionNote)}</p>` : '')}
+        <div><p class="font-bold mb-1">History</p>${(p.history || []).map(h => `<p class="text-gray-500">• ${new Date(h.at).toLocaleString()} - <b>${esc(h.action)}</b> by ${esc(h.by)} ${h.note ? '(' + esc(h.note) + ')' : ''}</p>`).join('')}</div>`;
+      $('mActions').innerHTML = `
+        <button onclick="printPo()" class="bg-gray-200 px-3 py-2 rounded-xl font-bold">Print</button>
+        ${edit ? `<button onclick="reject()" class="bg-red-600 text-white px-3 py-2 rounded-xl font-bold">Reject</button>
+        <button onclick="save('Under Review')" class="bg-blue-600 text-white px-3 py-2 rounded-xl font-bold">Save Corrections</button>
+        <button onclick="save('Approved')" class="bg-emerald-600 text-white px-3 py-2 rounded-xl font-bold">Approve</button>` : ''}`;
+      $('poModal').classList.remove('hidden');
+    };
+    window.closeModal = () => $('poModal').classList.add('hidden');
+    window.acceptPrice = (i, v) => { $('t' + i).value = v; recalc(); };
+
+    const collect = () => cur.items.map((it, i) => ({ ...it, qty: Math.floor(Number($('q' + i).value) || 0), tp: Number($('t' + i).value) || 0 }));
+    window.recalc = () => {
+      const it = collect(); let g = 0;
+      it.forEach((x, i) => { $('r' + i).textContent = '৳ ' + x.qty * x.tp; g += x.qty * x.tp; });
+      $('grand').textContent = '৳ ' + g;
+    };
+
+    async function write(extra, action, note) {
+      const history = [...(cur.history || []), { at: new Date().toISOString(), by: adminEmail, action, note: note || '' }];
+      await updateDoc(doc(db, 'purchase_orders', cur.docId), { ...extra, history });
+      closeModal(); await loadPos();
+    }
+
+    window.save = async (status) => {
+      const items = collect().filter(i => i.qty > 0);
+      if (!items.length) { alert('At least one item with quantity is required. Use Reject instead.'); return; }
+      const note = $('corrNote').value.trim();
+      const changed = items.length !== cur.items.length || items.some(i => i.qty !== i.supplierQty || i.tp !== i.supplierTp);
+      if (changed && !note) { alert('Please write a correction note for the supplier.'); return; }
+      if (status === 'Approved' && !confirm('Approve ' + cur.poNo + '? The supplier will no longer be able to change it.')) return;
+      const extra = { items, totalItems: items.reduce((s, i) => s + i.qty, 0), totalCost: items.reduce((s, i) => s + i.qty * i.tp, 0), correctionNote: note, status };
+      if (status === 'Approved') { extra.approvedAt = new Date().toISOString(); extra.approvedBy = adminEmail; }
+      try { await write(extra, status === 'Approved' ? 'Approved' : 'Corrected (Under Review)', changed ? 'values changed' : ''); } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.reject = async () => {
+      const why = prompt('Reason for rejection (supplier will see this):');
+      if (!why || !why.trim()) return;
+      try { await write({ status: 'Rejected', correctionNote: why.trim() }, 'Rejected', why.trim()); } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.printPo = () => {
+      const p = cur, w = window.open('', '_blank'); if (!w) { alert('Please allow popups.'); return; }
+      const rows = p.items.map(it => `<tr><td style="padding:6px;border-bottom:1px solid #ddd">${esc(it.name)}</td><td style="padding:6px;border-bottom:1px solid #ddd;text-align:center">${it.qty}</td><td style="padding:6px;border-bottom:1px solid #ddd;text-align:right">৳ ${it.tp}</td><td style="padding:6px;border-bottom:1px solid #ddd;text-align:right">৳ ${it.qty * it.tp}</td></tr>`).join('');
+      w.document.write(`<html><head><title>${esc(p.poNo)}</title><style>body{font-family:Arial,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:15px;font-size:13px}th{background:#f3f4f6;padding:6px;text-align:left}</style></head><body><div style="text-align:center;border-bottom:2px solid #047857;padding-bottom:10px"><h2>Laland Express / Good Mart Enterprise</h2><p style="font-size:11px">Purchase Order</p><p><b>${esc(p.poNo)}</b> | ${esc(p.status)}</p></div><p style="font-size:13px"><b>Supplier:</b> ${esc(p.supplier)}<br><b>Date:</b> ${new Date(p.createdAt).toLocaleString()}</p><table><thead><tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">TP</th><th style="text-align:right">Total</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:bold;font-size:15px">Total: ৳ ${p.totalCost}</p></body></html>`);
+      w.document.close(); w.print();
+    };
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
