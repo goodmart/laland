@@ -130,6 +130,14 @@
           </div>
         </div>
         
+        <!-- LOAD FROM PURCHASE ORDER -->
+        <div id="poLoadBox" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+          <span class="text-xs font-bold text-amber-700"><i class="fa-solid fa-file-invoice mr-1"></i> Load from Purchase Order:</span>
+          <select id="poSelect" class="flex-1 px-3 py-1.5 border rounded-xl text-xs bg-white"></select>
+          <button type="button" onclick="loadFromPo()" class="bg-amber-600 text-white px-4 py-1.5 rounded-xl text-xs font-bold hover:bg-amber-700">Load Remaining Items</button>
+        </div>
+        <p id="poLoadedInfo" class="hidden text-[11px] font-bold text-amber-700"></p>
+
         <!-- Hidden field for compressed chalan base64 -->
         <input type="hidden" id="chalanImageBase64">
       </div>
@@ -291,6 +299,8 @@
     let stockHistoryStore = {};
     let stockHistoryArray = [];
     let currentInvoiceNo = '';
+    let loadedPo = null;
+    let poStore = [];
     let currentDetailRecord = null;
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -400,6 +410,7 @@
 
     // When supplier changes, clear search and cart suggestions
     window.onSupplierChange = function() {
+      loadedPo = null; document.getElementById('poLoadedInfo').classList.add('hidden'); refreshPoOptions();
       document.getElementById('productSearchInput').value = '';
       document.getElementById('productSuggestions').classList.add('hidden');
     };
@@ -470,6 +481,51 @@
 
       renderStockCart();
     };
+
+    // ---- Purchase Order -> Stock-In ----
+    async function refreshPoOptions() {
+      const sup = document.getElementById('stockSupplierSelect').value;
+      const box = document.getElementById('poLoadBox');
+      if (!sup) { box.classList.add('hidden'); return; }
+      try {
+        const snap = await getDocs(collection(db, "purchase_orders"));
+        poStore = [];
+        snap.forEach(d => poStore.push({ docId: d.id, ...d.data() }));
+        poStore = poStore.filter(p => p.supplier === sup && ['Approved', 'Partially Received'].includes(p.status));
+        document.getElementById('poSelect').innerHTML = poStore.map(p => `<option value="${p.docId}">${p.poNo} - ৳${p.totalCost} (${p.status})</option>`).join('');
+        box.classList.toggle('hidden', poStore.length === 0);
+      } catch (e) { console.warn(e); }
+    }
+
+    window.loadFromPo = function() {
+      const po = poStore.find(p => p.docId === document.getElementById('poSelect').value);
+      if (!po) return;
+      const cart = [];
+      po.items.forEach(it => {
+        const remaining = Number(it.qty) - Number(it.receivedQty || 0);
+        if (remaining <= 0) return;
+        const prod = productsList.find(p => p.id === it.id);
+        cart.push({ id: it.id, name: it.name, currentStock: Number(prod ? prod.stock || 0 : 0), tp: Number(it.tp), qty: remaining });
+      });
+      if (cart.length === 0) { alert("This PO has nothing left to receive."); return; }
+      stockCart = cart;
+      loadedPo = po;
+      const info = document.getElementById('poLoadedInfo');
+      info.innerText = `Loaded from ${po.poNo}. Set Received Qty to what actually arrived (partial delivery is fine).`;
+      info.classList.remove('hidden');
+      renderStockCart();
+    };
+
+    async function applyPoReceipt() {
+      const po = loadedPo;
+      const items = po.items.map(it => {
+        const got = stockCart.find(c => c.id === it.id);
+        return { ...it, receivedQty: Number(it.receivedQty || 0) + (got ? Number(got.qty) : 0) };
+      });
+      const status = items.every(it => it.receivedQty >= it.qty) ? 'Received' : 'Partially Received';
+      const history = [...(po.history || []), { at: new Date().toISOString(), by: 'Admin', action: status, note: 'Stock-in ' + currentInvoiceNo }];
+      await updateDoc(doc(db, "purchase_orders", po.docId), { items, status, history });
+    }
 
     // Update Cart Quantity or TP
     window.updateCartItem = function(index, field, value) {
@@ -584,7 +640,9 @@
             createdAt: new Date().toISOString()
           };
 
+          if (loadedPo) stockInRecord.poNo = loadedPo.poNo;
           await addDoc(collection(db, "stock_in_history"), stockInRecord);
+          if (loadedPo) await applyPoReceipt();
 
           for (const item of stockCart) {
             await updateDoc(doc(db, "products", String(item.id)), {
@@ -633,6 +691,7 @@
 
     // Reset Form
     window.resetStockForm = function() {
+      loadedPo = null; document.getElementById('poLoadedInfo').classList.add('hidden'); document.getElementById('poLoadBox').classList.add('hidden');
       document.getElementById('editStockId').value = "";
       document.getElementById('stockSupplierSelect').value = "";
       document.getElementById('productSearchInput').value = "";
@@ -946,5 +1005,6 @@
       printWin.document.print();
     };
   </script>
+  <script type="module" src="admin-nav.js"></script>
 </body>
 </html>
