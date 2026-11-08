@@ -120,17 +120,18 @@
       $('mTitle').innerHTML = `${esc(p.poNo)} - ${esc(p.supplier)} ${badge(p.status)}`;
       const rows = p.items.map((it, i) => `
         <tr class="border-b align-top">
-          <td class="p-1.5">${esc(it.name)}
+          <td class="p-1.5">${esc(it.name)}${edit && it.proposedMrp != null && it.proposedMrp !== it.mrp ? `<button onclick="acceptMrp(${i},${it.proposedMrp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed MRP ৳${it.proposedMrp}</button>` : ''}${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<span class="block text-[10px] text-gray-400">Supplier MRP: ৳${it.supplierMrp}</span>` : ''}
             ${it.supplierQty !== it.qty || it.supplierTp !== it.tp ? `<span class="block text-[10px] text-gray-400">Supplier sent: ${it.supplierQty} x ৳${it.supplierTp}</span>` : ''}
-            ${edit && it.proposedTp != null && it.proposedTp !== it.tp ? `<button onclick="acceptPrice(${i},${it.proposedTp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed ৳${it.proposedTp}</button>` : ''}
+            ${edit && it.proposedTp != null && it.proposedTp !== it.tp ? `<button onclick="acceptPrice(${i},${it.proposedTp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed TP ৳${it.proposedTp}</button>` : ''}
           </td>
           <td class="p-1.5 text-center">${edit ? `<input id="q${i}" type="number" min="0" value="${it.qty}" oninput="recalc()" class="w-16 px-1 py-1 border rounded text-center">` : `${it.qty}<span class="block text-[10px] text-purple-600">got ${it.receivedQty || 0}</span>`}</td>
           <td class="p-1.5 text-right">${edit ? `<input id="t${i}" type="number" min="0" value="${it.tp}" oninput="recalc()" class="w-20 px-1 py-1 border rounded text-right">` : '৳' + it.tp}</td>
+          <td class="p-1.5 text-right">${edit ? `<input id="m${i}" type="number" min="0" value="${it.mrp ?? 0}" class="w-20 px-1 py-1 border rounded text-right">` : '৳' + (it.mrp ?? 0)}</td>
           <td class="p-1.5 text-right font-bold" id="r${i}">৳ ${it.qty * it.tp}</td>
         </tr>`).join('');
       $('mBody').innerHTML = `
         <p class="text-gray-500">${new Date(p.createdAt).toLocaleString()}</p>
-        <div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-gray-500"><th class="p-1.5">Product</th><th class="p-1.5 text-center">Qty</th><th class="p-1.5 text-right">TP</th><th class="p-1.5 text-right">Total</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="bg-gray-50 text-gray-500"><th class="p-1.5">Product</th><th class="p-1.5 text-center">Qty</th><th class="p-1.5 text-right">TP</th><th class="p-1.5 text-right">MRP</th><th class="p-1.5 text-right">Total</th></tr></thead><tbody>${rows}</tbody></table></div>
         <p class="text-right font-extrabold text-emerald-700 text-sm">Total: <span id="grand">৳ ${p.totalCost}</span></p>
         ${p.note ? `<p><b>Supplier note:</b> ${esc(p.note)}</p>` : ''}
         ${edit ? `<textarea id="corrNote" rows="2" placeholder="Correction note for supplier (required if you change qty/price)" class="w-full px-3 py-2 border rounded-xl">${esc(p.correctionNote || '')}</textarea>` : (p.correctionNote ? `<p><b>Correction note:</b> ${esc(p.correctionNote)}</p>` : '')}
@@ -144,8 +145,9 @@
     };
     window.closeModal = () => $('poModal').classList.add('hidden');
     window.acceptPrice = (i, v) => { $('t' + i).value = v; recalc(); };
+    window.acceptMrp = (i, v) => { $('m' + i).value = v; };
 
-    const collect = () => cur.items.map((it, i) => ({ ...it, qty: Math.floor(Number($('q' + i).value) || 0), tp: Number($('t' + i).value) || 0 }));
+    const collect = () => cur.items.map((it, i) => ({ ...it, qty: Math.floor(Number($('q' + i).value) || 0), tp: Number($('t' + i).value) || 0, mrp: Number($('m' + i).value) || 0 }));
     window.recalc = () => {
       const it = collect(); let g = 0;
       it.forEach((x, i) => { $('r' + i).textContent = '৳ ' + x.qty * x.tp; g += x.qty * x.tp; });
@@ -162,7 +164,7 @@
       const items = collect().filter(i => i.qty > 0);
       if (!items.length) { alert('At least one item with quantity is required. Use Reject instead.'); return; }
       const note = $('corrNote').value.trim();
-      const changed = items.length !== cur.items.length || items.some(i => i.qty !== i.supplierQty || i.tp !== i.supplierTp);
+      const changed = items.length !== cur.items.length || items.some(i => i.qty !== i.supplierQty || i.tp !== i.supplierTp || i.mrp !== (i.supplierMrp ?? i.mrp));
       if (changed && !note) { alert('Please write a correction note for the supplier.'); return; }
       if (status === 'Approved' && !confirm('Approve ' + cur.poNo + '? The supplier will no longer be able to change it.')) return;
       const extra = { items, totalItems: items.reduce((s, i) => s + i.qty, 0), totalCost: items.reduce((s, i) => s + i.qty * i.tp, 0), correctionNote: note, status };
