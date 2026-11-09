@@ -1067,6 +1067,24 @@
       document.getElementById('featureModal').classList.add('hidden');
     };
 
+    // Same name (+ same supplier) = one item. If any entry is in stock, hide the stock-0 twins;
+    // if all are stock 0, show only the newest one.
+    function hideStaleDuplicates(list) {
+      const groups = {};
+      list.forEach(p => {
+        const k = (p.name || '').trim().toLowerCase() + '|' + (p.supplier || '');
+        (groups[k] = groups[k] || []).push(p);
+      });
+      const keep = new Set();
+      Object.values(groups).forEach(g => {
+        if (g.length === 1) { keep.add(g[0].id); return; }
+        const inStock = g.filter(p => Number(p.stock || 0) > 0);
+        if (inStock.length) inStock.forEach(p => keep.add(p.id));
+        else keep.add(g.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0].id);
+      });
+      return list.filter(p => keep.has(p.id));
+    }
+
     async function fetchProductsFromFirebase() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
@@ -1091,9 +1109,11 @@
             image: d.image || 'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=300&q=80',
             barcode: d.barcode,
             supplier: d.supplier,
-            stock: Number(d.stock || 0)
+            stock: Number(d.stock || 0),
+            createdAt: d.createdAt || ''
           });
         });
+        products = hideStaleDuplicates(products);
         syncCartWithProducts();
         renderProducts();
       } catch (e) {
