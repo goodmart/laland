@@ -278,7 +278,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, increment, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -505,7 +505,7 @@
         const remaining = Number(it.qty) - Number(it.receivedQty || 0);
         if (remaining <= 0) return;
         const prod = productsList.find(p => p.id === it.id);
-        cart.push({ id: it.id, name: it.name, currentStock: Number(prod ? prod.stock || 0 : 0), tp: Number(it.tp), qty: remaining });
+        cart.push({ id: it.id, poItemId: it.id, name: it.name, currentStock: Number(prod ? prod.stock || 0 : 0), tp: Number(it.tp), qty: remaining });
       });
       if (cart.length === 0) { alert("This PO has nothing left to receive."); return; }
       stockCart = cart;
@@ -516,22 +516,92 @@
       renderStockCart();
     };
 
+    let batchMap = {};
+
+    // When admin changed the MRP on the PO:
+    //  - product still has stock > 0  -> create a duplicate product entry (new TP / MRP), receive into it
+    //  - product stock is 0           -> just update the MRP on the existing product
+    // Returns false if the admin cancels the confirmation.
+    async function prepareMrpBatches() {
+      batchMap = {};
+      const plan = [];
+      for (const c of stockCart) {
+        const poIt = c.poItemId && loadedPo.items.find(i => i.id === c.poItemId);
+        if (!poIt) continue;
+        // later delivery of an item that already moved to its own entry: keep using it
+        if (poIt.batchProductId) {
+          const bs = await getDoc(doc(db, "products", String(poIt.batchProductId)));
+          if (bs.exists()) { plan.push({ c, poIt, mode: 'reuse', targetId: bs.id }); continue; }
+        }
+        const changed = poIt.mrp != null && poIt.supplierMrp != null && Number(poIt.mrp) !== Number(poIt.supplierMrp);
+        const ps = await getDoc(doc(db, "products", String(c.id)));
+        if (!ps.exists()) continue;
+        const data = ps.data();
+        if (changed) {
+          const oldStock = Number(data.stock || 0);
+          plan.push({ c, poIt, data, oldStock, mode: oldStock > 0 ? 'duplicate' : 'inplace' });
+          continue;
+        }
+        // TP-only change: TP is updated on the existing product (by the normal stock-in step) and its discount is removed
+        const dp = Number(data.discountPrice || 0);
+        const hasDiscount = dp > 0 && dp !== Number(data.mrp || 0);
+        if (hasDiscount && Number(c.tp) !== Number(data.tp || 0)) plan.push({ c, poIt, data, mode: 'tponly' });
+      }
+
+      const msgs = plan.filter(p => p.mode !== 'reuse').map(p => p.mode === 'tponly'
+        ? `• ${p.c.name}: TP changes ৳${p.data.tp} → ৳${p.c.tp}. The discount price (৳${p.data.discountPrice}) will be removed, MRP ৳${p.data.mrp} only.`
+        : p.mode === 'duplicate'
+        ? `• ${p.c.name}: ${p.oldStock} pcs still in stock at old MRP ৳${p.data.mrp}. A NEW product entry will be created (TP ৳${p.c.tp}, MRP ৳${p.poIt.mrp}) and this stock-in goes into it. Discount price will not carry over (MRP only) and it gets a new SKU.`
+        : `• ${p.c.name}: stock is 0, so MRP will be updated to ৳${p.poIt.mrp} on the existing product (discount price removed, MRP only).`);
+      if (msgs.length && !confirm('MRP was changed on this PO:\n\n' + msgs.join('\n') + '\n\nContinue?')) return false;
+
+      // next SKU, same scheme as products.html: first 3 letters of supplier + 3-digit number (e.g. dab001)
+      let allSkus = null;
+      const nextSku = async (supplier) => {
+        if (!allSkus) {
+          const sn = await getDocs(collection(db, "products"));
+          allSkus = []; sn.forEach(d => allSkus.push(String(d.data().sku || '').toLowerCase()));
+        }
+        const clean = String(supplier || 'GEN').replace(/[^a-zA-Z]/g, '').toLowerCase();
+        const prefix = clean.length >= 3 ? clean.substring(0, 3) : (clean + 'gen').substring(0, 3);
+        let max = 0;
+        allSkus.forEach(s => { if (s.startsWith(prefix)) { const n = parseInt(s.substring(prefix.length), 10); if (!isNaN(n) && n > max) max = n; } });
+        if (max >= 999) alert('Warning: SKU limit (999) reached for prefix ' + prefix);
+        const sku = prefix + String(Math.min(max + 1, 999)).padStart(3, '0');
+        allSkus.push(sku);
+        return sku;
+      };
+
+      for (const p of plan) {
+        if (p.mode === 'reuse') {
+          batchMap[p.poIt.id] = p.targetId; p.c.id = p.targetId;
+        } else if (p.mode === 'duplicate') {
+          const now = new Date().toISOString();
+          // discount is dropped: shop shows MRP only (this app stores price = discountPrice = MRP when there is no discount)
+          const copy = { ...p.data, sku: await nextSku(p.data.supplier), tp: Number(p.c.tp), mrp: Number(p.poIt.mrp), discountPrice: Number(p.poIt.mrp), price: Number(p.poIt.mrp), stock: 0, priceBatchOf: p.c.id, createdAt: now, updatedAt: now };
+          const ref = await addDoc(collection(db, "products"), copy);
+          batchMap[p.poIt.id] = ref.id; p.c.id = ref.id; p.c.currentStock = 0;
+        } else if (p.mode === 'tponly') {
+          await updateDoc(doc(db, "products", String(p.c.id)), { discountPrice: Number(p.data.mrp), price: Number(p.data.mrp), updatedAt: new Date().toISOString() });
+        } else {
+          await updateDoc(doc(db, "products", String(p.c.id)), { mrp: Number(p.poIt.mrp), discountPrice: Number(p.poIt.mrp), price: Number(p.poIt.mrp), updatedAt: new Date().toISOString() });
+          batchMap[p.poIt.id] = p.c.id;
+        }
+      }
+      return true;
+    }
+
     async function applyPoReceipt() {
       const po = loadedPo;
       const items = po.items.map(it => {
-        const got = stockCart.find(c => c.id === it.id);
-        return { ...it, receivedQty: Number(it.receivedQty || 0) + (got ? Number(got.qty) : 0) };
+        const got = stockCart.find(c => (c.poItemId || c.id) === it.id);
+        const out = { ...it, receivedQty: Number(it.receivedQty || 0) + (got ? Number(got.qty) : 0) };
+        if (batchMap[it.id]) out.batchProductId = batchMap[it.id];
+        return out;
       });
       const status = items.every(it => it.receivedQty >= it.qty) ? 'Received' : 'Partially Received';
       const history = [...(po.history || []), { at: new Date().toISOString(), by: 'Admin', action: status, note: 'Stock-in ' + currentInvoiceNo }];
       await updateDoc(doc(db, "purchase_orders", po.docId), { items, status, history });
-      // MRP that admin changed/accepted on the PO is applied to the product
-      for (const it of items) {
-        const got = stockCart.find(c => c.id === it.id);
-        if (got && it.mrp != null && it.supplierMrp != null && Number(it.mrp) !== Number(it.supplierMrp)) {
-          await updateDoc(doc(db, "products", String(it.id)), { mrp: Number(it.mrp) });
-        }
-      }
     }
 
     // Update Cart Quantity or TP
@@ -647,7 +717,10 @@
             createdAt: new Date().toISOString()
           };
 
-          if (loadedPo) stockInRecord.poNo = loadedPo.poNo;
+          if (loadedPo) {
+            stockInRecord.poNo = loadedPo.poNo;
+            if (!(await prepareMrpBatches())) return;
+          }
           await addDoc(collection(db, "stock_in_history"), stockInRecord);
           if (loadedPo) await applyPoReceipt();
 
