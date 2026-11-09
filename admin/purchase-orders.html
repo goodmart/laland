@@ -85,7 +85,7 @@
 
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
     const db = getFirestore(getApps().length ? getApp() : initializeApp(cfg));
     const $ = id => document.getElementById(id);
@@ -116,13 +116,15 @@
 
     window.openPo = (id) => {
       cur = pos.find(p => p.docId === id); const p = cur;
+      decisions = {};
+      p.items.forEach((it, i) => { if (it.tpDecision) decisions[i + ':tp'] = it.tpDecision; if (it.mrpDecision) decisions[i + ':mrp'] = it.mrpDecision; });
       const edit = EDITABLE.includes(p.status);
       $('mTitle').innerHTML = `${esc(p.poNo)} - ${esc(p.supplier)} ${badge(p.status)}`;
       const rows = p.items.map((it, i) => `
         <tr class="border-b align-top">
-          <td class="p-1.5">${esc(it.name)}${edit && it.proposedMrp != null && it.proposedMrp !== it.mrp ? `<button onclick="acceptMrp(${i},${it.proposedMrp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed MRP ৳${it.proposedMrp}</button>` : ''}${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<span class="block text-[10px] text-gray-400">Supplier MRP: ৳${it.supplierMrp}</span>` : ''}
+          <td class="p-1.5">${esc(it.name)}${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<span class="block text-[10px] text-gray-400">Supplier MRP: ৳${it.supplierMrp}</span>` : ''}
             ${it.supplierQty !== it.qty || it.supplierTp !== it.tp ? `<span class="block text-[10px] text-gray-400">Supplier sent: ${it.supplierQty} x ৳${it.supplierTp}</span>` : ''}
-            ${edit && it.proposedTp != null && it.proposedTp !== it.tp ? `<button onclick="acceptPrice(${i},${it.proposedTp})" class="block text-[10px] text-blue-600 font-bold underline">Accept proposed TP ৳${it.proposedTp}</button>` : ''}
+            ${proposalBox(it, i, 'tp', edit)}${proposalBox(it, i, 'mrp', edit)}
           </td>
           <td class="p-1.5 text-center">${edit ? `<input id="q${i}" type="number" min="0" value="${it.qty}" oninput="recalc()" class="w-16 px-1 py-1 border rounded text-center">` : `${it.qty}<span class="block text-[10px] text-purple-600">got ${it.receivedQty || 0}</span>`}</td>
           <td class="p-1.5 text-right">${edit ? `<input id="t${i}" type="number" min="0" value="${it.tp}" oninput="recalc()" class="w-20 px-1 py-1 border rounded text-right">` : '৳' + it.tp}</td>
@@ -137,6 +139,7 @@
         ${edit ? `<textarea id="corrNote" rows="2" placeholder="Correction note for supplier (required if you change qty/price)" class="w-full px-3 py-2 border rounded-xl">${esc(p.correctionNote || '')}</textarea>` : (p.correctionNote ? `<p><b>Correction note:</b> ${esc(p.correctionNote)}</p>` : '')}
         <div><p class="font-bold mb-1">History</p>${(p.history || []).map(h => `<p class="text-gray-500">• ${new Date(h.at).toLocaleString()} - <b>${esc(h.action)}</b> by ${esc(h.by)} ${h.note ? '(' + esc(h.note) + ')' : ''}</p>`).join('')}</div>`;
       $('mActions').innerHTML = `
+        <button onclick="deletePo()" class="mr-auto bg-white border border-red-300 text-red-600 px-3 py-2 rounded-xl font-bold"><i class="fa-solid fa-trash mr-1"></i>Delete</button>
         <button onclick="printPo()" class="bg-gray-200 px-3 py-2 rounded-xl font-bold">Print</button>
         ${edit ? `<button onclick="reject()" class="bg-red-600 text-white px-3 py-2 rounded-xl font-bold">Reject</button>
         <button onclick="save('Under Review')" class="bg-blue-600 text-white px-3 py-2 rounded-xl font-bold">Save Corrections</button>
@@ -144,10 +147,44 @@
       $('poModal').classList.remove('hidden');
     };
     window.closeModal = () => $('poModal').classList.add('hidden');
-    window.acceptPrice = (i, v) => { $('t' + i).value = v; recalc(); };
-    window.acceptMrp = (i, v) => { $('m' + i).value = v; };
+    // ---- supplier proposals: each one needs an explicit Accept or Reject ----
+    let decisions = {};   // 'index:tp' / 'index:mrp' -> 'accepted' | 'rejected'
+    const pendingTp = it => it.proposedTp != null && Number(it.proposedTp) !== Number(it.supplierTp ?? it.tp);
+    const pendingMrp = it => it.proposedMrp != null && it.supplierMrp != null && Number(it.proposedMrp) !== Number(it.supplierMrp);
+    const statusHtml = d => d === 'accepted' ? '<b class="text-emerald-600">✓ Accepted</b>' : d === 'rejected' ? '<b class="text-red-600">✗ Rejected</b>' : '<b class="text-amber-600">⚠ Pending decision</b>';
+    function proposalBox(it, i, kind, edit) {
+      if (!(kind === 'tp' ? pendingTp(it) : pendingMrp(it))) return '';
+      const label = kind === 'tp' ? 'TP' : 'MRP', val = kind === 'tp' ? it.proposedTp : it.proposedMrp, d = decisions[i + ':' + kind];
+      if (!edit) return d ? `<span class="block text-[10px] text-gray-500">Proposed ${label} ৳${val}: ${statusHtml(d)}</span>` : '';
+      return `<div class="mt-1 flex flex-wrap items-center gap-1 text-[10px]"><span class="font-bold">Proposed ${label} ৳${val}</span>
+        <button type="button" onclick="decide(${i},'${kind}','accepted')" class="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold">Accept</button>
+        <button type="button" onclick="decide(${i},'${kind}','rejected')" class="px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold">Reject</button>
+        <span id="d_${kind}_${i}">${statusHtml(d)}</span></div>`;
+    }
+    window.decide = (i, kind, d) => {
+      const it = cur.items[i];
+      if (kind === 'tp') { $('t' + i).value = d === 'accepted' ? it.proposedTp : (it.supplierTp ?? it.tp); recalc(); }
+      else { $('m' + i).value = d === 'accepted' ? it.proposedMrp : (it.supplierMrp ?? it.mrp); }
+      decisions[i + ':' + kind] = d;
+      $('d_' + kind + '_' + i).innerHTML = statusHtml(d);
+    };
 
-    const collect = () => cur.items.map((it, i) => ({ ...it, qty: Math.floor(Number($('q' + i).value) || 0), tp: Number($('t' + i).value) || 0, mrp: Number($('m' + i).value) || 0 }));
+    window.deletePo = async () => {
+      const p = cur;
+      const got = ['Received', 'Partially Received'].includes(p.status);
+      const msg = got
+        ? `Delete ${p.poNo}? Stock has already been received against it. Deleting the PO will NOT reverse the stock already added. This cannot be undone.`
+        : `Delete ${p.poNo} (${p.status})? This cannot be undone.`;
+      if (!confirm(msg)) return;
+      try { await deleteDoc(doc(db, 'purchase_orders', p.docId)); closeModal(); await loadPos(); } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    const collect = () => cur.items.map((it, i) => {
+      const o = { ...it, qty: Math.floor(Number($('q' + i).value) || 0), tp: Number($('t' + i).value) || 0, mrp: Number($('m' + i).value) || 0 };
+      if (decisions[i + ':tp']) o.tpDecision = decisions[i + ':tp'];
+      if (decisions[i + ':mrp']) o.mrpDecision = decisions[i + ':mrp'];
+      return o;
+    });
     window.recalc = () => {
       const it = collect(); let g = 0;
       it.forEach((x, i) => { $('r' + i).textContent = '৳ ' + x.qty * x.tp; g += x.qty * x.tp; });
@@ -161,6 +198,15 @@
     }
 
     window.save = async (status) => {
+      if (status === 'Approved') {
+        const miss = [];
+        cur.items.forEach((it, i) => {
+          if ((Math.floor(Number($('q' + i).value) || 0)) <= 0) return;
+          if (pendingTp(it) && !decisions[i + ':tp']) miss.push(it.name + ' - TP ৳' + it.proposedTp);
+          if (pendingMrp(it) && !decisions[i + ':mrp']) miss.push(it.name + ' - MRP ৳' + it.proposedMrp);
+        });
+        if (miss.length) { alert('⚠ একটা কাজ বাকি আছে! Approve করার আগে সাপ্লায়ারের প্রতিটি প্রস্তাবে Accept বা Reject করুন:\n\n• ' + miss.join('\n• ')); return; }
+      }
       const items = collect().filter(i => i.qty > 0);
       if (!items.length) { alert('At least one item with quantity is required. Use Reject instead.'); return; }
       const note = $('corrNote').value.trim();
