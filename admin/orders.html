@@ -75,6 +75,13 @@
 
   <!-- Main Container -->
   <main class="max-w-6xl mx-auto p-3 sm:p-4 space-y-4">
+<div class="mb-2"><button type="button" onclick="rsToggle()" class="bg-rose-600 text-white px-3 py-2 rounded-xl font-bold text-xs">↩ রিটার্ন মেনু (ইনভয়েস নম্বর দিয়ে খুঁজুন)</button></div>
+<section id="rsPanel" hidden class="bg-white p-4 rounded-2xl shadow-sm border space-y-3 mb-3">
+  <h3 class="font-bold text-sm text-rose-700">ইনভয়েস খুঁজে রিটার্ন</h3>
+  <div class="flex gap-2"><input id="rsQ" placeholder="ইনভয়েস / মেমো নম্বর, যেমন ORD-XXXXXX" class="flex-1 px-3 py-2 border rounded-xl text-sm"><button type="button" onclick="rsSearch()" class="bg-gray-800 text-white px-4 rounded-xl font-bold text-xs">খুঁজুন</button></div>
+  <div id="rsBody"></div>
+</section>
+
 
     <!-- SMART FILTER BAR (Presets & Dropdowns) -->
     <div class="bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-emerald-100 space-y-3">
@@ -663,7 +670,73 @@
       } catch (e) { alert('Error: ' + e.message); }
     };
 
-    window.updateOrderStatus = async function(orderId, newStatus) {
+    
+// ===== RETURN MENU: invoice search -> item return -> customer wallet refund =====
+let rsOrderId=null;
+const rsNum=v=>Number(v||0), rsR2=v=>Math.round(v*100)/100;
+const rsE=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+window.rsToggle=()=>{const p=document.getElementById('rsPanel');p.hidden=!p.hidden};
+function rsAll(items){return items.length>0&&items.every(it=>rsNum(it.returnedQty)>=rsNum(it.qty))}
+function rsRefund(o,items){
+  if(rsAll(items))return rsNum(o.totalAmount);
+  const sub=rsNum(o.subtotal)||items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.qty),0);
+  const ratio=sub>0?(sub-rsNum(o.discount))/sub:1;
+  return rsR2(items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.returnedQty),0)*ratio);
+}
+window.rsSearch=()=>{const q=(document.getElementById('rsQ').value||'').trim().toUpperCase();
+if(!q)return;const o=allOrdersList.find(x=>String(x.orderId||x.id).toUpperCase()===q);
+if(!o){rsOrderId=null;document.getElementById('rsBody').innerHTML='<p class="text-xs text-red-600">এই নম্বরের কোনো ইনভয়েস পাওয়া যায়নি।</p>';return}
+rsOrderId=o.id;rsRender(o)};
+function rsRender(o){
+  const items=o.items||[];
+  const canReturn=(o.status==='Delivered'||o.status==='Completed')&&items.some(it=>rsNum(it.qty)>rsNum(it.returnedQty));
+  const rows=items.map((it,i)=>{const left=rsNum(it.qty)-rsNum(it.returnedQty);
+    return `<tr class="border-b"><td class="p-1.5">${rsE(it.name)}<br><small>৳${rsNum(it.price)} × ${rsNum(it.qty)}</small></td>
+    <td class="p-1.5 text-center">${rsNum(it.qty)}</td><td class="p-1.5 text-center">${rsNum(it.returnedQty)}</td>
+    <td class="p-1.5 text-center font-bold">${left}</td>
+    <td class="p-1.5 text-center"><input id="rs_${i}" type="number" min="0" max="${left}" value="0" ${canReturn&&left>0?'':'disabled'} oninput="rsPreview()" class="w-16 border rounded text-center"></td></tr>`}).join('');
+  const paid=o.paymentMethod||'—';
+  document.getElementById('rsBody').innerHTML=`
+  <div class="border rounded-xl p-3 text-xs space-y-1 bg-gray-50">
+    <div class="flex justify-between"><b>${rsE(o.orderId||o.id)}</b><span class="font-bold">${rsE(o.status)}</span></div>
+    <div>👤 ${rsE(o.userName)} · ${rsE(o.userPhone)}</div>
+    <div>📍 ${rsE(o.address)}</div>
+    <div>🏍 ${rsE(o.riderName||'—')} · পেমেন্ট: ${rsE(paid)} · মোট: <b>৳${rsNum(o.totalAmount)}</b></div>
+    <div class="text-gray-500">তারিখ: ${rsE(new Date(o.deliveredAt||o.createdAt||'').toLocaleString())}</div>
+  </div>
+  ${canReturn?`
+  <table class="w-full text-xs mt-3"><thead class="bg-gray-100 text-gray-600"><tr><th class="p-1.5 text-left">পণ্য</th><th class="p-1.5">মোট</th><th class="p-1.5">আগে ফেরত</th><th class="p-1.5">বাকি</th><th class="p-1.5">এখন ফেরত</th></tr></thead><tbody>${rows}</tbody></table>
+  <input id="rsReason" maxlength="200" placeholder="ফেরতের কারণ *" class="w-full px-3 py-2 border rounded-xl text-sm mt-3">
+  <div id="rsPrev" class="text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-2 mt-2"></div>
+  <button type="button" onclick="rsSave()" class="w-full bg-rose-600 text-white py-2.5 rounded-xl font-bold text-sm mt-2">রিটার্ন সেভ ও কাস্টমারের ওয়ালেটে জমা</button>
+  <p class="text-[10px] text-gray-400 mt-1">এই রিটার্নের টাকা অ্যাডমিন ব্যালেন্স থেকে যাবে; রাইডারের ক্যাশ ও কমিশন বদলাবে না।</p>`
+  :`<p class="text-xs text-gray-500 mt-3">এই অর্ডারে ফেরতযোগ্য কোনো আইটেম নেই (বা অর্ডার Delivered নয়)।</p>`}`;
+  rsPreview();
+}
+window.rsPreview=()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);const el=document.getElementById('rsPrev');if(!o||!el)return;
+  const old=o.items||[];
+  const items=old.map((it,i)=>{const left=rsNum(it.qty)-rsNum(it.returnedQty);const n=Math.min(Math.max(0,Math.floor(rsNum(document.getElementById('rs_'+i)?.value))),left);return{...it,returnedQty:rsNum(it.returnedQty)+n}});
+  const units=items.reduce((s,it,i)=>s+(rsNum(it.returnedQty)-rsNum(old[i].returnedQty)),0);
+  if(!units){el.innerHTML='এখন ফেরতের পরিমাণ লিখুন।';return}
+  const delta=rsR2(rsRefund(o,items)-rsNum(o.reversedRefund));
+  el.innerHTML=`অ্যাডমিন ব্যালেন্স থেকে কাস্টমারের ওয়ালেটে জমা: <b>৳${delta}</b>`
+   +`<br><small>রাইডারের ক্যাশ বাকি: অপরিবর্তিত</small>`
+   +(o.reversedRefund==null&&(o.returnHistory||[]).length===0&&old.some(it=>rsNum(it.returnedQty)>0)?'<br><small>⚠ আগের রিটার্নের টাকাও এখানে যোগ হবে।</small>':'');
+};
+window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)return;
+  const reason=(document.getElementById('rsReason')?.value||'').trim();if(!reason)return alert('ফেরতের কারণ লিখুন');
+  const items=(o.items||[]).map(it=>({...it})),lines=[];
+  for(let i=0;i<items.length;i++){const it=items[i],left=rsNum(it.qty)-rsNum(it.returnedQty),n=Math.floor(rsNum(document.getElementById('rs_'+i)?.value));
+    if(n<0||n>left)return alert('"'+it.name+'" এর ফেরত ০ থেকে '+left+' এর মধ্যে হতে হবে');
+    if(n>0){it.returnedQty=rsNum(it.returnedQty)+n;lines.push({productId:String(it.id),name:it.name,qty:n})}}
+  if(!lines.length)return alert('কমপক্ষে একটি আইটেমের ফেরত দিন');
+  const at=new Date().toISOString(),all=rsAll(items),refund=rsR2(rsRefund(o,items)-rsNum(o.reversedRefund));
+  const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines,refund,channel:'menu'};
+  const payload={items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.returnedQty),0),noCommissionReversal:true};
+  if(all){payload.status='Returned';payload.returnedAt=at;payload.returnReason=reason}
+  try{await updateDoc(doc(db,'orders',o.id),payload);alert((all?'সব আইটেম ফেরত, অর্ডার Returned হয়েছে।':'আংশিক ফেরত সেভ হয়েছে।')+' ওয়ালেটে ৳'+refund+' জমা হবে।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
+  catch(e){alert(e.message)}};
+window.updateOrderStatus = async function(orderId, newStatus) {
       try {
         const cur = allOrdersList.find(o => o.id === orderId);
         if (newStatus === 'Delivered' && cur && (cur.riderPhone || cur.riderName || cur.assignedRiderName)) {
