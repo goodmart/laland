@@ -122,7 +122,7 @@
       $('mTitle').innerHTML = `${esc(p.poNo)} - ${esc(p.supplier)} ${badge(p.status)}`;
       const rows = p.items.map((it, i) => `
         <tr class="border-b align-top">
-          <td class="p-1.5">${esc(it.name)}${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<span class="block text-[10px] text-gray-400">Supplier MRP: ৳${it.supplierMrp}</span>` : ''}
+          <td class="p-1.5">${esc(it.name)} <button type="button" data-pid="${esc(it.id)}" data-pname="${esc(it.name)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname)" class="ml-1 text-[10px] text-indigo-600 underline font-bold">History</button>${it.supplierMrp != null && it.supplierMrp !== it.mrp ? `<span class="block text-[10px] text-gray-400">Supplier MRP: ৳${it.supplierMrp}</span>` : ''}
             ${it.supplierQty !== it.qty || it.supplierTp !== it.tp ? `<span class="block text-[10px] text-gray-400">Supplier sent: ${it.supplierQty} x ৳${it.supplierTp}</span>` : ''}
             ${proposalBox(it, i, 'tp', edit)}${proposalBox(it, i, 'mrp', edit)}
           </td>
@@ -232,5 +232,6 @@
     };
   </script>
   <script type="module" src="admin-nav.js"></script>
+  <script type="module" src="product-history.js"></script>
 </body>
 </html>
