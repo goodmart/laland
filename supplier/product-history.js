@@ -1,6 +1,6 @@
 // product-history.js  (identical copy goes in admin/ AND supplier/)
 // window.openProductHistory(productId, productName, scope, companyName, currentStock)
-//   scope 'admin'    -> stock-in (with PO ref) + stock-out (delivered orders)
+//   scope 'admin'    -> stock-in (with PO ref) + stock-out / returns from the movement ledger
 //   scope 'supplier' -> own stock-in only (customer/sales data is not visible to suppliers)
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -42,15 +42,18 @@ async function stockInFor(productId, scope, companyName) {
   return rows.sort(byDateDesc);
 }
 
-async function stockOutFor(productId) {
-  const snap = await getDocs(query(collection(db, 'orders'), where('status', '==', 'Delivered')));
-  const rows = [];
+// Stock movements written by the Cloud Function (products/{id}/movements)
+async function movementsFor(productId) {
+  const snap = await getDocs(collection(db, 'products', String(productId), 'movements'));
+  const outs = [], rets = [];
   snap.forEach(d => {
-    const o = d.data();
-    const it = (o.items || []).find(i => same(i.id, productId));
-    if (it) rows.push({ date: o.deliveredAt || o.updatedAt || o.createdAt || '', ref: o.orderId || d.id, qty: Number(it.qty || 0), price: Number(it.price || 0) });
+    const m = d.data();
+    const row = { date: m.createdAt || '', ref: m.refId || d.id, qty: Number(m.qty || 0), balanceAfter: m.balanceAfter };
+    if (m.type === 'out') outs.push(row);
+    else if (m.type === 'return') rets.push(row);
+    else if (m.type === 'return_undo') rets.push({ ...row, qty: -row.qty });
   });
-  return rows.sort(byDateDesc);
+  return { outs: outs.sort(byDateDesc), rets: rets.sort(byDateDesc) };
 }
 
 const card = (label, value, cls = 'text-gray-800') => `<div class="bg-gray-50 border rounded-xl p-2.5 text-center"><p class="text-[10px] text-gray-500">${label}</p><p class="font-extrabold text-sm ${cls}">${value}</p></div>`;
@@ -78,28 +81,33 @@ window.openProductHistory = async function (productId, productName, scope = 'adm
       return;
     }
 
-    const outs = await stockOutFor(productId);
+    const { outs, rets } = await movementsFor(productId);
     const totalOut = outs.reduce((s, r) => s + r.qty, 0);
-    const soldValue = outs.reduce((s, r) => s + r.qty * r.price, 0);
-    const expected = totalIn - totalOut;
+    const totalRet = rets.reduce((s, r) => s + r.qty, 0);
+    const expected = totalIn - totalOut + totalRet;
     const diff = Number(currentStock || 0) - expected;
     const outTable = outs.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="bg-rose-50 text-rose-800"><th class="p-1.5">Delivered On</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Out</th><th class="p-1.5 text-right">Price</th></tr></thead>
-        <tbody>${outs.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-rose-700">-${r.qty}</td><td class="p-1.5 text-right">৳${r.price}</td></tr>`).join('')}</tbody></table></div>`
+        <thead><tr class="bg-rose-50 text-rose-800"><th class="p-1.5">Delivered On</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Out</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
+        <tbody>${outs.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-rose-700">-${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
       : empty('এখনো কোনো ডেলিভারি নেই।');
+    const retTable = rets.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+        <thead><tr class="bg-orange-50 text-orange-800"><th class="p-1.5">Date</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Back</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
+        <tbody>${rets.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-orange-700">${r.qty > 0 ? '+' : ''}${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
+      : empty('কোনো ফেরত নেই।');
 
     body.innerHTML = `
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         ${card('Current Stock', (currentStock || 0) + ' pcs', 'text-blue-600')}
         ${card('Total In', '+' + totalIn, 'text-emerald-700')}
         ${card('Total Out (Delivered)', '-' + totalOut, 'text-rose-700')}
-        ${card('Sales Value', '৳ ' + soldValue)}
+        ${card('Total Returned', '+' + totalRet, 'text-orange-700')}
       </div>
       <p class="text-[11px] ${diff ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-gray-500 bg-gray-50 border'} rounded-lg p-2">
-        হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} = ${expected}, বর্তমান স্টক ${currentStock || 0}.
+        হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} + ফেরত ${totalRet} = ${expected}, বর্তমান স্টক ${currentStock || 0}.
         ${diff ? `পার্থক্য ${diff > 0 ? '+' : ''}${diff} pcs। ম্যানুয়াল স্টক পরিবর্তন, ফেরত বা পুরনো stock-in edit এর কারণে হতে পারে।` : 'হিসাব মিলছে।'}</p>
       <p class="font-bold text-emerald-700">Stock-In</p>${inTable}
-      <p class="font-bold text-rose-700">Stock-Out (Delivered)</p>${outTable}`;
+      <p class="font-bold text-rose-700">Stock-Out (Delivered)</p>${outTable}
+      <p class="font-bold text-orange-700">Returns (Back to Stock)</p>${retTable}`;
   } catch (e) {
     body.innerHTML = `<p class="text-red-600 text-center py-6">Could not load history: ${esc(e.message)}</p>`;
   }
