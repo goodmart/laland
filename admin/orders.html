@@ -464,7 +464,7 @@
                   <input type="number" min="1" value="${i.qty}" id="qty_${ord.id}_${index}" class="w-10 text-center font-bold text-emerald-700 bg-transparent focus:outline-none text-xs">
                   <button onclick="updateProductQty('${ord.id}', ${index})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-[10px] font-bold hover:bg-emerald-700">Update</button>
                 </div>
-              ` : `<span class="text-xs font-bold text-gray-600">Qty: ${i.qty}</span>`}
+              ` : `<span class="text-xs font-bold text-gray-600">Qty: ${i.qty}${Number(i.returnedQty||0)>0 ? ` <span class="text-rose-600">(ফেরত ${i.returnedQty})</span>` : ''}</span>`}
 
               <span class="font-extrabold text-emerald-700 text-xs w-16 text-right">৳ ${i.price * i.qty}</span>
 
@@ -520,6 +520,7 @@
                   <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(ord.status)}">
                     ${ord.status || 'Pending'}
                   </span>
+                  ${(ord.items||[]).some(i => Number(i.returnedQty||0) > 0) && ord.status !== 'Returned' ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">আংশিক ফেরত</span>' : ''}
                   <span class="text-[11px] font-mono text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">${ord.orderId || '#ORD'}</span>
                 </div>
                 <p class="text-[11px] text-gray-500 flex flex-wrap items-center gap-x-2 mt-0.5">
@@ -572,6 +573,7 @@
               </div>
 
               <div class="flex items-center space-x-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                ${isDelivered && (ord.items||[]).some(i => Number(i.qty) > Number(i.returnedQty||0)) ? `<button onclick="openReturnModal('${ord.id}')" class="bg-rose-50 text-rose-700 font-bold px-3 py-1.5 rounded-xl hover:bg-rose-100 flex items-center space-x-1"><i class="fa-solid fa-rotate-left"></i><span>ফেরত</span></button>` : ''}
                 <button onclick="printInvoice('${ord.id}')" class="bg-gray-100 text-gray-700 font-bold px-3 py-1.5 rounded-xl hover:bg-gray-200 flex items-center space-x-1">
                   <i class="fa-solid fa-print"></i>
                   <span>Print Memo</span>
@@ -608,6 +610,58 @@
       if (status === 'cancelled') return 'bg-red-100 text-red-800';
       return 'bg-amber-100 text-amber-800';
     }
+
+    // ===== ITEM-WISE PARTIAL RETURN =====
+    let retOrderId = null;
+    window.openReturnModal = function(orderId) {
+      const ord = allOrdersList.find(o => o.id === orderId);
+      if (!ord) return;
+      retOrderId = orderId;
+      document.getElementById('retTitle').textContent = 'ফেরত: ' + (ord.orderId || orderId);
+      document.getElementById('retItems').innerHTML = (ord.items || []).map((it, i) => {
+        const left = Number(it.qty) - Number(it.returnedQty || 0);
+        return `<div class="flex items-center justify-between gap-2 py-2 border-b text-xs">
+          <div><b class="text-gray-800">${it.name}</b>
+            <span class="block text-[10px] text-gray-500">মোট ${it.qty} | আগে ফেরত ${it.returnedQty || 0} | ফেরতযোগ্য ${left}</span></div>
+          <input type="number" min="0" max="${left}" value="0" id="ret_qty_${i}" ${left <= 0 ? 'disabled' : ''} class="w-16 px-2 py-1 border rounded text-center font-bold disabled:bg-gray-100">
+        </div>`;
+      }).join('');
+      document.getElementById('retReason').value = '';
+      document.getElementById('retModal').classList.remove('hidden');
+    };
+    window.closeReturnModal = () => document.getElementById('retModal').classList.add('hidden');
+
+    window.saveReturn = async function() {
+      const ord = allOrdersList.find(o => o.id === retOrderId);
+      if (!ord) return;
+      const reason = document.getElementById('retReason').value.trim();
+      const items = (ord.items || []).map(it => ({ ...it }));
+      const lines = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const left = Number(it.qty) - Number(it.returnedQty || 0);
+        const n = Math.floor(Number(document.getElementById('ret_qty_' + i)?.value) || 0);
+        if (n < 0 || n > left) { alert(`"${it.name}" এর ফেরত ০ থেকে ${left} এর মধ্যে হতে হবে।`); return; }
+        if (n > 0) { it.returnedQty = Number(it.returnedQty || 0) + n; lines.push({ productId: String(it.id), name: it.name, qty: n }); }
+      }
+      if (!lines.length) { alert('কমপক্ষে একটি আইটেমের ফেরতের পরিমাণ দিন।'); return; }
+      if (!reason) { alert('ফেরতের কারণ লিখুন।'); return; }
+
+      const at = new Date().toISOString();
+      const entry = { id: 'R' + Date.now().toString(36), at, by: 'admin', reason, lines };
+      const allReturned = items.every(it => Number(it.returnedQty || 0) >= Number(it.qty));
+      const payload = {
+        items,
+        returnHistory: [...(ord.returnHistory || []), entry],
+        returnedAmount: items.reduce((s, it) => s + Number(it.price || 0) * Number(it.returnedQty || 0), 0)
+      };
+      if (allReturned) { payload.status = 'Returned'; payload.returnedAt = at; payload.returnReason = reason; }
+      try {
+        await updateDoc(doc(db, 'orders', retOrderId), payload);
+        closeReturnModal();
+        alert(allReturned ? 'সব আইটেম ফেরত — অর্ডার Returned হয়েছে।' : 'আংশিক ফেরত সেভ হয়েছে। অর্ডার Delivered-ই থাকবে।');
+      } catch (e) { alert('Error: ' + e.message); }
+    };
 
     window.updateOrderStatus = async function(orderId, newStatus) {
       try {
@@ -820,5 +874,23 @@
       printWindow.print();
     };
   </script>
+  <div id="retModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-4 space-y-3 shadow-2xl">
+      <div class="flex justify-between items-center border-b pb-2">
+        <h3 id="retTitle" class="font-bold text-sm text-rose-700"></h3>
+        <button onclick="closeReturnModal()" class="text-xl px-2 text-gray-500">&times;</button>
+      </div>
+      <p class="text-[11px] text-gray-500">কোন আইটেম কত ফেরত এসেছে তা লিখুন। সব আইটেম ফেরত হলে অর্ডার Returned হবে, না হলে Delivered-ই থাকবে। ফেরত মাল স্টকে যোগ হবে।</p>
+      <div id="retItems"></div>
+      <div>
+        <label class="text-[11px] font-bold text-gray-600 block mb-1">ফেরতের কারণ *</label>
+        <input id="retReason" maxlength="200" class="w-full px-3 py-2 border rounded-xl text-sm" placeholder="যেমন: মেয়াদোত্তীর্ণ, ভাঙা, ভুল পণ্য">
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t">
+        <button onclick="closeReturnModal()" class="bg-gray-100 px-4 py-2 rounded-xl font-bold text-xs">বাতিল</button>
+        <button onclick="saveReturn()" class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold text-xs">ফেরত সেভ</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
