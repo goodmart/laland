@@ -165,6 +165,7 @@
             <p class="text-[11px] text-gray-500">TP: ৳${Number(p.tp || 0)} | MRP: ৳${Number(p.mrp || 0)}</p>
             <p class="text-xs font-bold ${low ? 'text-red-600' : 'text-emerald-700'}">Stock: ${stock} ${low ? '<span class="text-[10px] bg-red-100 px-1.5 rounded">LOW</span>' : ''}</p>
           </div>
+          <button type="button" data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-stock="${stock}" data-co="${esc(me.companyName)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'supplier',this.dataset.co,this.dataset.stock)" class="shrink-0 border border-indigo-300 text-indigo-600 px-2 py-1.5 rounded-lg text-xs font-bold" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
           <button onclick="addToPo('${p.id}')" class="shrink-0 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
         </div>`;
       }).join('') : '<p class="col-span-2 text-center text-xs text-gray-400 py-6">No products found.</p>';
@@ -277,5 +278,6 @@
       w.document.close(); w.print();
     };
   </script>
+  <script type="module" src="product-history.js"></script>
 </body>
 </html>
