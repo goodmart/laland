@@ -258,7 +258,24 @@
         <h4 class="text-xs font-bold text-emerald-700 border-b pb-2">
           <i class="fa-solid fa-layer-group"></i> Supplier-wise Product List (with SKU, Stock, TP & MRP):
         </h4>
-        <div id="adminProductList" class="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+        <div class="grid grid-cols-1 gap-2">
+          <div id="supWrap" class="relative">
+            <label class="text-[11px] text-gray-600 block mb-1 font-bold">কোম্পানি বেছে নিন (নাম লিখে খুঁজুন)</label>
+            <div class="flex gap-2">
+              <input id="supFilterInput" type="text" autocomplete="off" placeholder="কোম্পানির নাম লিখুন..." oninput="onSupTyping(this.value)" onfocus="onSupTyping(this.value)" class="flex-1 px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+              <button type="button" onclick="clearSupplierFilter()" class="px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 rounded-xl">Clear</button>
+            </div>
+            <div id="supFilterList" class="hidden absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border rounded-xl shadow-xl z-20"></div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input id="prodInCompanySearch" type="text" placeholder="প্রোডাক্ট নাম / SKU / Barcode..." oninput="renderProductList()" class="px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <select id="stockFilter" onchange="renderProductList()" class="px-3 py-2 border rounded-xl text-sm bg-white">
+              <option value="all">সব স্টক</option><option value="in">স্টক আছে</option><option value="out">স্টক নেই (০)</option><option value="low">কম স্টক (১০ বা কম)</option>
+            </select>
+          </div>
+          <p id="supFilterInfo" class="text-[11px] text-gray-500"></p>
+        </div>
+        <div id="adminProductList" class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
           <p class="text-xs text-gray-400 text-center py-4">Loading products...</p>
         </div>
       </div>
@@ -628,80 +645,134 @@
       }
     };
 
+    // ---------- Supplier filter + product list ----------
+    let allProducts = [];
+    let hiddenIds = new Set();
+    const SUP_KEY = 'adminProductsSupplier';
+    const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const supOf = p => p.supplier || 'Others / No Supplier';
+
+    // Same rule as the shop: same name + same supplier = one item.
+    // Some stock > 0 -> stock-0 twins are hidden in shop. All stock 0 -> only the newest is shown.
+    function computeHidden(list) {
+      const groups = {};
+      list.forEach(p => { const k = (p.name || '').trim().toLowerCase() + '|' + (p.supplier || ''); (groups[k] = groups[k] || []).push(p); });
+      const hidden = new Set();
+      Object.values(groups).forEach(g => {
+        if (g.length < 2) return;
+        const inStock = g.filter(p => Number(p.stock || 0) > 0);
+        if (inStock.length) g.forEach(p => { if (Number(p.stock || 0) <= 0) hidden.add(p.id); });
+        else {
+          const newest = g.slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0];
+          g.forEach(p => { if (p.id !== newest.id) hidden.add(p.id); });
+        }
+      });
+      return hidden;
+    }
+
+    window.renderSupplierOptions = (q = '') => {
+      const counts = {};
+      allProducts.forEach(p => { const s = supOf(p); counts[s] = (counts[s] || 0) + 1; });
+      const qq = q.trim().toLowerCase();
+      const names = Object.keys(counts).sort((a, b) => a.localeCompare(b)).filter(n => !qq || n.toLowerCase().includes(qq));
+      document.getElementById('supFilterList').innerHTML = names.length
+        ? names.map(n => `<button type="button" onmousedown="pickSupplier(this.dataset.s)" data-s="${escHtml(n)}" class="block w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 border-b last:border-0"><span class="font-semibold">${escHtml(n)}</span> <span class="text-[10px] text-gray-400">(${counts[n]} টি)</span></button>`).join('')
+        : '<p class="px-3 py-2 text-xs text-gray-400">কোনো কোম্পানি পাওয়া যায়নি</p>';
+    };
+    window.onSupTyping = (v) => { renderSupplierOptions(v); document.getElementById('supFilterList').classList.remove('hidden'); };
+    window.pickSupplier = (name) => {
+      localStorage.setItem(SUP_KEY, name);
+      document.getElementById('supFilterInput').value = name;
+      document.getElementById('supFilterList').classList.add('hidden');
+      renderProductList();
+    };
+    window.clearSupplierFilter = () => {
+      localStorage.removeItem(SUP_KEY);
+      document.getElementById('supFilterInput').value = '';
+      renderProductList();
+    };
+    document.addEventListener('click', e => { if (!e.target.closest('#supWrap')) document.getElementById('supFilterList')?.classList.add('hidden'); });
+
+    window.renderProductList = () => {
+      const box = document.getElementById('adminProductList');
+      const info = document.getElementById('supFilterInfo');
+      const sup = localStorage.getItem(SUP_KEY) || '';
+      const q = (document.getElementById('prodInCompanySearch')?.value || '').trim().toLowerCase();
+      const sf = document.getElementById('stockFilter')?.value || 'all';
+      if (!sup) {
+        box.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">উপরে কোম্পানির নাম লিখে বেছে নিন। তার সব প্রোডাক্ট এখানে দেখাবে।</p>';
+        info.textContent = '';
+        return;
+      }
+      const all = allProducts.filter(p => supOf(p) === sup);
+      const items = all.filter(p => {
+        const stock = Number(p.stock || 0);
+        if (sf === 'in' && stock <= 0) return false;
+        if (sf === 'out' && stock > 0) return false;
+        if (sf === 'low' && !(stock > 0 && stock <= 10)) return false;
+        if (q && !((p.name || '').toLowerCase().includes(q) || String(p.sku || '').toLowerCase().includes(q) || String(p.barcode || '').toLowerCase().includes(q))) return false;
+        return true;
+      });
+      info.textContent = `${sup}: মোট ${all.length} টি, দেখাচ্ছে ${items.length} টি`;
+      if (!items.length) { box.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">এই ফিল্টারে কোনো প্রোডাক্ট নেই।</p>'; return; }
+
+      box.innerHTML = items.map(prod => {
+        const stock = Number(prod.stock || 0);
+        const isHidden = hiddenIds.has(prod.id);
+        const badges = [];
+        if (isHidden) badges.push('<span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px] font-bold">Hidden in shop</span>');
+        if (prod.priceBatchOf) badges.push('<span class="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[10px] font-bold">Price Batch</span>');
+        const skuText = prod.sku ? `SKU: <span class="font-mono text-emerald-700">${escHtml(prod.sku)}</span> | ` : '';
+        return `
+          <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border text-xs shadow-sm ${isHidden ? 'opacity-60' : ''}">
+            <div class="flex items-center space-x-2.5 min-w-0">
+              <img src="${escHtml(prod.image)}" class="w-12 h-12 object-cover rounded-lg border shrink-0">
+              <div class="min-w-0">
+                <p class="font-bold text-gray-800 text-sm">${escHtml(prod.name)} ${badges.join(' ')}</p>
+                <p class="text-gray-400 text-[10px]">${skuText}Barcode: ${escHtml(prod.barcode || 'N/A')} | Category: ${escHtml(prod.category || 'N/A')}</p>
+                <p class="text-gray-700 font-semibold mt-0.5">
+                  Stock: <span class="text-blue-600 font-bold">${stock} pcs</span> |
+                  MRP: <span class="text-emerald-700 font-bold">৳${prod.mrp}</span> |
+                  TP: <span class="text-emerald-700 font-bold">৳${prod.tp}</span>
+                  ${prod.discountPrice && prod.discountPrice !== prod.mrp ? `| Disc: ৳${prod.discountPrice}` : ''}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center space-x-1 shrink-0">
+              <button type="button" data-pid="${escHtml(prod.id)}" data-pname="${escHtml(prod.name)}" data-stock="${stock}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'admin','',this.dataset.stock)" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg" title="History">
+                <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+              </button>
+              <button onclick="editProduct('${prod.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2 rounded-lg" title="Edit">
+                <i class="fa-solid fa-pen-to-square text-sm"></i>
+              </button>
+              <button onclick="deleteProduct('${prod.id}')" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg" title="Delete">
+                <i class="fa-solid fa-trash text-sm"></i>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+    };
+
     async function loadProducts() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
-      const container = document.getElementById('adminProductList');
-      if(!db) return;
-
+      if (!db) return;
       try {
         const querySnapshot = await getDocs(collection(db, "products"));
-        if (querySnapshot.empty) {
-          container.innerHTML = `<p class="text-xs text-gray-400 text-center py-4">No products found.</p>`;
-          return;
-        }
-
-        productsDataStore = {}; 
-        let supplierGroups = {};
-
+        productsDataStore = {};
+        allProducts = [];
         querySnapshot.forEach((docSnap) => {
           const prod = docSnap.data();
-          const prodId = docSnap.id;
-          productsDataStore[prodId] = prod; 
-
-          const supplierName = prod.supplier || "Others / No Supplier";
-          if (!supplierGroups[supplierName]) {
-            supplierGroups[supplierName] = [];
-          }
-          supplierGroups[supplierName].push({ id: prodId, ...prod });
+          productsDataStore[docSnap.id] = prod;
+          allProducts.push({ id: docSnap.id, ...prod });
         });
-
-        let html = '';
-        for (const [supplier, items] of Object.entries(supplierGroups)) {
-          html += `
-            <div class="border rounded-xl p-3 bg-gray-50 space-y-2">
-              <h5 class="font-bold text-xs text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex justify-between items-center">
-                <span><i class="fa-solid fa-truck-field mr-1"></i> ${supplier}</span>
-                <span class="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold">Total Products: ${items.length}</span>
-              </h5>
-              <div class="space-y-2 pl-1">
-          `;
-
-          items.forEach(prod => {
-            const currentStock = prod.stock !== undefined ? prod.stock : 0;
-            const skuText = prod.sku ? `SKU: <span class="font-mono text-emerald-700">${prod.sku}</span> | ` : '';
-            html += `
-              <div class="flex items-center justify-between bg-white p-2.5 rounded-xl border text-xs shadow-sm">
-                <div class="flex items-center space-x-2.5">
-                  <img src="${prod.image}" class="w-12 h-12 object-cover rounded-lg border">
-                  <div>
-                    <p class="font-bold text-gray-800 text-sm">${prod.name}</p>
-                    <p class="text-gray-400 text-[10px]">${skuText}Barcode: ${prod.barcode || 'N/A'} | Category: ${prod.category || 'N/A'}</p>
-                    <p class="text-gray-700 font-semibold mt-0.5">
-                      Stock: <span class="text-blue-600 font-bold">${currentStock} pcs</span> | 
-                      MRP: <span class="text-emerald-700 font-bold">৳${prod.mrp}</span> | 
-                      TP: <span class="text-emerald-700 font-bold">৳${prod.tp}</span>
-                      ${prod.discountPrice && prod.discountPrice !== prod.mrp ? `| Disc: ৳${prod.discountPrice}` : ''}
-                    </p>
-                  </div>
-                </div>
-                <div class="flex items-center space-x-1">
-                  <button onclick="editProduct('${prod.id}')" class="bg-blue-50 text-blue-600 hover:bg-blue-100 p-2 rounded-lg" title="Edit">
-                    <i class="fa-solid fa-pen-to-square text-sm"></i>
-                  </button>
-                  <button onclick="deleteProduct('${prod.id}')" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg" title="Delete">
-                    <i class="fa-solid fa-trash text-sm"></i>
-                  </button>
-                </div>
-              </div>
-            `;
-          });
-
-          html += `</div></div>`;
-        }
-
-        container.innerHTML = html;
-        generateSku(); // Generate initial SKU after loading products
+        hiddenIds = computeHidden(allProducts);
+        const saved = localStorage.getItem(SUP_KEY) || '';
+        const inp = document.getElementById('supFilterInput');
+        if (inp && saved && !inp.value) inp.value = saved;
+        renderSupplierOptions('');
+        renderProductList();
+        generateSku();
       } catch (e) { console.error(e); }
     }
 
@@ -716,5 +787,7 @@
       } catch (e) { alert(e.message); }
     };
   </script>
+  <script type="module" src="product-history.js"></script>
+  <script type="module" src="admin-nav.js"></script>
 </body>
 </html>
