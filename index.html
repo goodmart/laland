@@ -302,7 +302,7 @@
               </div>
               <div>
                 <p class="text-[10px] text-emerald-100 uppercase font-semibold">Wallet Balance</p>
-                <p class="text-xs font-extrabold">৳ 0.00</p>
+                <p id="walletBalanceText" class="text-xs font-extrabold">৳0.00</p>
               </div>
             </div>
             <div class="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10 flex items-center space-x-2">
@@ -1663,6 +1663,17 @@
       const { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
 
       onAuthStateChanged(auth, async (user) => {
+        if (window.__walletUnsub) { window.__walletUnsub(); window.__walletUnsub = null; }
+        const wEl = document.getElementById('walletBalanceText');
+        if (user && wEl) {
+          const { onSnapshot: watch } = window.firebaseServices;
+          window.__walletUnsub = watch(doc(db, "users", user.uid), (s) => {
+            const v = Number((s.data() || {}).walletBalance || 0);
+            wEl.textContent = '৳' + v.toFixed(2);
+          }, (e) => console.error('wallet', e));
+        } else if (wEl) {
+          wEl.textContent = '৳0.00';
+        }
         if (user) {
           document.getElementById('authForms').classList.add('hidden');
           document.getElementById('profileView').classList.remove('hidden');
