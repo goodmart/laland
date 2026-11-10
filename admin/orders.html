@@ -580,7 +580,7 @@
               </div>
 
               <div class="flex items-center space-x-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
-                ${isDelivered && (ord.items||[]).some(i => Number(i.qty) > Number(i.returnedQty||0)) ? `<button onclick="openReturnModal('${ord.id}')" class="bg-rose-50 text-rose-700 font-bold px-3 py-1.5 rounded-xl hover:bg-rose-100 flex items-center space-x-1"><i class="fa-solid fa-rotate-left"></i><span>ফেরত</span></button>` : ''}
+                ${isDelivered && (ord.items||[]).some(i => Number(i.qty) > Number(i.returnedQty||0)) ? `<button onclick="openReturnModal('${ord.id}')" class="bg-rose-50 text-rose-700 font-bold px-3 py-1.5 rounded-xl hover:bg-rose-100 flex items-center space-x-1"><i class="fa-solid fa-rotate-left"></i><span>দরজায় ফেরত</span></button>` : ''}
                 <button onclick="printInvoice('${ord.id}')" class="bg-gray-100 text-gray-700 font-bold px-3 py-1.5 rounded-xl hover:bg-gray-200 flex items-center space-x-1">
                   <i class="fa-solid fa-print"></i>
                   <span>Print Memo</span>
@@ -624,7 +624,7 @@
       const ord = allOrdersList.find(o => o.id === orderId);
       if (!ord) return;
       retOrderId = orderId;
-      document.getElementById('retTitle').textContent = 'ফেরত: ' + (ord.orderId || orderId);
+      document.getElementById('retTitle').textContent = 'দরজায় ফেরত: ' + (ord.orderId || orderId);
       document.getElementById('retItems').innerHTML = (ord.items || []).map((it, i) => {
         const left = Number(it.qty) - Number(it.returnedQty || 0);
         return `<div class="flex items-center justify-between gap-2 py-2 border-b text-xs">
@@ -967,7 +967,7 @@ window.updateOrderStatus = async function(orderId, newStatus) {
       </div>
       <div class="flex justify-end gap-2 pt-2 border-t">
         <button onclick="closeReturnModal()" class="bg-gray-100 px-4 py-2 rounded-xl font-bold text-xs">বাতিল</button>
-        <button onclick="saveReturn()" class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold text-xs">ফেরত সেভ</button>
+        <button onclick="saveReturn()" class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold text-xs">দরজায় দরজায় ফেরত সেভ</button>
       </div>
     </div>
   </div>
