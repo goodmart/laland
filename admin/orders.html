@@ -677,12 +677,24 @@ const rsNum=v=>Number(v||0), rsR2=v=>Math.round(v*100)/100;
 const rsE=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 window.rsToggle=()=>{const p=document.getElementById('rsPanel');p.hidden=!p.hidden};
 function rsAll(items){return items.length>0&&items.every(it=>rsNum(it.returnedQty)>=rsNum(it.qty))}
-function rsRefund(o,items){
-  if(rsAll(items))return rsNum(o.totalAmount);
+function rsParts(o,items,extra){extra=extra||{};
+  const menuQ=pid=>(o.returnHistory||[]).filter(e=>e.channel==='menu').reduce((s,e)=>s+(e.lines||[]).filter(l=>String(l.productId)===String(pid)).reduce((a,l)=>a+rsNum(l.qty),0),0)+rsNum(extra[String(pid)]);
   const sub=rsNum(o.subtotal)||items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.qty),0);
   const ratio=sub>0?(sub-rsNum(o.discount))/sub:1;
-  return rsR2(items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.returnedQty),0)*ratio);
+  const dc=o.deliveryCharge==null?30:rsNum(o.deliveryCharge);
+  let paidV=0,heldV=0,anyPaid=false,anyHeld=false;
+  items.forEach(it=>{const q=rsNum(it.qty),p=rsNum(it.price),m=menuQ(it.id),oldR=Math.max(0,rsNum(it.returnedQty)-m);
+    const pu=q-oldR,hu=q-oldR-m;paidV+=p*pu;heldV+=p*hu;if(pu>0)anyPaid=true;if(hu>0)anyHeld=true;});
+  const paid=rsR2(paidV*ratio+(anyPaid?dc:0)),held=rsR2(heldV*ratio+(anyHeld?dc:0));
+  return{refund:Math.max(0,rsR2(paid-held))};
 }
+function rsNewState(o){const old=o.items||[],extra={},lines=[];let units=0,bad=null;
+  const items=old.map((it,i)=>{const left=rsNum(it.qty)-rsNum(it.returnedQty);const raw=Math.floor(rsNum(document.getElementById('rs_'+i)?.value));
+    if(raw<0||raw>left)bad=bad||('"'+it.name+'" এর ফেরত ০ থেকে '+left+' এর মধ্যে হতে হবে');
+    const n=Math.min(Math.max(0,raw),left);units+=n;
+    if(n>0){extra[String(it.id)]=(extra[String(it.id)]||0)+n;lines.push({productId:String(it.id),name:it.name,qty:n})}
+    return{...it,returnedQty:rsNum(it.returnedQty)+n}});
+  return{items,extra,units,lines,bad};}
 window.rsSearch=()=>{const q=(document.getElementById('rsQ').value||'').trim().toUpperCase();
 if(!q)return;const o=allOrdersList.find(x=>String(x.orderId||x.id).toUpperCase()===q);
 if(!o){rsOrderId=null;document.getElementById('rsBody').innerHTML='<p class="text-xs text-red-600">এই নম্বরের কোনো ইনভয়েস পাওয়া যায়নি।</p>';return}
@@ -714,27 +726,21 @@ function rsRender(o){
   rsPreview();
 }
 window.rsPreview=()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);const el=document.getElementById('rsPrev');if(!o||!el)return;
-  const old=o.items||[];
-  const items=old.map((it,i)=>{const left=rsNum(it.qty)-rsNum(it.returnedQty);const n=Math.min(Math.max(0,Math.floor(rsNum(document.getElementById('rs_'+i)?.value))),left);return{...it,returnedQty:rsNum(it.returnedQty)+n}});
-  const units=items.reduce((s,it,i)=>s+(rsNum(it.returnedQty)-rsNum(old[i].returnedQty)),0);
-  if(!units){el.innerHTML='এখন ফেরতের পরিমাণ লিখুন।';return}
-  const delta=rsR2(rsRefund(o,items)-rsNum(o.reversedRefund));
-  el.innerHTML=`অ্যাডমিন ব্যালেন্স থেকে কাস্টমারের ওয়ালেটে জমা: <b>৳${delta}</b>`
-   +`<br><small>রাইডারের ক্যাশ বাকি: অপরিবর্তিত</small>`
-   +(o.reversedRefund==null&&(o.returnHistory||[]).length===0&&old.some(it=>rsNum(it.returnedQty)>0)?'<br><small>⚠ আগের রিটার্নের টাকাও এখানে যোগ হবে।</small>':'');
+  const s=rsNewState(o);
+  if(s.bad){el.innerHTML='<span class="text-red-600">'+rsE(s.bad)+'</span>';return}
+  if(!s.units){el.innerHTML='এখন ফেরতের পরিমাণ লিখুন।';return}
+  const delta=rsR2(rsParts(o,s.items,s.extra).refund-rsParts(o,o.items||[]).refund);
+  el.innerHTML=`এই রিটার্ন (অ্যাডমিন ব্যালেন্স থেকে কাস্টমারের ওয়ালেটে): <b>৳${delta}</b><br><small>রাইডারের ক্যাশ বাকি: অপরিবর্তিত · কমিশন: অপরিবর্তিত</small>`;
 };
 window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)return;
   const reason=(document.getElementById('rsReason')?.value||'').trim();if(!reason)return alert('ফেরতের কারণ লিখুন');
-  const items=(o.items||[]).map(it=>({...it})),lines=[];
-  for(let i=0;i<items.length;i++){const it=items[i],left=rsNum(it.qty)-rsNum(it.returnedQty),n=Math.floor(rsNum(document.getElementById('rs_'+i)?.value));
-    if(n<0||n>left)return alert('"'+it.name+'" এর ফেরত ০ থেকে '+left+' এর মধ্যে হতে হবে');
-    if(n>0){it.returnedQty=rsNum(it.returnedQty)+n;lines.push({productId:String(it.id),name:it.name,qty:n})}}
-  if(!lines.length)return alert('কমপক্ষে একটি আইটেমের ফেরত দিন');
-  const at=new Date().toISOString(),all=rsAll(items),refund=rsR2(rsRefund(o,items)-rsNum(o.reversedRefund));
-  const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines,refund,channel:'menu'};
-  const payload={items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:items.reduce((s,it)=>s+rsNum(it.price)*rsNum(it.returnedQty),0),noCommissionReversal:true};
+  const s=rsNewState(o);if(s.bad)return alert(s.bad);if(!s.units)return alert('কমপক্ষে একটি আইটেমের ফেরত দিন');
+  const delta=rsR2(rsParts(o,s.items,s.extra).refund-rsParts(o,o.items||[]).refund);
+  const at=new Date().toISOString(),all=s.items.every(it=>rsNum(it.returnedQty)>=rsNum(it.qty));
+  const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines:s.lines,refund:delta,channel:'menu'};
+  const payload={items:s.items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:s.items.reduce((x,it)=>x+rsNum(it.price)*rsNum(it.returnedQty),0)};
   if(all){payload.status='Returned';payload.returnedAt=at;payload.returnReason=reason}
-  try{await updateDoc(doc(db,'orders',o.id),payload);alert((all?'সব আইটেম ফেরত, অর্ডার Returned হয়েছে।':'আংশিক ফেরত সেভ হয়েছে।')+' ওয়ালেটে ৳'+refund+' জমা হবে।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
+  try{await updateDoc(doc(db,'orders',o.id),payload);alert('সেভ হয়েছে। কাস্টমারের ওয়ালেটে ৳'+delta+' জমা হবে। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
   catch(e){alert(e.message)}};
 window.updateOrderStatus = async function(orderId, newStatus) {
       try {
