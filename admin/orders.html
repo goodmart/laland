@@ -33,7 +33,7 @@
     const goLogin = () => location.replace('index.html');
     window.adminReady = new Promise((resolve) => {
       const failSafe = setTimeout(goLogin, 15000);
-      onAuthStateChanged(auth, async (user) => {
+      onAuthStateChanged(auth, async (user) => { if (user) window.__adminUid = user.uid;
         if (!user) { goLogin(); return; }
         try {
           if (await window.isAdminUser(user.uid)) {
@@ -736,7 +736,7 @@ window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)re
   const delta=rsR2(rsParts(o,s.items,s.extra).refund-rsParts(o,o.items||[]).refund);
   const at=new Date().toISOString(),all=s.items.every(it=>rsNum(it.returnedQty)>=rsNum(it.qty));
   const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines:s.lines,refund:delta,channel:'menu'};
-  const payload={items:s.items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:s.items.reduce((x,it)=>x+rsNum(it.price)*rsNum(it.returnedQty),0)};
+  const payload={items:s.items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:s.items.reduce((x,it)=>x+rsNum(it.price)*rsNum(it.returnedQty),0),lastRefundBy:window.__adminUid||''};
   if(all){payload.status='Returned';payload.returnedAt=at;payload.returnReason=reason}
   try{await updateDoc(doc(db,'orders',o.id),payload);alert('সেভ হয়েছে। কাস্টমারের ওয়ালেটে ৳'+delta+' জমা হবে। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
   catch(e){alert(e.message)}};
