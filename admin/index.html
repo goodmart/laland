@@ -4,65 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Master Dashboard - Laland Express</title>
-  
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Firebase SDKs (v10) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
-      authDomain: "laland-express.firebaseapp.com",
-      projectId: "laland-express",
-      storageBucket: "laland-express.firebasestorage.app",
-      messagingSenderId: "315462688826",
-      appId: "1:315462688826:web:a6b033e1ce664071201503",
-      measurementId: "G-J4S4EL5LE4"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    window.firebaseAuth = auth;
-    window.firebaseDb = db;
-    window.firebaseServices = {
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged,
-      collection,
-      getDocs
-    };
-  </script>
-
-  <!-- ADMIN CHECK HELPER (admins/{uid} ডকুমেন্ট আছে কিনা যাচাই) -->
-  <script type="module">
-    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-    const firebaseConfig = {
-      apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
-      authDomain: "laland-express.firebaseapp.com",
-      projectId: "laland-express",
-      storageBucket: "laland-express.firebasestorage.app",
-      messagingSenderId: "315462688826",
-      appId: "1:315462688826:web:a6b033e1ce664071201503",
-      measurementId: "G-J4S4EL5LE4"
-    };
-    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    window.isAdminUser = async (uid) => (await getDoc(doc(db, "admins", uid))).exists();
-  </script>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-12">
 
-  <!-- ADMIN LOGIN SECTION (Protected View - Shown when logged out) -->
+  <!-- LOGIN -->
   <div id="adminLoginSection" class="min-h-screen flex items-center justify-center p-4">
     <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-md space-y-5 border">
       <div class="text-center space-y-1">
@@ -70,27 +17,22 @@
         <h2 class="text-lg font-bold text-gray-800">Admin Control Panel Login</h2>
         <p class="text-xs text-gray-500">Please enter your authorized admin credentials.</p>
       </div>
-
       <form id="adminLoginForm" class="space-y-4">
         <div>
           <label class="text-xs font-semibold text-gray-600 block mb-1">Admin Email</label>
-          <input type="email" id="adminEmail" required placeholder="admin@lalan.com" class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <input type="email" id="adminEmail" required class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
         </div>
         <div>
           <label class="text-xs font-semibold text-gray-600 block mb-1">Password</label>
-          <input type="password" id="adminPassword" required placeholder="••••••••" class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <input type="password" id="adminPassword" required class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
         </div>
-        <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 text-sm transition">
-          Secure Login
-        </button>
+        <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow hover:bg-emerald-700 text-sm">Secure Login</button>
       </form>
     </div>
   </div>
 
-  <!-- ADMIN MASTER DASHBOARD (Protected View - Hidden until logged in) -->
+  <!-- MASTER DASHBOARD -->
   <div id="adminDashboard" class="hidden space-y-6">
-
-    <!-- Header Section -->
     <header class="bg-emerald-700 text-white shadow">
       <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
         <div class="flex items-center space-x-2">
@@ -98,222 +40,197 @@
           <h1 class="font-bold text-base">Laland Express - Master Admin Dashboard</h1>
         </div>
         <div class="flex items-center space-x-3">
-          <span class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold hidden sm:inline-block">
-            <i class="fa-solid fa-circle text-green-400 text-[9px] mr-1"></i> Live System
-          </span>
-          <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-600 transition shadow">
+          <span id="who" class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold hidden sm:inline-block"></span>
+          <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-600 shadow">
             <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Container -->
     <main class="max-w-6xl mx-auto p-4 space-y-6">
 
-      <!-- Welcome Banner -->
-      <div class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-3xl shadow-md flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="space-y-1">
-          <h2 class="text-xl font-extrabold">Welcome back, Admin!</h2>
-          <p class="text-xs text-emerald-100">Manage your entire e-commerce operations, inventory, orders, customers, and delivery zones seamlessly.</p>
-        </div>
-        <div class="flex space-x-2">
-          <a href="orders.html" class="bg-white text-emerald-700 font-bold px-4 py-2 rounded-xl text-xs hover:bg-emerald-50 shadow transition whitespace-nowrap">
-            <i class="fa-solid fa-bolt mr-1"></i> Manage Orders
-          </a>
-        </div>
-      </div>
-
-      <!-- LIVE STATS SUMMARY CARDS -->
+      <!-- STATS -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-between">
-          <div>
-            <p class="text-[11px] font-semibold text-gray-500">Total Products</p>
-            <h3 id="dashTotalProducts" class="text-2xl font-extrabold text-gray-800">...</h3>
-          </div>
-          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
-            <i class="fa-solid fa-boxes-stacked text-xl"></i>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 flex items-center justify-between">
-          <div>
-            <p class="text-[11px] font-semibold text-gray-500">Total Orders</p>
-            <h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3>
-          </div>
-          <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
-            <i class="fa-solid fa-cart-shopping text-xl"></i>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
-          <div>
-            <p class="text-[11px] font-semibold text-gray-500">Total Customers</p>
-            <h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3>
-          </div>
-          <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-            <i class="fa-solid fa-users text-xl"></i>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100 flex items-center justify-between">
-          <div>
-            <p class="text-[11px] font-semibold text-gray-500">Delivery Locations</p>
-            <h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3>
-          </div>
-          <div class="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center">
-            <i class="fa-solid fa-map-location-dot text-xl"></i>
-          </div>
-        </div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100"><p class="text-[11px] font-semibold text-gray-500">Total Products</p><h3 id="dashTotalProducts" class="text-2xl font-extrabold">...</h3></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100"><p class="text-[11px] font-semibold text-gray-500">Total Orders</p><h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100"><p class="text-[11px] font-semibold text-gray-500">Total Customers</p><h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100"><p class="text-[11px] font-semibold text-gray-500">Delivery Locations</p><h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3></div>
       </div>
 
-      <!-- NAVIGATION MODULES CARDS -->
-      <div class="space-y-3">
-        <h3 class="font-bold text-sm text-gray-700 px-1"><i class="fa-solid fa-layer-group text-emerald-600 mr-1"></i> Management Modules</h3>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <!-- 1. Products Card -->
-          <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-emerald-500 transition group space-y-3 block">
-            <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition">
-              <i class="fa-solid fa-box-open text-lg"></i>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-800 text-sm">Product Management</h4>
-              <p class="text-[11px] text-gray-500 mt-0.5">Add products, barcode scanner, and inventory control.</p>
-            </div>
-            <div class="text-xs font-bold text-emerald-600 flex items-center pt-1">
-              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-            </div>
-          </a>
-
-          <!-- 2. Orders Card -->
-          <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-amber-500 transition group space-y-3 block">
-            <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition">
-              <i class="fa-solid fa-list-check text-lg"></i>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-800 text-sm">Orders Dashboard</h4>
-              <p class="text-[11px] text-gray-500 mt-0.5">Order status updates, filters, and invoice printing.</p>
-            </div>
-            <div class="text-xs font-bold text-amber-600 flex items-center pt-1">
-              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-            </div>
-          </a>
-
-          <!-- 3. Customers Card -->
-          <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-blue-500 transition group space-y-3 block">
-            <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition">
-              <i class="fa-solid fa-user-group text-lg"></i>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-800 text-sm">Customer Database</h4>
-              <p class="text-[11px] text-gray-500 mt-0.5">Wallet balances, loyalty points, and customer details.</p>
-            </div>
-            <div class="text-xs font-bold text-blue-600 flex items-center pt-1">
-              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-            </div>
-          </a>
-
-          <!-- 4. Locations Card -->
-          <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md hover:border-teal-500 transition group space-y-3 block">
-            <div class="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition">
-              <i class="fa-solid fa-map-location-dot text-lg"></i>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-800 text-sm">Delivery Locations</h4>
-              <p class="text-[11px] text-gray-500 mt-0.5">Manage primary areas, sub-locations, and road zones.</p>
-            </div>
-            <div class="text-xs font-bold text-teal-600 flex items-center pt-1">
-              <span>Open Module</span> <i class="fa-solid fa-arrow-right ml-1"></i>
-            </div>
-          </a>
-
-        </div>
+      <!-- MODULES -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Product Management</h4><p class="text-[11px] text-gray-500 mt-1">Products, inventory control.</p></a>
+        <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Orders Dashboard</h4><p class="text-[11px] text-gray-500 mt-1">Order status, returns, invoices.</p></a>
+        <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Customer Database</h4><p class="text-[11px] text-gray-500 mt-1">Wallet balances and customer details.</p></a>
+        <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Delivery Locations</h4><p class="text-[11px] text-gray-500 mt-1">Areas and road zones.</p></a>
       </div>
 
+      <!-- ADMIN ACCOUNTS (master only) -->
+      <section class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-user-gear mr-1"></i> অ্যাডমিন অ্যাকাউন্ট ম্যানেজ</h3>
+
+        <form id="newAdminForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-xl p-4 bg-gray-50">
+          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">নাম *</label>
+            <input id="naName" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">রোল *</label>
+            <select id="naRole" class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
+              <option value="store">স্টোর ম্যানেজার (অর্ডার, রাইডার ফাইন্যান্স)</option>
+              <option value="supplier">সাপ্লায়ার ম্যানেজার (সাপ্লায়ার, প্রোডাক্ট, PO)</option>
+            </select></div>
+          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">ইমেইল *</label>
+            <input id="naEmail" type="email" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">পাসওয়ার্ড * (কমপক্ষে ৬ অক্ষর)</label>
+            <input id="naPass" type="password" minlength="6" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+          <div class="sm:col-span-2 flex items-center justify-between gap-3">
+            <p class="text-[11px] text-gray-500">তৈরি হলে এই ইমেইল ও পাসওয়ার্ড দিয়ে সে লগইন করতে পারবে।</p>
+            <button id="naSubmit" type="submit" class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 whitespace-nowrap">অ্যাকাউন্ট তৈরি করুন</button>
+          </div>
+        </form>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-100 text-gray-600">
+              <tr><th class="p-2 text-left">নাম</th><th class="p-2 text-left">ইমেইল</th><th class="p-2 text-left">রোল</th><th class="p-2 text-center">অবস্থা</th><th class="p-2 text-center">কার্যক্রম</th></tr>
+            </thead>
+            <tbody id="adminRows"><tr><td colspan="5" class="p-4 text-center text-gray-400">লোড হচ্ছে...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </main>
   </div>
 
-  <!-- FIREBASE AUTH & STATS SCRIPT -->
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      setTimeout(initAdminAuth, 500);
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', supplier: 'সাপ্লায়ার ম্যানেজার' };
+    const roleOf = (d) => d.role || 'master';                  // same rule as firestore.rules
+    let me = null;
+
+    // ---------- login / role routing
+    $('adminLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try { await signInWithEmailAndPassword(auth, $('adminEmail').value.trim(), $('adminPassword').value); }
+      catch (err) { alert('লগইন ব্যর্থ: ইমেইল বা পাসওয়ার্ড ভুল।'); }
+    });
+    $('adminLogoutBtn').addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('adminLoginSection').classList.remove('hidden'); $('adminDashboard').classList.add('hidden'); return; }
+      const s = await getDoc(doc(db, 'admins', u.uid)).catch(() => null);
+      if (!s || !s.exists() || s.data().active === false) {
+        alert('এই অ্যাকাউন্টের অ্যাডমিন অধিকার নেই।'); await signOut(auth); return;
+      }
+      const role = roleOf(s.data());
+      if (role === 'store') { location.replace('orders.html'); return; }
+      if (role === 'supplier') { location.replace('products.html'); return; }
+      if (role !== 'master') { alert('অনুমতি নেই।'); await signOut(auth); return; }
+
+      me = { uid: u.uid, name: s.data().name || u.email };
+      $('who').textContent = '👑 ' + me.name;
+      $('adminLoginSection').classList.add('hidden');
+      $('adminDashboard').classList.remove('hidden');
+      loadStats();
+      loadAdmins();
     });
 
-    function initAdminAuth() {
-      const auth = window.firebaseAuth;
-      const { signInWithEmailAndPassword, signOut, onAuthStateChanged } = window.firebaseServices;
-
-      // Monitor Auth State
-      onAuthStateChanged(auth, async (user) => {
-        let isAdmin = false;
-        if (user) {
-          try { isAdmin = await window.isAdminUser(user.uid); } catch (e) { console.error(e); }
-          if (!isAdmin) {
-            alert("This account does not have admin access.");
-            await signOut(auth);
-            return;
-          }
-        }
-        if (user && isAdmin) {
-          // Logged In (verified admin): Show Master Dashboard
-          document.getElementById('adminLoginSection').classList.add('hidden');
-          document.getElementById('adminDashboard').classList.remove('hidden');
-          loadDashboardStats();
-        } else {
-          // Logged Out: Show Login Form
-          document.getElementById('adminLoginSection').classList.remove('hidden');
-          document.getElementById('adminDashboard').classList.add('hidden');
-        }
-      });
-
-      // Login Form Submit Handler
-      document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('adminEmail').value;
-        const password = document.getElementById('adminPassword').value;
-
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-        } catch (error) {
-          alert("Login failed: Please check your email or password.");
-        }
-      });
-
-      // Logout Button Handler
-      document.getElementById('adminLogoutBtn').addEventListener('click', async () => {
-        await signOut(auth);
-        alert("Logged out successfully.");
-      });
+    // ---------- stats
+    async function loadStats() {
+      try {
+        $('dashTotalProducts').textContent = (await getDocs(collection(db, 'products'))).size;
+        const ords = await getDocs(collection(db, 'orders'));
+        $('dashTotalOrders').textContent = ords.size;
+        const phones = new Set();
+        ords.forEach(d => { if (d.data().userPhone) phones.add(d.data().userPhone); });
+        $('dashTotalCustomers').textContent = phones.size;
+        $('dashTotalLocations').textContent = (await getDocs(collection(db, 'delivery_locations'))).size;
+      } catch (e) { console.error('stats', e); }
     }
 
-    // Load Live Stats from Firestore
-    async function loadDashboardStats() {
-      const db = window.firebaseDb;
-      const { collection, getDocs } = window.firebaseServices;
-      if (!db) return;
+    // ---------- admin accounts
+    const call = (name, data) => httpsCallable(fns, name)(data);
 
+    async function loadAdmins() {
+      const rows = $('adminRows');
       try {
-        const prodSnap = await getDocs(collection(db, "products"));
-        document.getElementById('dashTotalProducts').innerText = prodSnap.size;
-
-        const ordSnap = await getDocs(collection(db, "orders"));
-        document.getElementById('dashTotalOrders').innerText = ordSnap.size;
-
-        let uniquePhones = new Set();
-        ordSnap.forEach(d => {
-          if(d.data().userPhone) uniquePhones.add(d.data().userPhone);
-        });
-        document.getElementById('dashTotalCustomers').innerText = uniquePhones.size;
-
-        const locSnap = await getDocs(collection(db, "delivery_locations"));
-        document.getElementById('dashTotalLocations').innerText = locSnap.size;
-
-      } catch (err) {
-        console.error("Error loading stats:", err);
+        const snap = await getDocs(collection(db, 'admins'));
+        const list = [];
+        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        rows.innerHTML = list.map(a => {
+          const isMe = a.id === me.uid;
+          const role = roleOf(a);
+          const roleCell = isMe
+            ? `<span class="font-semibold">${esc(ROLE_LABEL[role] || role)}</span> <span class="text-[10px] text-gray-400">(আপনি)</span>`
+            : `<select data-act="role" data-uid="${esc(a.id)}" class="px-2 py-1 border rounded-lg bg-white">
+                 ${['store', 'supplier'].map(r => `<option value="${r}" ${role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+                 ${role === 'master' ? '<option value="master" selected>মাস্টার</option>' : ''}
+               </select>`;
+          const active = a.active !== false;
+          const actCell = isMe ? '—' : `<button data-act="toggle" data-uid="${esc(a.id)}" data-active="${active}"
+              class="px-3 py-1 rounded-lg font-bold ${active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}">${active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}</button>`;
+          return `<tr class="border-t">
+            <td class="p-2">${esc(a.name)}</td>
+            <td class="p-2">${esc(a.email)}</td>
+            <td class="p-2">${roleCell}</td>
+            <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">${active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span></td>
+            <td class="p-2 text-center">${actCell}</td></tr>`;
+        }).join('') || '<tr><td colspan="5" class="p-4 text-center text-gray-400">কোনো অ্যাডমিন নেই</td></tr>';
+      } catch (e) {
+        rows.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-600">লোড হয়নি: ${esc(e.message)}</td></tr>`;
       }
     }
+
+    $('newAdminForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        name: $('naName').value.trim(),
+        role: $('naRole').value,
+        email: $('naEmail').value.trim(),
+        password: $('naPass').value
+      };
+      if (data.password.length < 6) return alert('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে।');
+      if (!confirm(`${ROLE_LABEL[data.role]} হিসেবে ${data.email} তৈরি করবেন?`)) return;
+      $('naSubmit').disabled = true;
+      try {
+        await call('createAdmin', data);
+        alert('অ্যাকাউন্ট তৈরি হয়েছে। সে এখন এই ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারবে।');
+        $('newAdminForm').reset();
+        loadAdmins();
+      } catch (err) {
+        alert('তৈরি হয়নি: ' + (err.message || err));
+      }
+      $('naSubmit').disabled = false;
+    });
+
+    $('adminRows').addEventListener('change', async (e) => {
+      const sel = e.target.closest('select[data-act="role"]');
+      if (!sel) return;
+      const label = ROLE_LABEL[sel.value];
+      if (!confirm(`রোল বদলে "${label}" করবেন?`)) { loadAdmins(); return; }
+      try { await call('setAdminRole', { uid: sel.dataset.uid, role: sel.value }); alert('রোল বদলানো হয়েছে।'); }
+      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      loadAdmins();
+    });
+
+    $('adminRows').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act="toggle"]');
+      if (!btn) return;
+      const nowActive = btn.dataset.active === 'true';
+      if (!confirm(nowActive ? 'নিষ্ক্রিয় করবেন? সে তখনই লগইন থেকে বাদ পড়বে।' : 'সক্রিয় করবেন?')) return;
+      try { await call('setAdminActive', { uid: btn.dataset.uid, active: !nowActive }); }
+      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      loadAdmins();
+    });
   </script>
 </body>
 </html>
