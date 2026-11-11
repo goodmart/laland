@@ -4,7 +4,7 @@
 // plus user info and logout. Mobile: sidebar opens from the menu button.
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, query, where, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
 const app = getApps().length ? getApp() : initializeApp(cfg);
@@ -28,7 +28,7 @@ const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর �
 
 const cur = location.pathname.split('/').pop() || 'index.html';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const badge = '<span class="po-badge hidden ml-auto bg-red-500 text-white rounded-full px-1.5 text-[10px] font-bold"></span>';
+const bd = (key) => `<span data-badge="${key}" class="hidden ml-auto bg-red-500 text-white rounded-full px-1.5 text-[10px] font-bold"></span>`;
 
 // ---------- shell: sidebar + overlay, body shifted on desktop
 function ensureShell() {
@@ -79,7 +79,7 @@ function render(role, name) {
       <div data-gb="${gi}" class="space-y-0.5 mt-1">
         ${g.items.map(([h, l, ic]) => `
           <a href="${h}" class="flex items-center gap-3 mx-3 px-3 py-2 rounded-lg text-sm ${h === cur ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'}">
-            <i class="fa-solid ${ic} w-4 text-center"></i><span class="flex-1">${esc(l)}</span>${h === 'purchase-orders.html' ? badge : ''}
+            <i class="fa-solid ${ic} w-4 text-center"></i><span class="flex-1">${esc(l)}</span>${bd(h)}
           </a>`).join('')}
       </div>
     </div>`).join('') || '<p class="px-5 py-4 text-xs text-gray-400">কোনো মেনু নেই</p>';
@@ -144,11 +144,23 @@ function guard(role, name) {
   return false;
 }
 
-async function countPendingPO() {
-  try {
-    const snap = await getDocs(query(collection(db, 'purchase_orders'), where('status', '==', 'Submitted')));
-    if (snap.size > 0) document.querySelectorAll('.po-badge').forEach(b => { b.textContent = snap.size; b.classList.remove('hidden'); });
-  } catch (e) { /* no access: no badge */ }
+// Live counters in the sidebar (every admin page). Each one is a small, filtered listener.
+function setBadge(key, n) {
+  document.querySelectorAll(`[data-badge="${key}"]`).forEach(el => {
+    el.textContent = n;
+    el.classList.toggle('hidden', !n);
+  });
+}
+function startBadges(role) {
+  const allowed = ROLE_PAGES[role];
+  const can = (h) => allowed === null || (allowed || []).includes(h);
+  const fail = (e) => console.warn('badge:', e.message);
+  if (can('orders.html'))
+    onSnapshot(query(collection(db, 'orders'), where('status', '==', 'Pending')), s => setBadge('orders.html', s.size), fail);
+  if (can('rider.html'))
+    onSnapshot(query(collection(db, 'cash_settlements'), where('status', '==', 'Pending')), s => setBadge('rider.html', s.size), fail);
+  if (can('purchase-orders.html'))
+    onSnapshot(query(collection(db, 'purchase_orders'), where('status', '==', 'Submitted')), s => setBadge('purchase-orders.html', s.size), fail);
 }
 
 onAuthStateChanged(auth, async (u) => {
@@ -162,7 +174,7 @@ onAuthStateChanged(auth, async (u) => {
     const name = d.name || u.email;
     if (!guard(role, name)) return;
     render(role, name);
-    if (role === 'master' || role === 'supplier') countPendingPO();
+    startBadges(role);
   } catch (e) {
     console.warn('admin-nav:', e.message);
   }
