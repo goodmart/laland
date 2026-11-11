@@ -227,7 +227,7 @@
   <!-- FIREBASE APP LOGIC (Modular SDK Direct Integration) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -261,22 +261,20 @@
       const container = document.getElementById('ordersListContainer');
       container.innerHTML = `<div class="bg-white p-8 rounded-2xl text-center border text-xs text-gray-400"><i class="fa-solid fa-spinner fa-spin text-xl text-emerald-600 mb-2 block"></i>Loading orders...</div>`;
 
-      try {
-        const querySnapshot = await getDocs(collection(db, "orders"));
+      // Live: one listener, updated automatically when any order is added or changed
+      if (window.__ordersUnsub) return;
+      window.__ordersUnsub = onSnapshot(collection(db, "orders"), (querySnapshot) => {
         allOrdersList = [];
-
         querySnapshot.forEach((docSnap) => {
           allOrdersList.push({ id: docSnap.id, ...docSnap.data() });
         });
-
-        // Sort orders by newest first
         allOrdersList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         window.filterOrders();
-
-      } catch (err) {
+      }, (err) => {
         console.error("Error loading orders:", err);
+        window.__ordersUnsub = null;
         container.innerHTML = `<div class="bg-white p-6 rounded-2xl text-center text-xs text-red-500 border">Failed to load orders: ${err.message}</div>`;
-      }
+      });
     };
 
     // Set Quick Preset
