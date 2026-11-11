@@ -51,9 +51,10 @@ addEventListener('error',function(e){__eb((e.message||'error')+' @'+String(e.fil
 <div id="rpm" class="m" hidden><div style="max-width:460px"><div id="rpB"></div><button class="s" onclick="rpm.hidden=true">বন্ধ</button></div></div>
 
 <script type="module">
-import {initializeApp} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import {getFirestore,collection,doc,getDoc,setDoc,addDoc,updateDoc,deleteDoc,onSnapshot,query,where,increment,runTransaction,writeBatch} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 const cfg={apiKey:"AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",authDomain:"laland-express.firebaseapp.com",projectId:"laland-express",storageBucket:"laland-express.firebasestorage.app",messagingSenderId:"315462688826",appId:"1:315462688826:web:a6b033e1ce664071201503"};
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -218,15 +219,8 @@ window.renderS=()=>{const P=allS.filter(s=>s.status=='Pending'),B=hBaseA();$('pc
 fill('hs',[['ALL','সব',B.length],['Approved','অনুমোদিত',cn(B,'Approved')],['Rejected','বাতিল',cn(B,'Rejected')]]);
 $('stP').innerHTML=P.map(s=>`<div class="c"><div class="sp"><b>${E(s.riderName)}</b><span class="b">${E(s.method)}</span></div><small>${E(s.riderPhone)} · ${E(s.trxRef)||'N/A'} · ${E(fdt(s.createdAt))}</small><div>🧾 ${E(invNo(s))||'ইনভয়েস ছাড়া'}</div><div><b>${tk(s.amount)}</b></div><div class="row"><button class="g" onclick="apvS('${s.id}')">অনুমোদন</button><button class="r" onclick="rejS('${s.id}')">বাতিল</button></div></div>`).join('')||'<small>কোনো অপেক্ষমাণ অনুরোধ নেই</small>';
 $('stH').innerHTML=histA().map(s=>`<div class="c"><div class="sp"><span><b>${E(s.riderName)}</b> <small>${E(s.method)} · ${E(s.trxRef)} · ${E(fdt(s.approvedAt||s.rejectedAt||s.createdAt))}</small></span><span><b>${tk(s.amount)}</b> <span class="b">${stT(s.status)}</span></span></div><small>🧾 ${E(invNo(s))||'ইনভয়েস ছাড়া'}</small></div>`).join('')||'<small>কিছু নেই</small>'};
-window.apvS=async id=>{if(!confirm('অনুমোদন করবেন? রাইডারের ক্যাশ বাকি থেকে টাকা কাটা হবে।'))return;
-try{await runTransaction(db,async tx=>{const sr=doc(db,'cash_settlements',id),s=await tx.get(sr);if(!s.exists()||s.data().status!='Pending')throw new Error('এটি আর অপেক্ষমাণ নেই');
-const d=s.data(),inv=d.invoices||[],rr=doc(db,'riders',d.riderId),r=await tx.get(rr),a=Number(d.amount),c=Number((r.data()||{}).cashBalance||0),os=[];
-if(new Set(inv.map(i=>i.id)).size!=inv.length)throw new Error('একই ইনভয়েস দুইবার আছে');
-for(const i of inv)os.push(await tx.get(doc(db,'orders',i.id)));
-if(inv.length){let t=0;os.forEach((o,k)=>{const x=o.data();if(!o.exists()||x.riderPhone!=d.riderPhone||x.status!='Delivered'||x.paymentMethod!='Cash'||x.cashSettled)throw new Error('ইনভয়েস '+inv[k].no+' জমাযোগ্য নয় (আগে জমা হয়েছে বা ক্যাশ নয়)');t+=N(x.totalAmount)-N(x.reversedCash)});
-if(Math.abs(t-a)>.5)throw new Error('ইনভয়েসের মোট ৳'+t+', অনুরোধ ৳'+a+' — মিলছে না')}
-if(!(a>0)||a>c)throw new Error('রাইডারের ক্যাশ বাকি ৳'+c+', অনুরোধ ৳'+a);
-tx.update(sr,{status:'Approved',approvedAt:iso()});tx.update(rr,{cashBalance:c-a});os.forEach(o=>tx.update(o.ref,{cashSettled:true,settlementId:id}))});alert('অনুমোদিত')}catch(e){alert(e.message)}};
+window.apvS=async id=>{if(!confirm('অনুমোদন করবেন? রাইডারের ক্যাশ বাকি থেকে টাকা কাটা হবে এবং আপনার নগদে যোগ হবে।'))return;
+try{const f=httpsCallable(getFunctions(getApps()[0]),'approveSettlement');await f({settlementId:id});alert('অনুমোদিত')}catch(e){alert(e.message||e)}};
 window.rejS=async id=>{if(!confirm('বাতিল করবেন? ইনভয়েসগুলো আবার Unpaid হয়ে যাবে।'))return;try{await runTransaction(db,async tx=>{const sr=doc(db,'cash_settlements',id),s=await tx.get(sr);if(!s.exists()||s.data().status!='Pending')throw new Error('এটি আর অপেক্ষমাণ নেই');tx.update(sr,{status:'Rejected',rejectedAt:iso()})})}catch(e){alert(e.message)}};
 window.expS=()=>xl('settlements-'+ld(new Date()),['Rider','Phone','Invoice No','Amount','Method','Trx/Note','Status','Request date','Decision date'],histA().map(s=>[s.riderName||'',s.riderPhone||'',invNo(s),N(s.amount),s.method||'',s.trxRef||'',s.status,fdt(s.createdAt),fdt(s.approvedAt||s.rejectedAt)]));
 
