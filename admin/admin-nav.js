@@ -69,6 +69,25 @@ function render(role, name) {
   document.addEventListener('click', () => document.getElementById('navPanel')?.classList.add('hidden'));
 }
 
+// Page-level guard: the menu hides links, this stops direct URL access.
+function guard(role, name) {
+  const allowed = role in ROLE_PAGES ? ROLE_PAGES[role] : [];
+  if (allowed === null || allowed.includes(cur)) return true;   // page allowed
+  if (allowed.length) { location.replace(allowed[0]); return false; }
+  // no pages for this role (none / inactive / unknown): block the page
+  const wall = document.createElement('div');
+  wall.className = 'fixed inset-0 bg-white z-[100] flex items-center justify-center p-6';
+  wall.innerHTML = `<div class="text-center space-y-3 max-w-sm">
+      <i class="fa-solid fa-lock text-4xl text-red-500"></i>
+      <p class="font-bold text-gray-800">এই পেজে আপনার অনুমতি নেই</p>
+      <p class="text-xs text-gray-500">${esc(name)}</p>
+      <button id="wallLogout" class="bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold">লগআউট</button>
+    </div>`;
+  document.body.appendChild(wall);
+  document.getElementById('wallLogout').onclick = async () => { try { await signOut(auth); } catch (e) {} location.href = 'index.html'; };
+  return false;
+}
+
 async function countPendingPO() {
   try {
     const snap = await getDocs(query(collection(db, 'purchase_orders'), where('status', '==', 'Submitted')));
@@ -80,10 +99,11 @@ onAuthStateChanged(auth, async (u) => {
   if (!u) return;                                  // the page itself handles the login screen
   try {
     const s = await getDoc(doc(db, 'admins', u.uid));
-    if (!s.exists()) return render('none', u.email);
+    if (!s.exists()) { guard('none', u.email); return render('none', u.email); }
     const d = s.data();
-    if (d.active === false) return render('none', u.email);
+    if (d.active === false) { guard('none', u.email); return render('none', u.email); }
     const role = d.role || 'master';               // same rule as firestore.rules
+    if (!guard(role, d.name || u.email)) return;
     render(role, d.name || u.email);
     if (role === 'master' || role === 'supplier') countPendingPO();
   } catch (e) {
