@@ -32,78 +32,100 @@
   </div>
 
   <!-- MASTER DASHBOARD -->
-  <div id="adminDashboard" class="hidden space-y-6">
-    <header class="bg-emerald-700 text-white shadow">
-      <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div class="flex items-center space-x-2">
-          <i class="fa-solid fa-user-shield text-xl"></i>
-          <h1 class="font-bold text-base">Laland Express - Master Admin Dashboard</h1>
-        </div>
-        <div class="flex items-center space-x-3">
-          <span id="who" class="text-xs bg-emerald-800 px-3 py-1.5 rounded-xl border border-emerald-600 font-semibold hidden sm:inline-block"></span>
-          <button id="adminLogoutBtn" class="bg-red-500 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-red-600 shadow">
-            <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
-          </button>
-        </div>
+  <div id="adminDashboard" class="hidden space-y-6 p-4 max-w-6xl mx-auto">
+
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-extrabold text-gray-800">ড্যাশবোর্ড</h1>
+        <p class="text-[11px] text-gray-500">মাস্টার অ্যাডমিন · সরাসরি হিসাব</p>
       </div>
-    </header>
+      <span class="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> লাইভ
+      </span>
+    </div>
 
-    <main class="max-w-6xl mx-auto p-4 space-y-6">
-
-      <!-- STATS -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-emerald-100"><p class="text-[11px] font-semibold text-gray-500">Total Products</p><h3 id="dashTotalProducts" class="text-2xl font-extrabold">...</h3></div>
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100"><p class="text-[11px] font-semibold text-gray-500">Total Orders</p><h3 id="dashTotalOrders" class="text-2xl font-extrabold text-amber-600">...</h3></div>
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100"><p class="text-[11px] font-semibold text-gray-500">Total Customers</p><h3 id="dashTotalCustomers" class="text-2xl font-extrabold text-blue-600">...</h3></div>
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-teal-100"><p class="text-[11px] font-semibold text-gray-500">Delivery Locations</p><h3 id="dashTotalLocations" class="text-2xl font-extrabold text-teal-600">...</h3></div>
+    <!-- LIVE STAT CARDS -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="bg-white rounded-2xl border p-4 shadow-sm">
+        <p class="text-[11px] font-semibold text-gray-500">আজকের অর্ডার</p>
+        <p id="sTodayOrders" class="text-2xl font-extrabold mt-1">…</p>
+        <p id="sTodayOrdersPct" class="text-[11px] mt-1 text-gray-400"></p>
       </div>
-
-      <!-- MODULES -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Product Management</h4><p class="text-[11px] text-gray-500 mt-1">Products, inventory control.</p></a>
-        <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Orders Dashboard</h4><p class="text-[11px] text-gray-500 mt-1">Order status, returns, invoices.</p></a>
-        <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Customer Database</h4><p class="text-[11px] text-gray-500 mt-1">Wallet balances and customer details.</p></a>
-        <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Delivery Locations</h4><p class="text-[11px] text-gray-500 mt-1">Areas and road zones.</p></a>
+      <div class="bg-white rounded-2xl border p-4 shadow-sm">
+        <p class="text-[11px] font-semibold text-gray-500">চলমান অর্ডার</p>
+        <p id="sActive" class="text-2xl font-extrabold mt-1 text-amber-600">…</p>
+        <p class="text-[11px] mt-1 text-gray-400">Pending · Processing · On the Way</p>
       </div>
+      <div class="bg-white rounded-2xl border p-4 shadow-sm">
+        <p class="text-[11px] font-semibold text-gray-500">আজকের বিক্রি</p>
+        <p id="sTodaySales" class="text-2xl font-extrabold mt-1 text-emerald-700">…</p>
+        <p id="sTodaySalesPct" class="text-[11px] mt-1 text-gray-400"></p>
+      </div>
+      <div class="bg-white rounded-2xl border p-4 shadow-sm">
+        <p class="text-[11px] font-semibold text-gray-500">অপেক্ষমাণ নগদ সেটলমেন্ট</p>
+        <p id="sSettle" class="text-2xl font-extrabold mt-1 text-blue-600">…</p>
+        <p id="sSettleCount" class="text-[11px] mt-1 text-gray-400"></p>
+      </div>
+      <div class="bg-white rounded-2xl border p-4 shadow-sm">
+        <p class="text-[11px] font-semibold text-gray-500">অপেক্ষমাণ সাপ্লায়ার PO</p>
+        <p id="sPO" class="text-2xl font-extrabold mt-1 text-rose-600">…</p>
+        <p class="text-[11px] mt-1 text-gray-400">Submitted</p>
+      </div>
+    </div>
 
-      <!-- ADMIN ACCOUNTS (master only) -->
-      <section class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
-        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-user-gear mr-1"></i> অ্যাডমিন অ্যাকাউন্ট ম্যানেজ</h3>
+    <!-- 7-DAY SALES CHART -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-gray-700">শেষ ৭ দিনের বিক্রি (৳)</h3>
+        <span id="chartTotal" class="text-[11px] text-gray-500"></span>
+      </div>
+      <div id="chart" class="flex items-end gap-3 h-44"></div>
+      <div id="chartLabels" class="flex gap-3 mt-2 text-[11px] text-gray-500"></div>
+    </section>
 
-        <form id="newAdminForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-xl p-4 bg-gray-50">
-          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">নাম *</label>
-            <input id="naName" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
-          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">রোল *</label>
-            <select id="naRole" class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
-              <option value="store">স্টোর ম্যানেজার (অর্ডার, রাইডার ফাইন্যান্স)</option>
-              <option value="supplier">সাপ্লায়ার ম্যানেজার (সাপ্লায়ার, প্রোডাক্ট, PO)</option>
-            </select></div>
-          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">ইমেইল *</label>
-            <input id="naEmail" type="email" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
-          <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">পাসওয়ার্ড * (কমপক্ষে ৬ অক্ষর)</label>
-            <input id="naPass" type="password" minlength="6" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
-          <div class="sm:col-span-2 flex items-center justify-between gap-3">
-            <p class="text-[11px] text-gray-500">তৈরি হলে এই ইমেইল ও পাসওয়ার্ড দিয়ে সে লগইন করতে পারবে।</p>
-            <button id="naSubmit" type="submit" class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 whitespace-nowrap">অ্যাকাউন্ট তৈরি করুন</button>
-          </div>
-        </form>
+    <!-- MODULES -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <a href="products.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Product Management</h4><p class="text-[11px] text-gray-500 mt-1">Products, inventory control.</p></a>
+      <a href="orders.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Orders Dashboard</h4><p class="text-[11px] text-gray-500 mt-1">Order status, returns, invoices.</p></a>
+      <a href="customers.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Customer Database</h4><p class="text-[11px] text-gray-500 mt-1">Wallet balances and customer details.</p></a>
+      <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Delivery Locations</h4><p class="text-[11px] text-gray-500 mt-1">Areas and road zones.</p></a>
+    </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead class="bg-gray-100 text-gray-600">
-              <tr><th class="p-2 text-left">নাম</th><th class="p-2 text-left">ইমেইল</th><th class="p-2 text-left">রোল</th><th class="p-2 text-center">অবস্থা</th><th class="p-2 text-center">কার্যক্রম</th></tr>
-            </thead>
-            <tbody id="adminRows"><tr><td colspan="5" class="p-4 text-center text-gray-400">লোড হচ্ছে...</td></tr></tbody>
-          </table>
+    <!-- ADMIN ACCOUNTS -->
+    <section class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
+      <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-user-gear mr-1"></i> অ্যাডমিন অ্যাকাউন্ট ম্যানেজ</h3>
+      <form id="newAdminForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-xl p-4 bg-gray-50">
+        <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">নাম *</label>
+          <input id="naName" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+        <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">রোল *</label>
+          <select id="naRole" class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
+            <option value="store">স্টোর ম্যানেজার (অর্ডার, রাইডার ফাইন্যান্স)</option>
+            <option value="supplier">সাপ্লায়ার ম্যানেজার (সাপ্লায়ার, প্রোডাক্ট, PO)</option>
+          </select></div>
+        <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">ইমেইল *</label>
+          <input id="naEmail" type="email" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+        <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">পাসওয়ার্ড * (কমপক্ষে ৬ অক্ষর)</label>
+          <input id="naPass" type="password" minlength="6" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+        <div class="sm:col-span-2 flex items-center justify-between gap-3">
+          <p class="text-[11px] text-gray-500">তৈরি হলে এই ইমেইল ও পাসওয়ার্ড দিয়ে সে লগইন করতে পারবে।</p>
+          <button id="naSubmit" type="submit" class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 whitespace-nowrap">অ্যাকাউন্ট তৈরি করুন</button>
         </div>
-      </section>
-    </main>
+      </form>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="bg-gray-100 text-gray-600">
+            <tr><th class="p-2 text-left">নাম</th><th class="p-2 text-left">ইমেইল</th><th class="p-2 text-left">রোল</th><th class="p-2 text-center">অবস্থা</th><th class="p-2 text-center">কার্যক্রম</th></tr>
+          </thead>
+          <tbody id="adminRows"><tr><td colspan="5" class="p-4 text-center text-gray-400">লোড হচ্ছে...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
@@ -113,8 +135,24 @@
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', supplier: 'সাপ্লায়ার ম্যানেজার' };
-    const roleOf = (d) => d.role || 'master';                  // same rule as firestore.rules
-    let me = null;
+    const roleOf = (d) => d.role || 'master';
+    const money = (n) => '৳' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+    let me = null, unsubs = [];
+
+    // ---------- Dhaka-time boundaries (ISO UTC strings, same format as stored createdAt)
+    const dayStr = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const dhakaMidnight = (ymd) => new Date(`${ymd}T00:00:00+06:00`).toISOString();
+    const addDays = (ymd, n) => { const d = new Date(`${ymd}T00:00:00+06:00`); d.setUTCDate(d.getUTCDate() + n); return dayStr(d); };
+    const today = dayStr(new Date());
+    const [TY, TM] = today.split('-').map(Number);
+    const monthStartYmd = `${TY}-${String(TM).padStart(2, '0')}-01`;
+    const prevMonthDate = new Date(Date.UTC(TY, TM - 2, 1));
+    const prevYmd = `${prevMonthDate.getUTCFullYear()}-${String(prevMonthDate.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    const prevDays = new Date(Date.UTC(prevMonthDate.getUTCFullYear(), prevMonthDate.getUTCMonth() + 1, 0)).getUTCDate();
+    const T_START = dhakaMidnight(today), T_END = dhakaMidnight(addDays(today, 1));
+    const M_START = dhakaMidnight(monthStartYmd);
+    const P_START = dhakaMidnight(prevYmd);
+    const LAST7_START = dhakaMidnight(addDays(today, -6));
 
     // ---------- login / role routing
     $('adminLoginForm').addEventListener('submit', async (e) => {
@@ -122,38 +160,84 @@
       try { await signInWithEmailAndPassword(auth, $('adminEmail').value.trim(), $('adminPassword').value); }
       catch (err) { alert('লগইন ব্যর্থ: ইমেইল বা পাসওয়ার্ড ভুল।'); }
     });
-    $('adminLogoutBtn').addEventListener('click', () => signOut(auth));
 
     onAuthStateChanged(auth, async (u) => {
+      unsubs.forEach(f => f()); unsubs = [];
       if (!u) { $('adminLoginSection').classList.remove('hidden'); $('adminDashboard').classList.add('hidden'); return; }
       const s = await getDoc(doc(db, 'admins', u.uid)).catch(() => null);
-      if (!s || !s.exists() || s.data().active === false) {
-        alert('এই অ্যাকাউন্টের অ্যাডমিন অধিকার নেই।'); await signOut(auth); return;
-      }
+      if (!s || !s.exists() || s.data().active === false) { alert('এই অ্যাকাউন্টের অ্যাডমিন অধিকার নেই।'); await signOut(auth); return; }
       const role = roleOf(s.data());
       if (role === 'store') { location.replace('orders.html'); return; }
       if (role === 'supplier') { location.replace('products.html'); return; }
       if (role !== 'master') { alert('অনুমতি নেই।'); await signOut(auth); return; }
-
       me = { uid: u.uid, name: s.data().name || u.email };
-      $('who').textContent = '👑 ' + me.name;
       $('adminLoginSection').classList.add('hidden');
       $('adminDashboard').classList.remove('hidden');
-      loadStats();
+      startLive();
       loadAdmins();
     });
 
-    // ---------- stats
-    async function loadStats() {
-      try {
-        $('dashTotalProducts').textContent = (await getDocs(collection(db, 'products'))).size;
-        const ords = await getDocs(collection(db, 'orders'));
-        $('dashTotalOrders').textContent = ords.size;
-        const phones = new Set();
-        ords.forEach(d => { if (d.data().userPhone) phones.add(d.data().userPhone); });
-        $('dashTotalCustomers').textContent = phones.size;
-        $('dashTotalLocations').textContent = (await getDocs(collection(db, 'delivery_locations'))).size;
-      } catch (e) { console.error('stats', e); }
+    // ---------- LIVE: orders (last 2 months), pending settlements, pending POs
+    function startLive() {
+      unsubs.push(onSnapshot(query(collection(db, 'orders'), where('createdAt', '>=', P_START)), (snap) => {
+        const list = []; snap.forEach(d => list.push(d.data()));
+        renderOrders(list);
+      }, (e) => console.error('orders', e)));
+      unsubs.push(onSnapshot(query(collection(db, 'cash_settlements'), where('status', '==', 'Pending')), (snap) => {
+        let total = 0, n = 0; snap.forEach(d => { total += Number(d.data().amount || 0); n++; });
+        $('sSettle').textContent = money(total);
+        $('sSettleCount').textContent = n ? `${n} টি অনুরোধ` : 'কোনো অনুরোধ নেই';
+      }, (e) => console.error('settle', e)));
+      unsubs.push(onSnapshot(query(collection(db, 'purchase_orders'), where('status', '==', 'Submitted')), (snap) => {
+        $('sPO').textContent = snap.size;
+      }, (e) => console.error('po', e)));
+    }
+
+    const isCancelled = (o) => o.status === 'Cancelled';
+    const ACTIVE = ['Pending', 'Processing', 'On the Way', 'Offered'];
+
+    function pctLine(el, cur, avg, label) {
+      if (!(avg > 0)) { el.innerHTML = `<span class="text-gray-400">গত মাসের তুলনা নেই</span>`; return; }
+      const p = Math.round(((cur - avg) / avg) * 100);
+      const up = p >= 0;
+      el.innerHTML = `<span class="${up ? 'text-emerald-600' : 'text-red-600'} font-bold">${up ? '▲' : '▼'} ${Math.abs(p)}%</span> <span class="text-gray-400">${label}</span>`;
+    }
+
+    function renderOrders(list) {
+      const cu = (o) => (o.createdAt || '');
+      const todayO = list.filter(o => cu(o) >= T_START && cu(o) < T_END);
+      const prevO = list.filter(o => cu(o) >= P_START && cu(o) < M_START);
+
+      const todayCount = todayO.length;
+      const todaySales = todayO.filter(o => !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+      const prevCount = prevO.length;
+      const prevSales = prevO.filter(o => !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+
+      $('sTodayOrders').textContent = todayCount;
+      pctLine($('sTodayOrdersPct'), todayCount, prevCount / prevDays, 'গত মাসের দৈনিক গড়ের তুলনায়');
+      $('sTodaySales').textContent = money(todaySales);
+      pctLine($('sTodaySalesPct'), todaySales, prevSales / prevDays, 'গত মাসের দৈনিক গড়ের তুলনায়');
+
+      $('sActive').textContent = list.filter(o => ACTIVE.includes(o.status)).length;
+
+      // last 7 days sales chart
+      const days = [];
+      for (let i = 6; i >= 0; i--) days.push(addDays(today, -i));
+      const sums = days.map(ymd => {
+        const a = dhakaMidnight(ymd), b = dhakaMidnight(addDays(ymd, 1));
+        return list.filter(o => cu(o) >= a && cu(o) < b && !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+      });
+      const max = Math.max(1, ...sums);
+      $('chart').innerHTML = sums.map((v, i) => `
+        <div class="flex-1 flex flex-col items-center justify-end h-full" title="${money(v)}">
+          <span class="text-[10px] text-gray-500 mb-1">${v ? money(v) : ''}</span>
+          <div class="w-full rounded-t-lg ${i === 6 ? 'bg-emerald-600' : 'bg-emerald-200'}" style="height:${Math.max(3, (v / max) * 100)}%"></div>
+        </div>`).join('');
+      $('chartLabels').innerHTML = days.map((ymd, i) => {
+        const dn = new Intl.DateTimeFormat('bn-BD', { timeZone: 'Asia/Dhaka', weekday: 'short' }).format(new Date(`${ymd}T12:00:00+06:00`));
+        return `<div class="flex-1 text-center">${esc(dn)}</div>`;
+      }).join('');
+      $('chartTotal').textContent = '৭ দিনের মোট: ' + money(sums.reduce((s, v) => s + v, 0));
     }
 
     // ---------- admin accounts
@@ -163,12 +247,10 @@
       const rows = $('adminRows');
       try {
         const snap = await getDocs(collection(db, 'admins'));
-        const list = [];
-        snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+        const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
         list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
         rows.innerHTML = list.map(a => {
-          const isMe = a.id === me.uid;
-          const role = roleOf(a);
+          const isMe = a.id === me.uid, role = roleOf(a);
           const roleCell = isMe
             ? `<span class="font-semibold">${esc(ROLE_LABEL[role] || role)}</span> <span class="text-[10px] text-gray-400">(আপনি)</span>`
             : `<select data-act="role" data-uid="${esc(a.id)}" class="px-2 py-1 border rounded-lg bg-white">
@@ -179,9 +261,7 @@
           const actCell = isMe ? '—' : `<button data-act="toggle" data-uid="${esc(a.id)}" data-active="${active}"
               class="px-3 py-1 rounded-lg font-bold ${active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}">${active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}</button>`;
           return `<tr class="border-t">
-            <td class="p-2">${esc(a.name)}</td>
-            <td class="p-2">${esc(a.email)}</td>
-            <td class="p-2">${roleCell}</td>
+            <td class="p-2">${esc(a.name)}</td><td class="p-2">${esc(a.email)}</td><td class="p-2">${roleCell}</td>
             <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">${active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span></td>
             <td class="p-2 text-center">${actCell}</td></tr>`;
         }).join('') || '<tr><td colspan="5" class="p-4 text-center text-gray-400">কোনো অ্যাডমিন নেই</td></tr>';
@@ -192,45 +272,29 @@
 
     $('newAdminForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = {
-        name: $('naName').value.trim(),
-        role: $('naRole').value,
-        email: $('naEmail').value.trim(),
-        password: $('naPass').value
-      };
+      const data = { name: $('naName').value.trim(), role: $('naRole').value, email: $('naEmail').value.trim(), password: $('naPass').value };
       if (data.password.length < 6) return alert('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে।');
       if (!confirm(`${ROLE_LABEL[data.role]} হিসেবে ${data.email} তৈরি করবেন?`)) return;
       $('naSubmit').disabled = true;
-      try {
-        await call('createAdmin', data);
-        alert('অ্যাকাউন্ট তৈরি হয়েছে। সে এখন এই ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করতে পারবে।');
-        $('newAdminForm').reset();
-        loadAdmins();
-      } catch (err) {
-        alert('তৈরি হয়নি: ' + (err.message || err));
-      }
+      try { await call('createAdmin', data); alert('অ্যাকাউন্ট তৈরি হয়েছে।'); $('newAdminForm').reset(); loadAdmins(); }
+      catch (err) { alert('তৈরি হয়নি: ' + (err.message || err)); }
       $('naSubmit').disabled = false;
     });
-
     $('adminRows').addEventListener('change', async (e) => {
-      const sel = e.target.closest('select[data-act="role"]');
-      if (!sel) return;
-      const label = ROLE_LABEL[sel.value];
-      if (!confirm(`রোল বদলে "${label}" করবেন?`)) { loadAdmins(); return; }
-      try { await call('setAdminRole', { uid: sel.dataset.uid, role: sel.value }); alert('রোল বদলানো হয়েছে।'); }
-      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      const sel = e.target.closest('select[data-act="role"]'); if (!sel) return;
+      if (!confirm(`রোল বদলে "${ROLE_LABEL[sel.value]}" করবেন?`)) { loadAdmins(); return; }
+      try { await call('setAdminRole', { uid: sel.dataset.uid, role: sel.value }); } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
       loadAdmins();
     });
-
     $('adminRows').addEventListener('click', async (e) => {
-      const btn = e.target.closest('button[data-act="toggle"]');
-      if (!btn) return;
+      const btn = e.target.closest('button[data-act="toggle"]'); if (!btn) return;
       const nowActive = btn.dataset.active === 'true';
       if (!confirm(nowActive ? 'নিষ্ক্রিয় করবেন? সে তখনই লগইন থেকে বাদ পড়বে।' : 'সক্রিয় করবেন?')) return;
-      try { await call('setAdminActive', { uid: btn.dataset.uid, active: !nowActive }); }
-      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      try { await call('setAdminActive', { uid: btn.dataset.uid, active: !nowActive }); } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
       loadAdmins();
     });
   </script>
+
+  <script type="module" src="admin-nav.js"></script>
 </body>
 </html>
