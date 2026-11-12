@@ -65,50 +65,57 @@ window.openProductHistory = async function (productId, productName, scope = 'adm
   document.getElementById('phTitle').textContent = 'Stock History: ' + productName;
   const body = document.getElementById('phBody');
   body.innerHTML = '<p class="text-center text-gray-400 py-6">Loading...</p>';
-  try {
-    const ins = await stockInFor(productId, scope, companyName);
-    const totalIn = ins.reduce((s, r) => s + r.qty, 0);
-    const inTable = ins.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+
+  // Each part is read separately. A part the current role may not read is shown as a notice, not an error.
+  let ins = null, insDenied = false, movs = null, movDenied = false;
+  try { ins = await stockInFor(productId, scope, companyName); } catch (e) { insDenied = true; }
+  if (scope !== 'supplier') {
+    try { movs = await movementsFor(productId); } catch (e) { movDenied = true; }
+  }
+  const notice = (msg) => `<p class="text-center text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">${esc(msg)}</p>`;
+  const cur = currentStock || 0;
+  const totalIn = ins ? ins.reduce((s, r) => s + r.qty, 0) : 0;
+  const inTable = insDenied ? notice('স্টক-ইন তথ্য দেখার অনুমতি আপনার নেই।')
+    : (ins && ins.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
         <thead><tr class="bg-emerald-50 text-emerald-800"><th class="p-1.5">Date</th><th class="p-1.5">Chalan / PO</th><th class="p-1.5 text-center">Qty In</th><th class="p-1.5 text-right">TP</th></tr></thead>
         <tbody>${ins.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b>${r.poNo ? `<span class="block text-[10px] text-gray-400">${esc(r.poNo)}</span>` : ''}</td><td class="p-1.5 text-center font-bold text-emerald-700">+${r.qty}</td><td class="p-1.5 text-right">৳${r.tp}</td></tr>`).join('')}</tbody></table></div>`
-      : empty('এখনো কোনো stock-in নেই।');
+      : empty('এখনো কোনো stock-in নেই।'));
 
-    if (scope === 'supplier') {
-      body.innerHTML = `
-        <div class="grid grid-cols-2 gap-2">${card('Current Stock', (currentStock || 0) + ' pcs', 'text-blue-600')}${card('Total Received', totalIn + ' pcs', 'text-emerald-700')}</div>
-        <p class="font-bold text-gray-700">Stock-In History</p>${inTable}
-        <p class="text-[10px] text-gray-400">বিক্রয়ের তথ্য এখানে দেখানো হয় না।</p>`;
-      return;
-    }
-
-    const { outs, rets } = await movementsFor(productId);
-    const totalOut = outs.reduce((s, r) => s + r.qty, 0);
-    const totalRet = rets.reduce((s, r) => s + r.qty, 0);
-    const expected = totalIn - totalOut + totalRet;
-    const diff = Number(currentStock || 0) - expected;
-    const outTable = outs.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="bg-rose-50 text-rose-800"><th class="p-1.5">Delivered On</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Out</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
-        <tbody>${outs.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-rose-700">-${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
-      : empty('এখনো কোনো ডেলিভারি নেই।');
-    const retTable = rets.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
-        <thead><tr class="bg-orange-50 text-orange-800"><th class="p-1.5">Date</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Back</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
-        <tbody>${rets.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-orange-700">${r.qty > 0 ? '+' : ''}${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
-      : empty('কোনো ফেরত নেই।');
-
+  // Stock-in only (supplier role, or a role without access to sales movements)
+  if (!movs) {
     body.innerHTML = `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        ${card('Current Stock', (currentStock || 0) + ' pcs', 'text-blue-600')}
-        ${card('Total In', '+' + totalIn, 'text-emerald-700')}
-        ${card('Total Out (Delivered)', '-' + totalOut, 'text-rose-700')}
-        ${card('Total Returned', '+' + totalRet, 'text-orange-700')}
-      </div>
-      <p class="text-[11px] ${diff ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-gray-500 bg-gray-50 border'} rounded-lg p-2">
-        হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} + ফেরত ${totalRet} = ${expected}, বর্তমান স্টক ${currentStock || 0}.
-        ${diff ? `পার্থক্য ${diff > 0 ? '+' : ''}${diff} pcs। ম্যানুয়াল স্টক পরিবর্তন, ফেরত বা পুরনো stock-in edit এর কারণে হতে পারে।` : 'হিসাব মিলছে।'}</p>
-      <p class="font-bold text-emerald-700">Stock-In</p>${inTable}
-      <p class="font-bold text-rose-700">Stock-Out (Delivered)</p>${outTable}
-      <p class="font-bold text-orange-700">Returns (Back to Stock)</p>${retTable}`;
-  } catch (e) {
-    body.innerHTML = `<p class="text-red-600 text-center py-6">Could not load history: ${esc(e.message)}</p>`;
+      <div class="grid grid-cols-2 gap-2">${card('Current Stock', cur + ' pcs', 'text-blue-600')}${card('Total Received', totalIn + ' pcs', 'text-emerald-700')}</div>
+      <p class="font-bold text-gray-700">Stock-In History</p>${inTable}
+      ${movDenied ? notice('বিক্রয় ও ফেরতের তথ্য দেখার অনুমতি আপনার নেই।') : '<p class="text-[10px] text-gray-400">বিক্রয় ও ফেরতের তথ্য এখানে দেখানো হয় না।</p>'}`;
+    return;
   }
+
+  // Full view (master / store manager)
+  const { outs, rets } = movs;
+  const totalOut = outs.reduce((s, r) => s + r.qty, 0);
+  const totalRet = rets.reduce((s, r) => s + r.qty, 0);
+  const expected = totalIn - totalOut + totalRet;
+  const diff = Number(cur) - expected;
+  const outTable = outs.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+      <thead><tr class="bg-rose-50 text-rose-800"><th class="p-1.5">Delivered On</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Out</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
+      <tbody>${outs.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-rose-700">-${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
+    : empty('এখনো কোনো ডেলিভারি নেই।');
+  const retTable = rets.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+      <thead><tr class="bg-orange-50 text-orange-800"><th class="p-1.5">Date</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Back</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
+      <tbody>${rets.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-orange-700">${r.qty > 0 ? '+' : ''}${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
+    : empty('কোনো ফেরত নেই।');
+
+  body.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      ${card('Current Stock', cur + ' pcs', 'text-blue-600')}
+      ${card('Total In', '+' + totalIn, 'text-emerald-700')}
+      ${card('Total Out (Delivered)', '-' + totalOut, 'text-rose-700')}
+      ${card('Total Returned', '+' + totalRet, 'text-orange-700')}
+    </div>
+    <p class="text-[11px] ${diff ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-gray-500 bg-gray-50 border'} rounded-lg p-2">
+      হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} + ফেরত ${totalRet} = ${expected}, বর্তমান স্টক ${cur}.
+      ${diff ? `পার্থক্য ${diff > 0 ? '+' : ''}${diff} pcs। ম্যানুয়াল স্টক পরিবর্তন বা পুরনো stock-in edit এর কারণে হতে পারে।` : 'হিসাব মিলছে।'}</p>
+    <p class="font-bold text-emerald-700">Stock-In</p>${inTable}
+    <p class="font-bold text-rose-700">Stock-Out (Delivered)</p>${outTable}
+    <p class="font-bold text-orange-700">Returns (Back to Stock)</p>${retTable}`;
 };
