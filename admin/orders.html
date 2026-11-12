@@ -718,8 +718,8 @@ function rsRender(o){
   <table class="w-full text-xs mt-3"><thead class="bg-gray-100 text-gray-600"><tr><th class="p-1.5 text-left">পণ্য</th><th class="p-1.5">মোট</th><th class="p-1.5">আগে ফেরত</th><th class="p-1.5">বাকি</th><th class="p-1.5">এখন ফেরত</th></tr></thead><tbody>${rows}</tbody></table>
   <input id="rsReason" maxlength="200" placeholder="ফেরতের কারণ *" class="w-full px-3 py-2 border rounded-xl text-sm mt-3">
   <div id="rsPrev" class="text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-2 mt-2"></div>
-  <button type="button" onclick="rsSave()" class="w-full bg-rose-600 text-white py-2.5 rounded-xl font-bold text-sm mt-2">রিটার্ন সেভ ও কাস্টমারের ওয়ালেটে জমা</button>
-  <p class="text-[10px] text-gray-400 mt-1">এই রিটার্নের টাকা অ্যাডমিন ব্যালেন্স থেকে যাবে; রাইডারের ক্যাশ ও কমিশন বদলাবে না।</p>`
+  <button type="button" onclick="rsSave()" class="w-full bg-rose-600 text-white py-2.5 rounded-xl font-bold text-sm mt-2">রিটার্ন সেভ ও কাস্টমারকে নগদ ফেরত</button>
+  <p class="text-[10px] text-gray-400 mt-1">এই রিটার্নের টাকা স্টোর ম্যানেজারের হাতের ক্যাশ থেকে যাবে; রাইডারের ক্যাশ ও কমিশন বদলাবে না।</p>`
   :`<p class="text-xs text-gray-500 mt-3">এই অর্ডারে ফেরতযোগ্য কোনো আইটেম নেই (বা অর্ডার Delivered নয়)।</p>`}`;
   rsPreview();
 }
@@ -728,7 +728,7 @@ window.rsPreview=()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);const el=d
   if(s.bad){el.innerHTML='<span class="text-red-600">'+rsE(s.bad)+'</span>';return}
   if(!s.units){el.innerHTML='এখন ফেরতের পরিমাণ লিখুন।';return}
   const delta=rsR2(rsParts(o,s.items,s.extra).refund-rsParts(o,o.items||[]).refund);
-  el.innerHTML=`এই রিটার্ন (অ্যাডমিন ব্যালেন্স থেকে কাস্টমারের ওয়ালেটে): <b>৳${delta}</b><br><small>রাইডারের ক্যাশ বাকি: অপরিবর্তিত · কমিশন: অপরিবর্তিত</small>`;
+  el.innerHTML=`কাস্টমারকে নগদ ফেরত (স্টোর ম্যানেজার দেবে): <b>৳${delta}</b><br><small>রাইডারের ক্যাশ বাকি: অপরিবর্তিত · কমিশন: অপরিবর্তিত</small>`;
 };
 window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)return;
   const reason=(document.getElementById('rsReason')?.value||'').trim();if(!reason)return alert('ফেরতের কারণ লিখুন');
@@ -738,7 +738,7 @@ window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)re
   const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines:s.lines,refund:delta,channel:'menu'};
   const payload={items:s.items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:s.items.reduce((x,it)=>x+rsNum(it.price)*rsNum(it.returnedQty),0),lastRefundBy:window.__adminUid||''};
   if(all){payload.status='Returned';payload.returnedAt=at;payload.returnReason=reason}
-  try{await updateDoc(doc(db,'orders',o.id),payload);alert('সেভ হয়েছে। কাস্টমারের ওয়ালেটে ৳'+delta+' জমা হবে। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
+  try{await updateDoc(doc(db,'orders',o.id),payload);alert('সেভ হয়েছে। কাস্টমারকে ৳'+delta+' নগদ ফেরত দিন। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
   catch(e){alert(e.message)}};
 window.updateOrderStatus = async function(orderId, newStatus) {
       try {
