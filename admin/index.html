@@ -91,22 +91,7 @@
       <a href="locations.html" class="bg-white p-5 rounded-2xl shadow-sm border hover:shadow-md block"><h4 class="font-bold text-sm">Delivery Locations</h4><p class="text-[11px] text-gray-500 mt-1">Areas and road zones.</p></a>
     </div>
 
-     <!-- WALLET TRANSFERS (master confirms cash handed over for menu refunds) -->
-      <section class="bg-white p-5 rounded-2xl shadow-sm border space-y-3">
-        <div class="flex items-center justify-between">
-          <h3 class="font-bold text-sm text-blue-700"><i class="fa-solid fa-right-left mr-1"></i> ওয়ালেট ট্রান্সফার (নিশ্চিত করুন)</h3>
-          <span id="wtCount" class="text-[11px] text-gray-500"></span>
-        </div>
-        <p class="text-[11px] text-gray-500">স্টোর ম্যানেজার মেনু রিফান্ডের নগদ আপনাকে বুঝিয়ে দিলে এখানে আসবে। টাকা পেলে নিশ্চিত করুন।</p>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead class="bg-gray-100 text-gray-600"><tr><th class="p-2 text-left">ম্যানেজার</th><th class="p-2 text-left">অর্ডার</th><th class="p-2 text-right">পরিমাণ</th><th class="p-2 text-left">Trx / নোট</th><th class="p-2 text-center">কার্যক্রম</th></tr></thead>
-            <tbody id="wtRows"><tr><td colspan="5" class="p-4 text-center text-gray-400">কোনো অপেক্ষমাণ ট্রান্সফার নেই</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ADMIN ACCOUNTS -->
+     <!-- ADMIN ACCOUNTS -->
     <section class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
       <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-user-gear mr-1"></i> অ্যাডমিন অ্যাকাউন্ট ম্যানেজ</h3>
       <form id="newAdminForm" class="grid grid-cols-1 sm:grid-cols-2 gap-3 border rounded-xl p-4 bg-gray-50">
@@ -194,33 +179,7 @@
 
     // ---------- LIVE: orders (last 2 months), pending settlements, pending POs
     const adminNames = {};
-    let wtList = [];
-    function renderTransfers() {
-      $('wtCount').textContent = wtList.length ? `${wtList.length} টি অপেক্ষমাণ` : '';
-      $('wtRows').innerHTML = wtList.map(w => `<tr class="border-t">
-          <td class="p-2">${esc(adminNames[w.uid] || w.uid)}</td>
-          <td class="p-2">${esc(w.orderId || '')}</td>
-          <td class="p-2 text-right font-bold">${money(w.amount)}</td>
-          <td class="p-2"><input data-trx="${esc(w.id)}" placeholder="Trx ID / নোট" class="px-2 py-1 border rounded-lg w-32"></td>
-          <td class="p-2 text-center"><button data-confirm="${esc(w.id)}" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-bold">নিশ্চিত করুন</button></td></tr>`).join('')
-        || '<tr><td colspan="5" class="p-4 text-center text-gray-400">কোনো অপেক্ষমাণ ট্রান্সফার নেই</td></tr>';
-    }
-    $('wtRows').addEventListener('click', async (e) => {
-      const btn = e.target.closest('button[data-confirm]'); if (!btn) return;
-      const id = btn.dataset.confirm;
-      const trx = (document.querySelector(`input[data-trx="${CSS.escape(id)}"]`)?.value || '').trim();
-      if (!trx) return alert('Trx ID বা নোট লিখুন।');
-      if (!confirm('টাকা পেয়েছেন? নিশ্চিত করলে হিসাব আপডেট হবে।')) return;
-      btn.disabled = true;
-      try { await call('confirmWalletTransfer', { transferId: id, trxRef: trx }); alert('নিশ্চিত হয়েছে।'); }
-      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); btn.disabled = false; }
-    });
-
     function startLive() {
-      unsubs.push(onSnapshot(query(collection(db, 'wallet_transfers'), where('status', '==', 'pending')), (snap) => {
-        wtList = []; snap.forEach(d => wtList.push({ id: d.id, ...d.data() }));
-        renderTransfers();
-      }, (e) => console.error('transfers', e)));
       unsubs.push(onSnapshot(query(collection(db, 'orders'), where('createdAt', '>=', P_START)), (snap) => {
         const list = []; snap.forEach(d => list.push(d.data()));
         renderOrders(list);
@@ -292,7 +251,6 @@
         const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
         list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
         list.forEach(a => { adminNames[a.id] = a.name || a.email; });
-        renderTransfers();
         rows.innerHTML = list.map(a => {
           const isMe = a.id === me.uid, role = roleOf(a);
           const roleCell = isMe
