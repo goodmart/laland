@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Tools - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench text-xl"></i><h1 class="font-bold text-base">Data Tools (মাস্টার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+      এখান থেকে একটি প্রোডাক্টের স্টক-মুভমেন্ট ইতিহাস (বিক্রি ও ফেরতের সারি) মুছবে। মোছা ফিরিয়ে আনা যাবে না। লেজার, অর্ডার ও কাস্টমারের হিসাব অপরিবর্তিত থাকবে। প্রতিটি মোছা লগ হবে।
+    </div>
+
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-4">
+      <h2 class="font-bold text-sm text-emerald-700">১. প্রোডাক্ট বেছে নিন</h2>
+      <input id="search" placeholder="প্রোডাক্টের নাম / SKU খুঁজুন..." class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
+      <select id="product" size="8" class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></select>
+
+      <div id="info" class="hidden bg-gray-50 border rounded-xl p-4 space-y-2 text-sm">
+        <p><b id="iName"></b></p>
+        <p class="text-xs text-gray-500">SKU: <span id="iSku"></span></p>
+        <p class="text-xs">বর্তমান স্টক: <b id="iStock"></b> · মুভমেন্ট সারি: <b id="iCount" class="text-rose-700"></b></p>
+      </div>
+
+      <div id="actions" class="hidden space-y-3 border-t pt-4">
+        <h2 class="font-bold text-sm text-rose-700">২. মুভমেন্ট মুছুন</h2>
+        <label class="block text-xs text-gray-600">মোছার পর স্টক কত হবে? (ফাঁকা রাখলে স্টক বদলাবে না)
+          <input id="setStock" type="number" min="0" placeholder="যেমন 12" class="w-full mt-1 px-3 py-2 border rounded-xl text-sm">
+        </label>
+        <button id="clearBtn" class="w-full bg-rose-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-rose-700">
+          <i class="fa-solid fa-trash mr-1"></i> এই প্রোডাক্টের মুভমেন্ট মুছুন
+        </button>
+        <p id="result" class="text-xs text-gray-600"></p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const db = getFirestore(app), fns = getFunctions(app);
+    getAuth(app);
+
+    const $ = (id) => document.getElementById(id);
+    let products = [];
+    let current = null;
+
+    async function loadProducts() {
+      const snap = await getDocs(collection(db, 'products'));
+      products = [];
+      snap.forEach(d => products.push({ id: d.id, ...d.data() }));
+      products.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      renderList();
+    }
+
+    function renderList() {
+      const q = $('search').value.trim().toLowerCase();
+      const list = products.filter(p => !q || String(p.name || '').toLowerCase().includes(q) || String(p.sku || '').toLowerCase().includes(q));
+      $('product').innerHTML = list.map(p => `<option value="${p.id}">${p.name || p.id}${p.sku ? ' · ' + p.sku : ''}</option>`).join('');
+    }
+
+    $('search').addEventListener('input', renderList);
+
+    $('product').addEventListener('change', async () => {
+      const id = $('product').value;
+      current = products.find(p => p.id === id) || null;
+      if (!current) return;
+      const count = (await getDocs(collection(db, 'products', id, 'movements'))).size;
+      $('iName').textContent = current.name || id;
+      $('iSku').textContent = current.sku || '—';
+      $('iStock').textContent = Number(current.stock || 0) + ' pcs';
+      $('iCount').textContent = count;
+      $('info').classList.remove('hidden');
+      $('actions').classList.remove('hidden');
+      $('setStock').value = '';
+      $('result').textContent = '';
+    });
+
+    $('clearBtn').addEventListener('click', async () => {
+      if (!current) return;
+      const count = Number($('iCount').textContent) || 0;
+      const setStock = $('setStock').value.trim();
+      const msg = `"${current.name}" এর ${count} টি মুভমেন্ট মুছবেন?` +
+        (setStock !== '' ? `\nএবং স্টক ${setStock} করা হবে।` : '\nস্টক বদলাবে না।') +
+        '\n\nএটি ফিরিয়ে আনা যাবে না।';
+      if (!confirm(msg)) return;
+      $('clearBtn').disabled = true;
+      try {
+        const res = await httpsCallable(fns, 'clearProductMovements')({ productId: current.id, setStock: setStock === '' ? null : setStock });
+        const r = res.data;
+        $('result').textContent = `মুছেছে: ${r.removed} টি মুভমেন্ট।` + (r.stock !== null ? ` নতুন স্টক: ${r.stock}।` : '');
+        alert('সম্পন্ন।');
+        $('product').dispatchEvent(new Event('change'));
+      } catch (e) {
+        alert('ব্যর্থ: ' + (e.message || e));
+      }
+      $('clearBtn').disabled = false;
+    });
+
+    loadProducts();
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
