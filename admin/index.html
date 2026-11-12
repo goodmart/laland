@@ -100,7 +100,7 @@
         <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">রোল *</label>
           <select id="naRole" class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
             <option value="store">স্টোর ম্যানেজার (অর্ডার, রাইডার ফাইন্যান্স)</option>
-            <option value="supplier">সাপ্লায়ার ম্যানেজার (সাপ্লায়ার, প্রোডাক্ট, PO)</option>
+            <option value="vendor">Vendor Manager (সাপ্লায়ার, প্রোডাক্ট, PO)</option>
           </select></div>
         <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">ইমেইল *</label>
           <input id="naEmail" type="email" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
@@ -134,7 +134,7 @@
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', supplier: 'সাপ্লায়ার ম্যানেজার' };
+    const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager' };
     const roleOf = (d) => d.role || 'master';
     const money = (n) => '৳' + Math.round(Number(n) || 0).toLocaleString('en-IN');
     let me = null, unsubs = [];
@@ -168,7 +168,7 @@
       if (!s || !s.exists() || s.data().active === false) { alert('এই অ্যাকাউন্টের অ্যাডমিন অধিকার নেই।'); await signOut(auth); return; }
       const role = roleOf(s.data());
       if (role === 'store') { location.replace('orders.html'); return; }
-      if (role === 'supplier') { location.replace('products.html'); return; }
+      if (role === 'vendor') { location.replace('products.html'); return; }
       if (role !== 'master') { alert('অনুমতি নেই।'); await signOut(auth); return; }
       me = { uid: u.uid, name: s.data().name || u.email };
       $('adminLoginSection').classList.add('hidden');
@@ -256,7 +256,7 @@
           const roleCell = isMe
             ? `<span class="font-semibold">${esc(ROLE_LABEL[role] || role)}</span> <span class="text-[10px] text-gray-400">(আপনি)</span>`
             : `<select data-act="role" data-uid="${esc(a.id)}" class="px-2 py-1 border rounded-lg bg-white">
-                 ${['store', 'supplier'].map(r => `<option value="${r}" ${role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+                 ${['store', 'vendor'].map(r => `<option value="${r}" ${role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
                  ${role === 'master' ? '<option value="master" selected>মাস্টার</option>' : ''}
                </select>`;
           const active = a.active !== false;
