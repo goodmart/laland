@@ -26,6 +26,7 @@
     <!-- PRODUCTS -->
     <section id="view-products" class="space-y-3">
       <input id="prodSearch" oninput="renderProducts()" placeholder="Search your products..." class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+      <p id="prodNote" class="text-[11px] font-bold text-emerald-700"></p>
       <div id="prodList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
     </section>
 
@@ -53,6 +54,12 @@
     </section>
   </main>
 
+  <!-- floating cart bar (Products tab) + toast -->
+  <button id="cartBar" onclick="showTab('newpo')" style="display:none" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-emerald-700 text-white rounded-full shadow-xl px-5 py-3 text-xs font-bold items-center gap-3 whitespace-nowrap hover:bg-emerald-800">
+    <span><i class="fa-solid fa-cart-shopping mr-1"></i><span id="barCount">0</span> items</span><span id="barTotal" class="text-amber-300">৳ 0</span><span>View PO <i class="fa-solid fa-arrow-right"></i></span>
+  </button>
+  <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 max-w-[90vw] truncate"></div>
+
   <!-- PO DETAIL MODAL -->
   <div id="poModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
     <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 space-y-3 shadow-2xl">
@@ -76,7 +83,10 @@
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const COLORS = { Submitted: 'bg-blue-100 text-blue-700', 'Under Review': 'bg-amber-100 text-amber-700', Approved: 'bg-emerald-100 text-emerald-700', Rejected: 'bg-red-100 text-red-700', Cancelled: 'bg-gray-200 text-gray-600', 'Partially Received': 'bg-purple-100 text-purple-700', Received: 'bg-emerald-200 text-emerald-800' };
     const badge = s => `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${COLORS[s] || 'bg-gray-100'}">${esc(s)}</span>`;
-    let me = null, products = [], pos = [], cart = [];
+    let me = null, products = [], pos = [], cart = [], curTab = 'products';
+    const imgBox = (src, size) => `<div class="${size} shrink-0 rounded-lg overflow-hidden bg-gray-100 border relative flex items-center justify-center"><i class="fa-solid fa-image text-gray-300"></i>${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()" class="absolute inset-0 w-full h-full object-cover">` : ''}</div>`;
+    let toastT;
+    const toast = msg => { const t = $('toast'); t.textContent = msg; t.style.opacity = '1'; clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = '0', 1600); };
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) { location.replace('index.html'); return; }
@@ -143,6 +153,7 @@
         $('view-' + x).classList.toggle('hidden', x !== t);
         $('tab-' + x).className = 'tabbtn flex-1 py-2.5 border-b-2 ' + (x === t ? 'border-white' : 'border-transparent text-emerald-200');
       });
+      curTab = t; updateCartCount();
       if (t === 'newpo') renderCart();
       if (t === 'profile') loadProfile();
     };
@@ -156,32 +167,45 @@
 
     window.renderProducts = () => {
       const q = $('prodSearch').value.toLowerCase().trim();
-      const list = products.filter(p => !q || (p.name || '').toLowerCase().includes(q));
+      const inCart = new Set(cart.map(c => c.id));
+      const all = products.filter(p => !q || (p.name || '').toLowerCase().includes(q));
+      const list = all.filter(p => !inCart.has(p.id)), moved = all.length - list.length;
+      $('prodNote').innerHTML = moved ? `<i class="fa-solid fa-circle-check mr-1"></i>${moved} product${moved > 1 ? 's' : ''} moved to New PO` : '';
       $('prodList').innerHTML = list.length ? list.map(p => {
         const stock = Number(p.stock || 0), low = stock <= Number(p.minStock ?? 10);
-        return `<div class="bg-white p-3 rounded-xl border flex justify-between items-center gap-2">
-          <div class="min-w-0">
+        return `<div data-card="${esc(p.id)}" class="bg-white p-3 rounded-xl border flex items-center gap-3">
+          ${imgBox(p.image, 'w-16 h-16')}
+          <div class="min-w-0 flex-1">
             <p class="font-bold text-sm truncate">${esc(p.name)}</p>
             <p class="text-[11px] text-gray-500">TP: ৳${Number(p.tp || 0)} | MRP: ৳${Number(p.mrp || 0)}</p>
             <p class="text-xs font-bold ${low ? 'text-red-600' : 'text-emerald-700'}">Stock: ${stock} ${low ? '<span class="text-[10px] bg-red-100 px-1.5 rounded">LOW</span>' : ''}</p>
           </div>
-          <button type="button" data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-stock="${stock}" data-co="${esc(me.companyName)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'supplier',this.dataset.co,this.dataset.stock)" class="shrink-0 border border-indigo-300 text-indigo-600 px-2 py-1.5 rounded-lg text-xs font-bold" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
-          <button onclick="addToPo('${p.id}')" class="shrink-0 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
+          <div class="shrink-0 flex flex-col gap-1.5">
+            <button onclick="addToPo('${esc(p.id)}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
+            <button type="button" data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-stock="${stock}" data-co="${esc(me.companyName)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'supplier',this.dataset.co,this.dataset.stock)" class="border border-indigo-300 text-indigo-600 px-2 py-1.5 rounded-lg text-xs font-bold" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+          </div>
         </div>`;
-      }).join('') : '<p class="col-span-2 text-center text-xs text-gray-400 py-6">No products found.</p>';
+      }).join('') : `<p class="col-span-2 text-center text-xs text-gray-400 py-6">${all.length ? 'All matching products are already in your PO.' : 'No products found.'}</p>`;
     };
 
     window.addToPo = (id) => {
       const p = products.find(x => x.id === id); if (!p) return;
-      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, stock: Number(p.stock || 0), tp: Number(p.tp || 0), mrp: Number(p.mrp || 0), qty: 1, proposedTp: '', proposedMrp: '' });
-      updateCartCount(); showTab('newpo');
+      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, image: p.image || '', stock: Number(p.stock || 0), tp: Number(p.tp || 0), mrp: Number(p.mrp || 0), qty: 1, proposedTp: '', proposedMrp: '' });
+      updateCartCount(); toast(p.name + ' → New PO');
+      const el = document.querySelector('[data-card="' + CSS.escape(id) + '"]');
+      if (el) { el.style.transition = 'all .25s'; el.style.opacity = '0'; el.style.transform = 'translateX(30px)'; }
+      setTimeout(renderProducts, 250);
     };
-    const updateCartCount = () => { $('cartCount').textContent = cart.length; $('cartCount').classList.toggle('hidden', !cart.length); };
+    const updateCartCount = () => {
+      $('cartCount').textContent = cart.length; $('cartCount').classList.toggle('hidden', !cart.length);
+      $('barCount').textContent = cart.length; $('barTotal').textContent = '৳ ' + cart.reduce((t, c) => t + c.qty * c.tp, 0);
+      $('cartBar').style.display = (cart.length && curTab === 'products') ? 'flex' : 'none';
+    };
 
     function renderCart() {
       $('cartList').innerHTML = cart.length ? cart.map((c, i) => `
         <div class="border rounded-xl p-3 space-y-2">
-          <div class="flex justify-between"><p class="font-bold text-sm">${esc(c.name)}</p><button onclick="cartRemove(${i})" class="text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>
+          <div class="flex justify-between items-center gap-2">${imgBox(c.image, 'w-11 h-11')}<p class="font-bold text-sm flex-1">${esc(c.name)}</p><button onclick="cartRemove(${i})" class="text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>
           <p class="text-[11px] text-gray-500">Current stock: ${c.stock} | TP: ৳${c.tp} | MRP: ৳${c.mrp}</p>
           <div class="grid grid-cols-3 gap-2">
             <label class="text-[10px] text-gray-500">Quantity<input type="number" min="1" value="${c.qty}" onchange="cartSet(${i},'qty',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
@@ -189,11 +213,11 @@
             <label class="text-[10px] text-gray-500">Propose MRP (If Required)<input type="number" min="0" value="${c.proposedMrp}" placeholder="৳${c.mrp}" onchange="cartSet(${i},'proposedMrp',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
           </div>
           <p class="text-right text-xs font-bold text-emerald-700">৳ ${c.qty * c.tp}</p>
-        </div>`).join('') : '<p class="text-center text-xs text-gray-400 py-6">No items yet. Add products from the Products tab.</p>';
+        </div>`).join('') : '<p class="text-center text-xs text-gray-400 py-6">No items yet. Tap “+ PO” on a product in the Products tab.</p>';
       $('cartTotal').textContent = '৳ ' + cart.reduce((s, c) => s + c.qty * c.tp, 0);
     }
-    window.cartSet = (i, f, v) => { if (f === 'qty') cart[i].qty = Math.max(1, Math.floor(Number(v) || 1)); else if (f === 'proposedMrp') cart[i].proposedMrp = v === '' ? '' : Math.max(0, Number(v)); else cart[i].proposedTp = v === '' ? '' : Math.max(0, Number(v)); renderCart(); };
-    window.cartRemove = (i) => { cart.splice(i, 1); updateCartCount(); renderCart(); };
+    window.cartSet = (i, f, v) => { if (f === 'qty') cart[i].qty = Math.max(1, Math.floor(Number(v) || 1)); else if (f === 'proposedMrp') cart[i].proposedMrp = v === '' ? '' : Math.max(0, Number(v)); else cart[i].proposedTp = v === '' ? '' : Math.max(0, Number(v)); updateCartCount(); renderCart(); };
+    window.cartRemove = (i) => { cart.splice(i, 1); updateCartCount(); renderCart(); renderProducts(); };
 
     window.submitPo = async () => {
       if (!cart.length) { alert('Add at least one product.'); return; }
@@ -212,7 +236,7 @@
       $('submitPoBtn').disabled = true;
       try {
         await addDoc(collection(db, 'purchase_orders'), po);
-        cart = []; $('poNote').value = ''; updateCartCount();
+        cart = []; $('poNote').value = ''; updateCartCount(); renderProducts();
         await loadPos(); showTab('mypos');
         alert('PO submitted: ' + po.poNo);
       } catch (e) { alert('Error: ' + e.message); }
