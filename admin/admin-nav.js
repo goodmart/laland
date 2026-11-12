@@ -22,9 +22,9 @@ const GROUPS = [
 const ROLE_PAGES = {
   master: null,
   store: ['orders.html', 'rider.html'],
-  supplier: ['suppliers.html', 'products.html', 'stock-in.html', 'purchase-orders.html']
+  vendor: ['suppliers.html', 'products.html', 'stock-in.html', 'purchase-orders.html']
 };
-const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', supplier: 'সাপ্লায়ার ম্যানেজার' };
+const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager' };
 
 const cur = location.pathname.split('/').pop() || 'index.html';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
