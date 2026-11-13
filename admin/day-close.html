@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Day Close - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-cash-register text-xl"></i><h1 class="font-bold text-base">দিন-শেষ গণনা</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto p-4 space-y-4">
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-[11px] text-gray-500">আজকের তারিখ (ঢাকা)</p>
+          <p id="today" class="font-bold text-sm">…</p>
+        </div>
+        <span id="statusBadge" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">লোড হচ্ছে</span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-gray-50 border rounded-xl p-4 text-center">
+          <p class="text-[11px] text-gray-500">প্রত্যাশিত নগদ</p>
+          <p id="expected" class="text-2xl font-extrabold text-blue-700 mt-1">৳…</p>
+          <p class="text-[10px] text-gray-400 mt-1">সিস্টেম অনুযায়ী আপনার হাতে থাকার কথা</p>
+        </div>
+        <div class="bg-gray-50 border rounded-xl p-4 text-center">
+          <p class="text-[11px] text-gray-500">জমা দেওয়া গণনা</p>
+          <p id="countedShow" class="text-2xl font-extrabold text-gray-700 mt-1">—</p>
+          <p id="diffShow" class="text-[10px] mt-1 text-gray-400"></p>
+        </div>
+      </div>
+
+      <form id="countForm" class="space-y-3 border-t pt-4">
+        <label class="block text-xs font-semibold text-gray-600">হাতে গুনে যত টাকা পেলেন (৳) *
+          <input id="counted" type="number" min="0" step="0.01" required placeholder="যেমন 4950" class="w-full mt-1 px-3 py-2.5 border rounded-xl text-base bg-white">
+        </label>
+        <div id="previewBox" class="hidden text-xs rounded-xl p-3 border"></div>
+        <button id="submitBtn" type="submit" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 disabled:bg-gray-300">আজকের গণনা জমা দিন</button>
+        <p class="text-[10px] text-gray-500">একবার জমা দিলে আর বদলানো যাবে না। ভুল হলে মাস্টার অ্যাডমিনকে জানান।</p>
+      </form>
+    </section>
+
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-gray-700">আগের দিনগুলো</h2>
+      <div id="history" class="space-y-2 text-xs"><p class="text-gray-400">লোড হচ্ছে…</p></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app);
+
+    const $ = (id) => document.getElementById(id);
+    const money = (n) => '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN');
+    const dayKey = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const today = dayKey();
+    let me = null, expected = 0, closeDoc = null;
+
+    $('today').textContent = new Intl.DateTimeFormat('bn-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'long' }).format(new Date());
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      me = { uid: u.uid, name: s.exists() ? (s.data().name || u.email) : u.email };
+      await loadExpected();
+      await loadToday();
+      await loadHistory();
+    });
+
+    async function loadExpected() {
+      try {
+        const b = await getDoc(doc(db, 'account_balances', `mgr:${me.uid}:cash`));
+        expected = b.exists() ? Number(b.data().balance || 0) : 0;
+      } catch (e) { expected = 0; }
+      $('expected').textContent = money(expected);
+    }
+
+    async function loadToday() {
+      const snap = await getDoc(doc(db, 'day_closes', `${me.uid}_${today}`));
+      closeDoc = snap.exists() ? snap.data() : null;
+      if (closeDoc && typeof closeDoc.counted === 'number') {
+        $('countedShow').textContent = money(closeDoc.counted);
+        const d = closeDoc.counted - expected;
+        $('diffShow').textContent = d === 0 ? 'মিলছে' : (d < 0 ? `ঘাটতি ${money(-d)}` : `উদ্বৃত্ত ${money(d)}`);
+        $('statusBadge').textContent = 'জমা হয়েছে';
+        $('statusBadge').className = 'text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700';
+        $('counted').value = closeDoc.counted;
+        $('counted').disabled = true;
+        $('submitBtn').disabled = true;
+        $('submitBtn').textContent = 'আজকের গণনা জমা হয়েছে';
+      } else {
+        $('statusBadge').textContent = 'বাকি আছে';
+        $('statusBadge').className = 'text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700';
+      }
+    }
+
+    // live preview of the difference while typing
+    $('counted').addEventListener('input', () => {
+      const v = $('counted').value;
+      const box = $('previewBox');
+      if (v === '') { box.classList.add('hidden'); return; }
+      const d = Number(v) - expected;
+      box.classList.remove('hidden');
+      if (d === 0) { box.className = 'text-xs rounded-xl p-3 border bg-emerald-50 border-emerald-200 text-emerald-800'; box.textContent = 'হিসাব মিলছে।'; }
+      else if (d < 0) { box.className = 'text-xs rounded-xl p-3 border bg-red-50 border-red-200 text-red-700'; box.textContent = `ঘাটতি ${money(-d)}। এটি আপনার পাওনা হিসেবে যোগ হবে (৩০ দিনের মধ্যে শোধ করতে হবে)।`; }
+      else { box.className = 'text-xs rounded-xl p-3 border bg-blue-50 border-blue-200 text-blue-800'; box.textContent = `উদ্বৃত্ত ${money(d)}। এটি আপনার পাওনা হিসেবে যোগ হবে।`; }
+    });
+
+    $('countForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!me) return;
+      const counted = Math.round(Number($('counted').value) * 100) / 100;
+      if (!(counted >= 0)) return alert('সঠিক টাকার পরিমাণ লিখুন।');
+      const d = counted - expected;
+      const msg = d === 0 ? 'হিসাব মিলছে। জমা দেবেন?'
+        : d < 0 ? `ঘাটতি ${money(-d)} হবে। এটি আপনার নামে পাওনা থাকবে। জমা দেবেন?`
+        : `উদ্বৃত্ত ${money(d)} হবে। এটি আপনার পাওনায় যোগ হবে। জমা দেবেন?`;
+      if (!confirm(msg)) return;
+      $('submitBtn').disabled = true;
+      try {
+        await setDoc(doc(db, 'day_closes', `${me.uid}_${today}`), {
+          uid: me.uid, dayKey: today, counted, countedAt: new Date().toISOString()
+        });
+        alert('গণনা জমা হয়েছে।');
+        await loadToday();
+        await loadHistory();
+      } catch (err) {
+        alert('জমা হয়নি: ' + (err.message || err));
+        $('submitBtn').disabled = false;
+      }
+    });
+
+    async function loadHistory() {
+      const snap = await getDocs(query(collection(db, 'day_closes'), where('uid', '==', me.uid)));
+      const rows = [];
+      snap.forEach(d => rows.push(d.data()));
+      rows.sort((a, b) => String(b.dayKey).localeCompare(String(a.dayKey)));
+      $('history').innerHTML = rows.slice(0, 14).map(r => {
+        const diff = r.status === 'closed' ? Number(r.diff || 0) : null;
+        const tag = r.status === 'closed'
+          ? (diff === 0 ? '<span class="text-emerald-700">মিলেছে</span>' : diff < 0 ? `<span class="text-red-600">ঘাটতি ${money(-diff)}</span>` : `<span class="text-blue-700">উদ্বৃত্ত ${money(diff)}</span>`)
+          : r.status === 'not_counted' ? '<span class="text-amber-700">গণনা হয়নি</span>'
+          : '<span class="text-gray-500">বন্ধ হয়নি</span>';
+        return `<div class="flex justify-between border-b pb-2">
+          <span>${r.dayKey}</span>
+          <span>গণনা: <b>${r.counted !== undefined ? money(r.counted) : '—'}</b></span>
+          <span>${tag}</span></div>`;
+      }).join('') || '<p class="text-gray-400">এখনো কোনো গণনা নেই।</p>';
+    }
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
