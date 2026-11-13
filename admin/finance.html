@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finance - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-landmark text-xl"></i><h1 class="font-bold text-base">Finance (মাস্টার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-5">
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">কোম্পানির কাছে আপনার পাওনা</p><p id="sOwed" class="text-xl font-extrabold text-blue-700 mt-1">…</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">রাইডার ক্যাশ-আউট অপেক্ষমাণ</p><p id="sReq" class="text-xl font-extrabold text-amber-600 mt-1">…</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ম্যানেজারের খোলা পাওনা</p><p id="sRec" class="text-xl font-extrabold text-rose-600 mt-1">…</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ওয়ালেট রিজার্ভ</p><p id="sRes" class="text-xl font-extrabold text-emerald-700 mt-1">…</p></div>
+    </div>
+
+    <!-- RIDER PAYOUT REQUESTS -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-sm text-gray-800">১. রাইডার ক্যাশ-আউট অনুরোধ</h2>
+        <span class="text-[11px] text-gray-500">পুরো পরিমাণ একবারে পরিশোধ হবে</span>
+      </div>
+      <div id="reqRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p></div>
+    </section>
+
+    <!-- COMPANY REIMBURSEMENT TO MASTER -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-gray-800">২. দৈনিক দাবি (কোম্পানি থেকে আপনার ফেরত)</h2>
+      <div id="claimRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো খোলা দাবি নেই</p></div>
+    </section>
+
+    <!-- MANAGER SALARY -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-gray-800">৩. ম্যানেজারের বেতন ক্যাশ-আউট</h2>
+      <div id="salRows" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+    </section>
+
+    <!-- OPEN RECEIVABLES -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-gray-800">৪. ম্যানেজারের খোলা পাওনা (ঘাটতি)</h2>
+      <div id="recRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো খোলা পাওনা নেই</p></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const db = getFirestore(app), fns = getFunctions(app);
+    getAuth(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN');
+    const call = (name, data) => httpsCallable(fns, name)(data);
+    const CHANNELS = ['Cash', 'bKash', 'Nagad', 'Bank'];
+    const chanSelect = (id) => `<select id="${id}" class="px-2 py-1.5 border rounded-lg text-xs bg-white">${CHANNELS.map(c => `<option>${c}</option>`).join('')}</select>`;
+
+    let names = {}, balances = {};
+
+    // ---------- summary + balances (live)
+    async function loadNames() {
+      const a = await getDocs(collection(db, 'admins'));
+      names = {}; a.forEach(d => names[d.id] = d.data().name || d.data().email || d.id);
+      const r = await getDocs(collection(db, 'riders'));
+      r.forEach(d => names[d.id] = d.data().name || d.id);
+    }
+
+    function startLive() {
+      onSnapshot(collection(db, 'account_balances'), (snap) => {
+        balances = {};
+        snap.forEach(d => balances[d.data().account] = Number(d.data().balance || 0));
+        $('sOwed').textContent = money(-(balances['master:owed'] || 0));
+        $('sRes').textContent = money(balances['master:reserve'] || 0);
+        renderSalaries();
+      });
+      onSnapshot(query(collection(db, 'payout_requests'), where('status', '==', 'Pending')), (snap) => {
+        const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+        $('sReq').textContent = money(rows.reduce((s, r) => s + Number(r.amount || 0), 0));
+        $('reqRows').innerHTML = rows.map(r => `
+          <div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between">
+            <div><p class="font-bold text-sm">${esc(r.riderName || names[r.riderId] || r.riderId)}</p>
+              <p class="text-[11px] text-gray-500">অনুরোধ: ${new Date(r.createdAt).toLocaleString('en-GB')}</p></div>
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold text-emerald-700">${money(r.amount)}</span>
+              ${chanSelect('ch_' + r.id)}
+              <input id="tx_${r.id}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
+              <button data-pay="${r.id}" data-rider="${esc(r.riderId)}" data-amt="${Number(r.amount)}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">পরিশোধ</button>
+            </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p>';
+      }, (e) => console.error('payouts', e));
+      onSnapshot(query(collection(db, 'master_claims'), where('status', '==', 'open')), (snap) => {
+        const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+        $('claimRows').innerHTML = rows.map(c => `
+          <div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between">
+            <div><p class="font-bold text-sm">দিন: ${esc(c.dayKey || c.id)}</p>
+              <p class="text-[11px] text-gray-500">মাস্টার নিজের টাকা থেকে রাইডারকে দিয়েছেন</p></div>
+            <div class="flex items-center gap-2">
+              <span class="font-extrabold text-blue-700">${money(c.amount)}</span>
+              <input id="ctx_${c.id}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
+              <button data-claim="${c.id}" data-amt="${Number(c.amount)}" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">কোম্পানি থেকে পেয়েছি</button>
+            </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো খোলা দাবি নেই</p>';
+      });
+      onSnapshot(query(collection(db, 'receivables'), where('status', '==', 'open')), (snap) => {
+        const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+        $('sRec').textContent = money(rows.reduce((s, r) => s + Number(r.remaining || 0), 0));
+        $('recRows').innerHTML = rows.map(r => {
+          const overdue = new Date(r.dueAt) < new Date();
+          return `<div class="border rounded-xl p-3 flex flex-wrap justify-between gap-2 text-xs">
+            <span class="font-bold">${esc(names[r.uid] || r.uid)}</span>
+            <span>বাকি: <b>${money(r.remaining)}</b> (মূল ${money(r.amount)})</span>
+            <span class="${overdue ? 'text-red-600 font-bold' : 'text-gray-500'}">মেয়াদ: ${new Date(r.dueAt).toLocaleDateString('en-GB')}${overdue ? ' · পেরিয়েছে' : ''}</span>
+          </div>`;
+        }).join('') || '<p class="text-xs text-gray-400">কোনো খোলা পাওনা নেই</p>';
+      });
+    }
+
+    function renderSalaries() {
+      const admins = Object.entries(names).filter(([id]) => true);
+      // salary balance lives in account mgr:{uid}:salary (negative = owed to manager)
+      const rows = [];
+      Object.keys(balances).forEach(acc => {
+        const m = acc.match(/^mgr:(.+):salary$/);
+        if (m) rows.push({ uid: m[1], bal: -balances[acc] });
+      });
+      $('salRows').innerHTML = rows.map(r => `
+        <div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between">
+          <div><p class="font-bold text-sm">${esc(names[r.uid] || r.uid)}</p>
+            <p class="text-[11px] text-gray-500">বেতন ব্যালেন্স (ক্যাশ-আউটযোগ্য)</p></div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-emerald-700">${money(r.bal)}</span>
+            <input id="sal_${r.uid}" type="number" min="1" step="0.01" value="${r.bal > 0 ? r.bal : ''}" class="px-2 py-1.5 border rounded-lg text-xs w-24">
+            <input id="stx_${r.uid}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
+            <button data-sal="${r.uid}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">ক্যাশ-আউট</button>
+          </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো বেতন ব্যালেন্স নেই</p>';
+    }
+
+    // ---------- actions
+    document.addEventListener('click', async (e) => {
+      const pay = e.target.closest('button[data-pay]');
+      if (pay) {
+        const id = pay.dataset.pay, trx = ($(`tx_${id}`).value || '').trim(), channel = $(`ch_${id}`).value;
+        if (!trx) return alert('Trx ID বা নোট লিখুন।');
+        if (!confirm(`${money(pay.dataset.amt)} পুরোটা পরিশোধ করবেন?`)) return;
+        pay.disabled = true;
+        try { await call('payoutFromMaster', { riderId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel }); alert('পরিশোধ হয়েছে।'); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); pay.disabled = false; }
+        return;
+      }
+      const claim = e.target.closest('button[data-claim]');
+      if (claim) {
+        const id = claim.dataset.claim, trx = ($(`ctx_${id}`).value || '').trim();
+        if (!trx) return alert('Trx ID লিখুন।');
+        if (!confirm(`কোম্পানি থেকে ${money(claim.dataset.amt)} পেয়েছেন নিশ্চিত করবেন?`)) return;
+        claim.disabled = true;
+        try { await call('confirmMasterReimbursement', { claimId: id, amount: Number(claim.dataset.amt), trxRef: trx }); alert('নিশ্চিত হয়েছে।'); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); claim.disabled = false; }
+        return;
+      }
+      const sal = e.target.closest('button[data-sal]');
+      if (sal) {
+        const uid = sal.dataset.sal, amount = Number($(`sal_${uid}`).value), trx = ($(`stx_${uid}`).value || '').trim();
+        if (!(amount > 0)) return alert('পরিমাণ লিখুন।');
+        if (!trx) return alert('Trx ID লিখুন।');
+        if (!confirm(`${names[uid] || uid} কে ${money(amount)} ক্যাশ-আউট করবেন?`)) return;
+        sal.disabled = true;
+        try { await call('managerSalaryCashOut', { uid, amount, trxRef: trx }); alert('ক্যাশ-আউট হয়েছে।'); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); sal.disabled = false; }
+      }
+    });
+
+    loadNames().then(startLive);
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
