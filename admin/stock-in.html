@@ -45,7 +45,7 @@
       const s = await getDoc(doc(db, "admins", uid));
       if (!s.exists()) return false;
       const d = s.data(); window.adminRole = d.role || 'master';
-      return d.active !== false && ['master', 'supplier'].includes(window.adminRole);   // same roles the server allows
+      return d.active !== false && ['master', 'vendor'].includes(window.adminRole);   // updated to vendor role
     };
 
     const goLogin = () => location.replace('index.html');
@@ -97,7 +97,7 @@
     <!-- MAIN STOCK ENTRY & HISTORY VIEW -->
     <div id="mainStockEntryView" class="space-y-6">
       
-      <!-- TOP SECTION: SELECT SUPPLIER & ADD PRODUCTS TO STOCK-IN CART -->
+      <!-- TOP SECTION: SELECT VENDOR & ADD PRODUCTS TO STOCK-IN CART -->
       <div class="bg-white p-5 rounded-2xl shadow-sm border space-y-4">
         <div class="border-b pb-2 flex justify-between items-center">
           <h3 id="formSectionTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-square-plus mr-1"></i> Create New Stock-In Chalan (Stock In Entry)</h3>
@@ -111,11 +111,11 @@
         <input type="hidden" id="editStockId">
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <!-- 1. Supplier Selection -->
+          <!-- 1. Vendor Selection -->
           <div>
-            <label class="text-xs text-gray-600 block mb-1">Select Supplier *</label>
+            <label class="text-xs text-gray-600 block mb-1">Select Vendor *</label>
             <select id="stockSupplierSelect" onchange="onSupplierChange()" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold">
-              <option value="">-- Select Supplier --</option>
+              <option value="">-- Select Vendor --</option>
             </select>
           </div>
 
@@ -128,9 +128,9 @@
             <div id="productSuggestions" class="absolute left-0 right-0 bg-white border rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto hidden z-50 text-xs"></div>
           </div>
 
-          <!-- 3. Supplier Chalan / Memo Picture Upload (Auto-Resize < 100KB) -->
+          <!-- 3. Vendor Chalan / Memo Picture Upload (Auto-Resize < 100KB) -->
           <div>
-            <label class="text-xs text-gray-600 block mb-1">Supplier Chalan/Memo Image <span class="text-gray-400">(optional)</span></label>
+            <label class="text-xs text-gray-600 block mb-1">Vendor Chalan/Memo Image <span class="text-gray-400">(optional)</span></label>
             <div class="flex items-center space-x-2">
               <input type="file" id="chalanImageFile" accept="image/*" capture="environment" class="w-full px-2 py-1.5 border rounded-xl text-xs bg-gray-50 focus:outline-none">
             </div>
@@ -198,7 +198,7 @@
             <input type="date" id="filterDate" onchange="filterStockHistory()" class="px-2.5 py-1.5 border rounded-xl bg-gray-50 focus:outline-none" title="Filter by exact date">
             <input type="month" id="filterMonth" onchange="filterStockHistory()" class="px-2.5 py-1.5 border rounded-xl bg-gray-50 focus:outline-none" title="Filter by month">
             <select id="filterSupplier" onchange="filterStockHistory()" class="px-2.5 py-1.5 border rounded-xl bg-white focus:outline-none font-semibold">
-              <option value="">All Suppliers</option>
+              <option value="">All Vendors</option>
             </select>
             <button onclick="resetStockFilters()" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-xl font-bold hover:bg-gray-300">Reset</button>
           </div>
@@ -219,7 +219,7 @@
             <i class="fa-solid fa-arrow-left mr-1"></i> Back to Stock-In Dashboard
           </button>
           <h2 id="detailInvoiceTitle" class="text-xl font-extrabold">Chalan ID: STK-XXXXXX</h2>
-          <p id="detailMetaInfo" class="text-xs text-emerald-200">Supplier: N/A | Date: N/A</p>
+          <p id="detailMetaInfo" class="text-xs text-emerald-200">Vendor: N/A | Date: N/A</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <!-- Action Buttons Moved Inside Detail Page -->
@@ -270,7 +270,7 @@
   <div id="memoModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-lg w-full p-4 space-y-3 shadow-2xl relative">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-image mr-1"></i> Supplier Chalan / Memo Preview</h3>
+        <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-image mr-1"></i> Vendor Chalan / Memo Preview</h3>
         <button onclick="closeMemoModal()" class="text-gray-500 hover:text-red-500 text-lg font-bold px-2">&times;</button>
       </div>
       <div class="text-center bg-gray-50 p-2 rounded-xl border max-h-[450px] overflow-auto flex items-center justify-center">
@@ -386,22 +386,31 @@
       currentRequestId = newRequestId(); lastFp = '';
       document.getElementById('invoiceBadge').innerText = 'Chalan ID: auto on save';
     }
-    // history rows are keyed by Firestore doc id (new chalans: doc id = chalan no). Also accepts an old ?id=STK-xxxx link.
     const keyOf = (x) => stockHistoryStore[x] ? x : Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === x);
 
-    // Load Suppliers for Dropdown & Filter
+    // Load Vendors for Dropdown & Filter (Checking vendors or suppliers collection)
     async function loadSuppliers() {
       const select = document.getElementById('stockSupplierSelect');
       const filterSelect = document.getElementById('filterSupplier');
       try {
-        const querySnapshot = await getDocs(collection(db, "suppliers"));
-        let html = '<option value="">-- Select Supplier --</option>';
-        let filterHtml = '<option value="">All Suppliers</option>';
+        let querySnapshot;
+        try {
+          querySnapshot = await getDocs(collection(db, "vendors"));
+          if (querySnapshot.empty) {
+            querySnapshot = await getDocs(collection(db, "suppliers"));
+          }
+        } catch (e) {
+          querySnapshot = await getDocs(collection(db, "suppliers"));
+        }
+
+        let html = '<option value="">-- Select Vendor --</option>';
+        let filterHtml = '<option value="">All Vendors</option>';
         querySnapshot.forEach(docSnap => {
           const sup = docSnap.data();
+          const name = sup.companyName || sup.name || docSnap.id;
           let dealerInfo = sup.dealerName ? ` [${sup.dealerName}]` : '';
-          html += `<option value="${esc(sup.companyName)}">${esc(sup.companyName)}${esc(dealerInfo)}</option>`;
-          filterHtml += `<option value="${esc(sup.companyName)}">${esc(sup.companyName)}</option>`;
+          html += `<option value="${esc(name)}">${esc(name)}${esc(dealerInfo)}</option>`;
+          filterHtml += `<option value="${esc(name)}">${esc(name)}</option>`;
         });
         select.innerHTML = html;
         filterSelect.innerHTML = filterHtml;
@@ -419,7 +428,7 @@
       } catch(err) { console.error(err); }
     }
 
-    // When supplier changes, clear search and cart suggestions
+    // When vendor changes, clear search and cart suggestions
     window.onSupplierChange = function() {
       loadedPo = null; document.getElementById('poLoadedInfo').classList.add('hidden'); refreshPoOptions();
       document.getElementById('productSearchInput').value = '';
@@ -428,9 +437,9 @@
 
     // Live Search Filter for Products
     window.filterProductDropdown = function() {
-      const selectedSupplier = document.getElementById('stockSupplierSelect').value;
-      if (!selectedSupplier) {
-        alert("Please select a supplier first!");
+      const selectedVendor = document.getElementById('stockSupplierSelect').value;
+      if (!selectedVendor) {
+        alert("Please select a vendor first!");
         document.getElementById('productSearchInput').value = '';
         return;
       }
@@ -445,14 +454,15 @@
 
       const addedProductIds = stockCart.map(item => item.id);
       const filtered = productsList.filter(p => {
-        const matchSupplier = (p.supplier === selectedSupplier);
+        const pVendor = p.vendor || p.supplier || "";
+        const matchVendor = (pVendor === selectedVendor);
         const notInCart = !addedProductIds.includes(p.id);
         const matchQuery = p.name.toLowerCase().includes(query) || (p.barcode && p.barcode.includes(query));
-        return matchSupplier && notInCart && matchQuery;
+        return matchVendor && notInCart && matchQuery;
       });
 
       if (filtered.length === 0) {
-        box.innerHTML = `<div class="p-2 text-gray-400 text-center">No products found for this supplier</div>`;
+        box.innerHTML = `<div class="p-2 text-gray-400 text-center">No products found for this vendor</div>`;
         box.classList.remove('hidden');
         return;
       }
@@ -502,7 +512,7 @@
         const snap = await getDocs(collection(db, "purchase_orders"));
         poStore = [];
         snap.forEach(d => poStore.push({ docId: d.id, ...d.data() }));
-        poStore = poStore.filter(p => p.supplier === sup && ['Approved', 'Partially Received'].includes(p.status));
+        poStore = poStore.filter(p => (p.vendor === sup || p.supplier === sup) && ['Approved', 'Partially Received'].includes(p.status));
         document.getElementById('poSelect').innerHTML = poStore.map(p => `<option value="${p.docId}">${p.poNo} - ৳${p.totalCost} (${p.status})</option>`).join('');
         box.classList.toggle('hidden', poStore.length === 0);
       } catch (e) { console.warn(e); }
@@ -541,7 +551,7 @@
       renderStockCart();
     };
 
-    // Render Stock-In Cart Table (Category removed)
+    // Render Stock-In Cart Table
     function renderStockCart() {
       const tbody = document.getElementById('stockCartTableBody');
       if(stockCart.length === 0) {
@@ -583,17 +593,17 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // printing must never make a SAVED chalan look like a failed one
     const safePrint = (rec) => { try { window.printStockInvoice(rec); } catch (e) { console.error(e); } };
-    // Finalize Stock-In -> ONE atomic server call (receiveStockIn / updateStockIn). Safe to retry.
+    
+    // Finalize Stock-In
     window.finalizeStockIn = async function() {
       if (saving) return;
-      const supplier = document.getElementById('stockSupplierSelect').value;
-      if (!supplier) { alert("Please select a supplier!"); return; }
+      const vendor = document.getElementById('stockSupplierSelect').value;
+      if (!vendor) { alert("Please select a vendor!"); return; }
       if (stockCart.length === 0) { alert("Stock-in cart is empty!"); return; }
 
       const editId = document.getElementById('editStockId').value;
-      const chalanBase64 = document.getElementById('chalanImageBase64').value;   // optional
+      const chalanBase64 = document.getElementById('chalanImageBase64').value;
       const items = stockCart.map(i => ({ id: i.id, qty: i.qty, tp: i.tp, ...(i.poItemId ? { poItemId: i.poItemId } : {}) }));
 
       const btn = document.getElementById('submitStockBtn');
@@ -606,10 +616,9 @@
           alert("Stock-in chalan successfully updated!");
           safePrint({ ...old, ...res.record, chalanImage: chalanBase64 || old.chalanImage });
         } else {
-          // a new request id whenever the cart/supplier changed, so a retry of the SAME data can never save twice
-          const fp = JSON.stringify([supplier, items, loadedPo ? loadedPo.docId : '']);
+          const fp = JSON.stringify([vendor, items, loadedPo ? loadedPo.docId : '']);
           if (fp !== lastFp) { currentRequestId = newRequestId(); lastFp = fp; }
-          const payload = { requestId: currentRequestId, supplier, items, chalanImage: chalanBase64 || '', poDocId: loadedPo ? loadedPo.docId : '' };
+          const payload = { requestId: currentRequestId, vendor, items, chalanImage: chalanBase64 || '', poDocId: loadedPo ? loadedPo.docId : '' };
           let res = await window.callFn('receiveStockIn', payload);
           if (res.needsConfirm) {
             if (!confirm('Please confirm:\n\n' + res.messages.join('\n') + '\n\nContinue?')) return;
@@ -629,7 +638,7 @@
       }
     };
 
-    // Edit Stock-In Record (server applies only the difference)
+    // Edit Stock-In Record
     window.editStockIn = function(id) {
       const key = keyOf(id);
       const rec = key && stockHistoryStore[key];
@@ -639,8 +648,8 @@
       backToStockDashboard();
 
       document.getElementById('editStockId').value = key;
-      document.getElementById('stockSupplierSelect').value = rec.supplier;
-      document.getElementById('stockSupplierSelect').disabled = true;   // supplier of a saved chalan cannot change
+      document.getElementById('stockSupplierSelect').value = rec.vendor || rec.supplier;
+      document.getElementById('stockSupplierSelect').disabled = true;
       document.getElementById('invoiceBadge').innerText = `Chalan ID: ${rec.invoiceNo}`;
       document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> Edit Stock-In Chalan (${esc(rec.invoiceNo)})`;
       document.getElementById('cancelEditBtn').classList.remove('hidden');
@@ -677,7 +686,7 @@
       renderStockCart();
     };
 
-    // Void a chalan (server reverses stock + PO receipt, archives the record; nothing is silently lost)
+    // Void a chalan
     window.deleteStockIn = async function(id) {
       const key = keyOf(id);
       const rec = key && stockHistoryStore[key];
@@ -723,20 +732,17 @@
 
         stockHistoryArray.sort((a, b) => new Date(b.createdAt || b.updatedAt) - new Date(a.createdAt || a.updatedAt));
 
-        // Default: Show last 30 days on dashboard
         applyDefaultLast30DaysFilter();
         checkUrlParameterForStockDetail();
 
       } catch(err) { console.error(err); }
     }
 
-    // Default Last 30 Days filter for Dashboard
     function applyDefaultLast30DaysFilter() {
       const dateVal = document.getElementById('filterDate').value;
       const monthVal = document.getElementById('filterMonth').value;
       const supVal = document.getElementById('filterSupplier').value;
 
-      // If user has actively set filters, respect their filters instead of forcing 30-day limit
       if(dateVal || monthVal || supVal) {
         filterStockHistory();
         return;
@@ -753,7 +759,6 @@
       renderStockHistoryList(filtered);
     }
 
-    // Render History List (Streamlined: Only Details button)
     function renderStockHistoryList(list) {
       const container = document.getElementById('stockInHistoryContainer');
       if(list.length === 0) {
@@ -764,11 +769,12 @@
       let html = '';
       list.forEach(rec => {
         const dateStr = new Date(rec.createdAt || rec.updatedAt).toLocaleString();
+        const vendorName = rec.vendor || rec.supplier || 'N/A';
         html += `
           <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border text-xs hover:border-emerald-500 transition">
             <div>
               <span onclick="window.openStockDetail('${esc(rec.id)}')" class="font-bold text-emerald-700 underline cursor-pointer hover:text-emerald-900">${esc(rec.invoiceNo)}</span> 
-              <span class="text-gray-500">(Supplier: ${esc(rec.supplier)})</span>
+              <span class="text-gray-500">(Vendor: ${esc(vendorName)})</span>
               <p class="text-[10px] text-gray-400">Date: ${dateStr}</p>
             </div>
             <div class="flex items-center space-x-2">
@@ -784,7 +790,6 @@
       container.innerHTML = html;
     }
 
-    // Filter Stock History by Date, Month, Supplier
     window.filterStockHistory = function() {
       const dateVal = document.getElementById('filterDate').value;
       const monthVal = document.getElementById('filterMonth').value;
@@ -793,12 +798,12 @@
       const filtered = stockHistoryArray.filter(rec => {
         const recDateObj = new Date(rec.createdAt || rec.updatedAt);
         const p2 = n => String(n).padStart(2, '0');
-        const recMonthStr = recDateObj.getFullYear() + '-' + p2(recDateObj.getMonth() + 1);   // local time, not UTC
+        const recMonthStr = recDateObj.getFullYear() + '-' + p2(recDateObj.getMonth() + 1);
         const recDateStr = recMonthStr + '-' + p2(recDateObj.getDate());
 
         let matchDate = !dateVal || recDateStr === dateVal;
         let matchMonth = !monthVal || recMonthStr === monthVal;
-        let matchSup = !supVal || rec.supplier === supVal;
+        let matchSup = !supVal || (rec.vendor === supVal || rec.supplier === supVal);
 
         return matchDate && matchMonth && matchSup;
       });
@@ -813,7 +818,6 @@
       applyDefaultLast30DaysFilter();
     };
 
-    // Open Stock-In Detail Page via URL parameter (e.g. ?id=STK-148836)
     window.openStockDetail = function(idOrInvoice, pushHistory = true) {
       const key = keyOf(idOrInvoice);
       const rec = key && stockHistoryStore[key];
@@ -828,11 +832,11 @@
       document.getElementById('mainStockEntryView').classList.add('hidden');
       document.getElementById('stockDetailPageView').classList.remove('hidden');
 
+      const vendorName = rec.vendor || rec.supplier || 'N/A';
       document.getElementById('detailInvoiceTitle').innerText = `Chalan ID: ${rec.invoiceNo}`;
-      document.getElementById('detailMetaInfo').innerText = `Supplier: ${rec.supplier} | Date: ${new Date(rec.createdAt || rec.updatedAt).toLocaleString()}`;
+      document.getElementById('detailMetaInfo').innerText = `Vendor: ${vendorName} | Date: ${new Date(rec.createdAt || rec.updatedAt).toLocaleString()}`;
       document.getElementById('detailTotalCostAmount').innerText = `৳ ${rec.totalCost}`;
       
-      // Bind Detail-level Action Buttons
       document.getElementById('detailPrintBtn').setAttribute('onclick', `window.printStockInvoice(${JSON.stringify(rec)})`);
       
       const docKey = key;
@@ -846,7 +850,6 @@
         memoBtn.classList.add('hidden');
       }
 
-      // Render Items Table
       let itemsHtml = '';
       if(rec.items && rec.items.length > 0) {
         rec.items.forEach(i => {
@@ -867,7 +870,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Check URL Parameter on Load
     function checkUrlParameterForStockDetail() {
       const urlParams = new URLSearchParams(window.location.search);
       const stockId = urlParams.get('id');
@@ -891,14 +893,12 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // View Memo from Detail Page Button
     window.viewDetailMemo = function() {
       if(currentDetailRecord && currentDetailRecord.chalanImage) {
         window.viewMemoModal(currentDetailRecord.chalanImage);
       }
     };
 
-    // View Memo Modal Functions
     window.viewMemoModal = function(base64Img) {
       document.getElementById('memoModalImg').src = base64Img;
       document.getElementById('memoModal').classList.remove('hidden');
@@ -908,7 +908,6 @@
       document.getElementById('memoModal').classList.add('hidden');
     };
 
-    // Print Stock-In Invoice / Memo (Safe Popup Check)
     window.printStockInvoice = function(rec) {
       const printWin = window.open('', '_blank');
       if (!printWin) {
@@ -924,6 +923,8 @@
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.qty * i.tp}</td>
         </tr>
       `).join('');
+
+      const vendorName = rec.vendor || rec.supplier || 'N/A';
 
       printWin.document.write(`
         <html>
@@ -947,7 +948,7 @@
               <p style="font-size: 12px; color: #047857;"><strong>Chalan ID:</strong> ${esc(rec.invoiceNo)}</p>
             </div>
             <div class="details">
-              <p><strong>Supplier Name:</strong> ${esc(rec.supplier)}</p>
+              <p><strong>Vendor Name:</strong> ${esc(vendorName)}</p>
               <p><strong>Date:</strong> ${new Date(rec.createdAt || rec.updatedAt).toLocaleString()}</p>
             </div>
             <table>
@@ -969,8 +970,8 @@
 
             ${rec.chalanImage ? `
               <div class="memo-section">
-                <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Supplier Chalan / Memo Image:</p>
-                <img src="${esc(rec.chalanImage)}" alt="Supplier Chalan Memo">
+                <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Vendor Chalan / Memo Image:</p>
+                <img src="${esc(rec.chalanImage)}" alt="Vendor Chalan Memo">
               </div>
             ` : ''}
           </body>
