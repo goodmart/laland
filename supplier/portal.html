@@ -25,7 +25,12 @@
   <main class="max-w-4xl mx-auto p-4">
     <!-- PRODUCTS -->
     <section id="view-products" class="space-y-3">
-      <input id="prodSearch" oninput="renderProducts()" placeholder="Search your products..." class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+      <div id="statCards" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      <div class="flex gap-2">
+        <input id="prodSearch" oninput="renderProducts()" placeholder="Search your products..." class="flex-1 min-w-0 px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        <select id="prodSort" onchange="renderProducts()" class="px-2 py-2 border rounded-xl text-xs bg-white"><option value="name">Name A-Z</option><option value="stock_asc">Stock: low first</option><option value="stock_desc">Stock: high first</option></select>
+      </div>
+      <div id="chips" class="flex gap-2 overflow-x-auto pb-1"></div>
       <p id="prodNote" class="text-[11px] font-bold text-emerald-700"></p>
       <div id="prodList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
     </section>
@@ -60,6 +65,13 @@
   </button>
   <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity duration-200 max-w-[90vw] truncate"></div>
 
+  <!-- image lightbox -->
+  <div id="lb" onclick="this.style.display='none'" style="display:none" class="fixed inset-0 z-[60] bg-black/85 flex-col items-center justify-center gap-3 p-4">
+    <img id="lbImg" alt="" class="max-w-full max-h-[80vh] rounded-xl object-contain bg-white">
+    <p id="lbCap" class="text-white text-sm font-bold text-center"></p>
+    <p class="text-white/60 text-[10px]">Tap anywhere to close</p>
+  </div>
+
   <!-- PO DETAIL MODAL -->
   <div id="poModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
     <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 space-y-3 shadow-2xl">
@@ -84,7 +96,49 @@
     const COLORS = { Submitted: 'bg-blue-100 text-blue-700', 'Under Review': 'bg-amber-100 text-amber-700', Approved: 'bg-emerald-100 text-emerald-700', Rejected: 'bg-red-100 text-red-700', Cancelled: 'bg-gray-200 text-gray-600', 'Partially Received': 'bg-purple-100 text-purple-700', Received: 'bg-emerald-200 text-emerald-800' };
     const badge = s => `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${COLORS[s] || 'bg-gray-100'}">${esc(s)}</span>`;
     let me = null, products = [], pos = [], cart = [], curTab = 'products';
-    const imgBox = (src, size) => `<div class="${size} shrink-0 rounded-lg overflow-hidden bg-gray-100 border relative flex items-center justify-center"><i class="fa-solid fa-image text-gray-300"></i>${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()" class="absolute inset-0 w-full h-full object-cover">` : ''}</div>`;
+    const imgBox = (src, size, pid) => `<div ${src && pid ? `onclick="zoomImg('${esc(pid)}')"` : ''} class="${size} shrink-0 rounded-lg overflow-hidden bg-gray-100 border relative flex items-center justify-center ${src && pid ? 'cursor-zoom-in' : ''}"><i class="fa-solid fa-image text-gray-300"></i>${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()" class="absolute inset-0 w-full h-full object-cover">` : ''}</div>`;
+    window.zoomImg = (id) => { const p = products.find(x => x.id === id); if (!p || !p.image) return; $('lbImg').src = p.image; $('lbCap').textContent = p.name; $('lb').style.display = 'flex'; };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') $('lb').style.display = 'none'; });
+
+    // ---- PO progress (timeline in detail, mini bar in list)
+    const STEPS = ['Submitted', 'Under Review', 'Approved', 'Received'];
+    const doneOf = p => ({ Submitted: 1, 'Under Review': 2, Approved: 3, 'Partially Received': 3, Received: 4 })[p.status] || 1;
+    const isTerm = p => p.status === 'Rejected' || p.status === 'Cancelled';
+    function whenOf(p, lbl) { const w = lbl.toLowerCase().split(' ')[0]; const h = [...(p.history || [])].reverse().find(x => String(x.action || '').toLowerCase().includes(w)); return h ? new Date(h.at).toLocaleDateString() : ''; }
+    function timeline(p) {
+      const term = isTerm(p), done = term ? 1 : doneOf(p);
+      const steps = term ? [STEPS[0], p.status] : STEPS.map((x, i) => i === 3 && p.status === 'Partially Received' ? 'Partially Received' : x);
+      return `<div class="flex items-start">${steps.map((l, i) => {
+        const bad = term && i === 1, ok = term ? i === 0 : i < done, cur = !term && i === done - 1, partial = l === 'Partially Received';
+        const col = bad ? (p.status === 'Rejected' ? 'bg-red-500' : 'bg-gray-400') : ok ? (partial ? 'bg-purple-500' : 'bg-emerald-600') : 'bg-gray-200';
+        return `<div class="flex-1 text-center relative">${i ? `<div class="absolute h-0.5 ${bad || ok ? col : 'bg-gray-200'}" style="top:11px;left:-50%;width:100%"></div>` : ''}<div class="relative z-10 mx-auto w-6 h-6 rounded-full ${col} text-white text-[10px] flex items-center justify-center ${cur ? 'ring-4 ring-emerald-100' : ''}">${bad ? '✕' : ok ? '✓' : i + 1}</div><p class="text-[10px] font-bold mt-1 ${ok || bad ? 'text-gray-800' : 'text-gray-400'}">${l}</p><p class="text-[9px] text-gray-400">${ok || bad ? whenOf(p, l) : ''}</p></div>`;
+      }).join('')}</div>`;
+    }
+    const miniBar = p => { const term = isTerm(p), done = doneOf(p); return `<div class="flex gap-0.5 mt-1.5">${[0, 1, 2, 3].map(i => `<span class="h-1 w-7 rounded ${term ? (p.status === 'Rejected' ? 'bg-red-300' : 'bg-gray-300') : i < done ? 'bg-emerald-600' : 'bg-gray-200'}"></span>`).join('')}</div>`; };
+
+    // ---- Dashboard cards
+    let due = null;
+    async function loadDue() {
+      try {
+        const [st, py] = await Promise.all([
+          getDocs(query(collection(db, 'stock_in_history'), where('supplier', '==', me.companyName))),
+          getDocs(query(collection(db, 'supplier_payments'), where('supplier', '==', me.companyName)))
+        ]);
+        let b = 0, p = 0; st.forEach(d => b += Number(d.data().totalCost || 0)); py.forEach(d => p += Number(d.data().amount || 0)); due = b - p;
+      } catch (e) { due = undefined; }
+      renderStats();
+    }
+    function renderStats() {
+      const need = products.filter(p => Number(p.stock || 0) <= Number(p.minStock ?? 10)).length;
+      const pend = pos.filter(p => p.status === 'Submitted' || p.status === 'Under Review').length;
+      const dueTxt = due == null ? '…' : due === undefined ? '—' : '৳ ' + due, dueBad = typeof due === 'number' && due > 0;
+      $('statCards').innerHTML = [
+        ['Products', products.length, 'fa-box', 'text-gray-800', ''],
+        ['Low Stock', need, 'fa-triangle-exclamation', need ? 'text-red-600' : 'text-emerald-700', "setPf('low')"],
+        ['Pending POs', pend, 'fa-hourglass-half', pend ? 'text-amber-600' : 'text-gray-800', "showTab('mypos')"],
+        ['Due', dueTxt, 'fa-wallet', dueBad ? 'text-red-600' : 'text-emerald-700', "showTab('profile')"]
+      ].map(([l, v, ic, c, oc]) => `<button onclick="${oc}" class="bg-white border rounded-xl p-3 text-left shadow-sm hover:bg-emerald-50"><p class="text-[10px] text-gray-500"><i class="fa-solid ${ic} mr-1"></i>${l}</p><p class="font-extrabold text-lg ${c}">${v}</p></button>`).join('');
+    }
     let toastT;
     const toast = msg => { const t = $('toast'); t.textContent = msg; t.style.opacity = '1'; clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = '0', 1600); };
 
@@ -98,7 +152,7 @@
         $('coName').textContent = me.companyName;
         $('gate').remove();
         showTab('products');
-        await Promise.all([loadProducts(), loadPos()]);
+        await Promise.all([loadProducts(), loadPos(), loadDue()]);
       } catch (e) { alert('Error: ' + e.message); }
     });
 
@@ -165,33 +219,53 @@
       renderProducts();
     }
 
+    let pf = 'all', qd = {};
+    const qOf = id => qd[id] || 1;
+    const sugOf = p => Math.max(1, Number(p.minStock ?? 10) * 2 - Number(p.stock || 0));
+    window.setPf = k => { pf = k; renderProducts(); };
+    window.qSet = (id, v) => { qd[id] = Math.max(1, Math.floor(Number(v) || 1)); const e = $('q_' + id); if (e) e.value = qd[id]; };
+    window.qStep = (id, d) => qSet(id, qOf(id) + d);
     window.renderProducts = () => {
       const q = $('prodSearch').value.toLowerCase().trim();
       const inCart = new Set(cart.map(c => c.id));
-      const all = products.filter(p => !q || (p.name || '').toLowerCase().includes(q));
-      const list = all.filter(p => !inCart.has(p.id)), moved = all.length - list.length;
+      const base = products.filter(p => !q || (p.name || '').toLowerCase().includes(q));
+      const avail = base.filter(p => !inCart.has(p.id)), moved = base.length - avail.length;
+      const st = p => Number(p.stock || 0), low = p => st(p) <= Number(p.minStock ?? 10), out = p => st(p) <= 0;
+      const cnt = { all: avail.length, low: avail.filter(low).length, out: avail.filter(out).length };
+      $('chips').innerHTML = [['all', 'All'], ['low', 'Low Stock'], ['out', 'Out of Stock']].map(([k, l]) => `<button onclick="setPf('${k}')" class="shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border ${pf === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600'}">${l} (${cnt[k]})</button>`).join('');
+      const list = pf === 'low' ? avail.filter(low) : pf === 'out' ? avail.filter(out) : avail.slice();
+      const so = $('prodSort').value;
+      if (so === 'stock_asc') list.sort((a, b) => st(a) - st(b)); else if (so === 'stock_desc') list.sort((a, b) => st(b) - st(a));
       $('prodNote').innerHTML = moved ? `<i class="fa-solid fa-circle-check mr-1"></i>${moved} product${moved > 1 ? 's' : ''} moved to New PO` : '';
       $('prodList').innerHTML = list.length ? list.map(p => {
-        const stock = Number(p.stock || 0), low = stock <= Number(p.minStock ?? 10);
-        return `<div data-card="${esc(p.id)}" class="bg-white p-3 rounded-xl border flex items-center gap-3">
-          ${imgBox(p.image, 'w-16 h-16')}
+        const id = esc(p.id), stock = st(p), isLow = low(p);
+        return `<div data-card="${id}" class="bg-white p-3 rounded-xl border flex items-center gap-3">
+          ${imgBox(p.image, 'w-16 h-16', p.id)}
           <div class="min-w-0 flex-1">
             <p class="font-bold text-sm truncate">${esc(p.name)}</p>
             <p class="text-[11px] text-gray-500">TP: ৳${Number(p.tp || 0)} | MRP: ৳${Number(p.mrp || 0)}</p>
-            <p class="text-xs font-bold ${low ? 'text-red-600' : 'text-emerald-700'}">Stock: ${stock} ${low ? '<span class="text-[10px] bg-red-100 px-1.5 rounded">LOW</span>' : ''}</p>
+            <p class="text-xs font-bold ${isLow ? 'text-red-600' : 'text-emerald-700'}">Stock: ${stock} ${isLow ? `<span class="text-[10px] bg-red-100 px-1.5 rounded">${out(p) ? 'OUT' : 'LOW'}</span>` : ''}</p>
+            <div class="flex items-center flex-wrap gap-1 mt-1.5">
+              <button onclick="qStep('${id}',-1)" class="w-6 h-6 rounded border text-sm font-bold leading-none">−</button>
+              <input id="q_${id}" type="number" min="1" value="${qOf(p.id)}" onchange="qSet('${id}',this.value)" class="w-12 text-center border rounded text-xs py-1">
+              <button onclick="qStep('${id}',1)" class="w-6 h-6 rounded border text-sm font-bold leading-none">+</button>
+              ${isLow ? `<button onclick="qSet('${id}',${sugOf(p)})" class="text-[10px] bg-amber-100 text-amber-800 rounded px-1.5 py-1 font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-0.5"></i>Suggest ${sugOf(p)}</button>` : ''}
+            </div>
           </div>
           <div class="shrink-0 flex flex-col gap-1.5">
-            <button onclick="addToPo('${esc(p.id)}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
-            <button type="button" data-pid="${esc(p.id)}" data-pname="${esc(p.name)}" data-stock="${stock}" data-co="${esc(me.companyName)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'supplier',this.dataset.co,this.dataset.stock)" class="border border-indigo-300 text-indigo-600 px-2 py-1.5 rounded-lg text-xs font-bold" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+            <button onclick="addToPo('${id}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i>PO</button>
+            <button type="button" data-pid="${id}" data-pname="${esc(p.name)}" data-stock="${stock}" data-co="${esc(me.companyName)}" onclick="openProductHistory(this.dataset.pid,this.dataset.pname,'supplier',this.dataset.co,this.dataset.stock)" class="border border-indigo-300 text-indigo-600 px-2 py-1.5 rounded-lg text-xs font-bold" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
           </div>
         </div>`;
-      }).join('') : `<p class="col-span-2 text-center text-xs text-gray-400 py-6">${all.length ? 'All matching products are already in your PO.' : 'No products found.'}</p>`;
+      }).join('') : `<p class="col-span-2 text-center text-xs text-gray-400 py-6">${!base.length ? 'No products found.' : avail.length ? 'No products match this filter.' : 'All matching products are already in your PO.'}</p>`;
+      renderStats();
     };
 
     window.addToPo = (id) => {
       const p = products.find(x => x.id === id); if (!p) return;
-      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, image: p.image || '', stock: Number(p.stock || 0), tp: Number(p.tp || 0), mrp: Number(p.mrp || 0), qty: 1, proposedTp: '', proposedMrp: '' });
-      updateCartCount(); toast(p.name + ' → New PO');
+      if (!cart.find(c => c.id === id)) cart.push({ id, name: p.name, image: p.image || '', stock: Number(p.stock || 0), tp: Number(p.tp || 0), mrp: Number(p.mrp || 0), qty: qOf(id), proposedTp: '', proposedMrp: '' });
+      const qAdded = qOf(id); delete qd[id];
+      updateCartCount(); toast(p.name + ' ×' + qAdded + ' → New PO');
       const el = document.querySelector('[data-card="' + CSS.escape(id) + '"]');
       if (el) { el.style.transition = 'all .25s'; el.style.opacity = '0'; el.style.transform = 'translateX(30px)'; }
       setTimeout(renderProducts, 250);
@@ -205,7 +279,7 @@
     function renderCart() {
       $('cartList').innerHTML = cart.length ? cart.map((c, i) => `
         <div class="border rounded-xl p-3 space-y-2">
-          <div class="flex justify-between items-center gap-2">${imgBox(c.image, 'w-11 h-11')}<p class="font-bold text-sm flex-1">${esc(c.name)}</p><button onclick="cartRemove(${i})" class="text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>
+          <div class="flex justify-between items-center gap-2">${imgBox(c.image, 'w-11 h-11', c.id)}<p class="font-bold text-sm flex-1">${esc(c.name)}</p><button onclick="cartRemove(${i})" class="text-red-500 text-xs"><i class="fa-solid fa-trash"></i></button></div>
           <p class="text-[11px] text-gray-500">Current stock: ${c.stock} | TP: ৳${c.tp} | MRP: ৳${c.mrp}</p>
           <div class="grid grid-cols-3 gap-2">
             <label class="text-[10px] text-gray-500">Quantity<input type="number" min="1" value="${c.qty}" onchange="cartSet(${i},'qty',this.value)" class="w-full px-2 py-1.5 border rounded-lg text-sm"></label>
@@ -249,9 +323,10 @@
       pos.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
       $('poList').innerHTML = pos.length ? pos.map((p, i) => `
         <div onclick="openPo(${i})" class="bg-white p-3 rounded-xl border cursor-pointer hover:bg-emerald-50 flex justify-between items-center">
-          <div><p class="font-bold text-sm">${esc(p.poNo)}</p><p class="text-[11px] text-gray-500">${new Date(p.createdAt).toLocaleDateString()} | ${p.totalItems} pcs</p></div>
+          <div><p class="font-bold text-sm">${esc(p.poNo)}</p><p class="text-[11px] text-gray-500">${new Date(p.createdAt).toLocaleDateString()} | ${p.totalItems} pcs</p>${miniBar(p)}</div>
           <div class="text-right space-y-1"><p class="font-bold text-sm text-emerald-700">৳ ${p.totalCost}</p>${badge(p.status)}</div>
         </div>`).join('') : '<p class="text-center text-xs text-gray-400 py-6">No purchase orders yet.</p>';
+      renderStats();
     }
 
     window.openPo = (i) => {
@@ -266,6 +341,7 @@
       }).join('');
       $('mBody').innerHTML = `
         <div class="flex justify-between items-center">${badge(p.status)}<span class="text-gray-500">${new Date(p.createdAt).toLocaleString()}</span></div>
+        <div class="bg-gray-50 rounded-xl p-3">${timeline(p)}</div>
         <table class="w-full text-left"><thead><tr class="bg-gray-50 text-gray-500"><th class="p-1.5">Product</th><th class="p-1.5 text-center">Qty</th><th class="p-1.5 text-right">TP</th><th class="p-1.5 text-right">Total</th></tr></thead><tbody>${rows}</tbody></table>
         <p class="text-right font-extrabold text-emerald-700 text-sm">Total: ৳ ${p.totalCost}</p>
         ${p.note ? `<p><b>Your note:</b> ${esc(p.note)}</p>` : ''}
