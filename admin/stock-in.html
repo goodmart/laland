@@ -26,6 +26,7 @@
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
       authDomain: "laland-express.firebaseapp.com",
@@ -38,7 +39,14 @@
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    window.isAdminUser = async (uid) => (await getDoc(doc(db, "admins", uid))).exists();
+    window.callFn = (name, data) => httpsCallable(getFunctions(app), name)(data).then(r => r.data);
+    window.esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    window.isAdminUser = async (uid) => {
+      const s = await getDoc(doc(db, "admins", uid));
+      if (!s.exists()) return false;
+      const d = s.data(); window.adminRole = d.role || 'master';
+      return d.active !== false && ['master', 'supplier'].includes(window.adminRole);   // same roles the server allows
+    };
 
     const goLogin = () => location.replace('index.html');
     window.adminReady = new Promise((resolve) => {
@@ -95,7 +103,7 @@
           <h3 id="formSectionTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-square-plus mr-1"></i> Create New Stock-In Chalan (Stock In Entry)</h3>
           <div class="flex items-center space-x-2">
             <button type="button" id="cancelEditBtn" onclick="resetStockForm()" class="hidden bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-300">Cancel Edit</button>
-            <span id="invoiceBadge" class="text-xs font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">Chalan ID: STK-XXXXXX</span>
+            <span id="invoiceBadge" class="text-xs font-mono bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold">Chalan ID: auto on save</span>
           </div>
         </div>
 
@@ -122,11 +130,11 @@
 
           <!-- 3. Supplier Chalan / Memo Picture Upload (Auto-Resize < 100KB) -->
           <div>
-            <label class="text-xs text-gray-600 block mb-1">Supplier Chalan/Memo Image *</label>
+            <label class="text-xs text-gray-600 block mb-1">Supplier Chalan/Memo Image <span class="text-gray-400">(optional)</span></label>
             <div class="flex items-center space-x-2">
               <input type="file" id="chalanImageFile" accept="image/*" capture="environment" class="w-full px-2 py-1.5 border rounded-xl text-xs bg-gray-50 focus:outline-none">
             </div>
-            <p id="imageStatusText" class="text-[10px] text-gray-400 mt-0.5">Image will be automatically resized below 100KB.</p>
+            <p id="imageStatusText" class="text-[10px] text-gray-400 mt-0.5">Optional. Image will be automatically resized below 100KB.</p>
           </div>
         </div>
         
@@ -225,7 +233,7 @@
             <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Chalan
           </button>
           <button id="detailDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
-            <i class="fa-solid fa-trash mr-1"></i> Delete Chalan
+            <i class="fa-solid fa-ban mr-1"></i> Void Chalan
           </button>
 
           <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right ml-2">
@@ -298,7 +306,7 @@
     let stockCart = [];
     let stockHistoryStore = {};
     let stockHistoryArray = [];
-    let currentInvoiceNo = '';
+    let currentRequestId = '', lastFp = '', saving = false;
     let loadedPo = null;
     let poStore = [];
     let currentDetailRecord = null;
@@ -373,10 +381,13 @@
       });
     });
 
+    const newRequestId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('r' + Date.now() + Math.random().toString(36).slice(2, 10));
     function generateNewInvoiceNo() {
-      currentInvoiceNo = 'STK-' + Math.floor(100000 + Math.random() * 900000);
-      document.getElementById('invoiceBadge').innerText = `Chalan ID: ${currentInvoiceNo}`;
+      currentRequestId = newRequestId(); lastFp = '';
+      document.getElementById('invoiceBadge').innerText = 'Chalan ID: auto on save';
     }
+    // history rows are keyed by Firestore doc id (new chalans: doc id = chalan no). Also accepts an old ?id=STK-xxxx link.
+    const keyOf = (x) => stockHistoryStore[x] ? x : Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === x);
 
     // Load Suppliers for Dropdown & Filter
     async function loadSuppliers() {
@@ -389,8 +400,8 @@
         querySnapshot.forEach(docSnap => {
           const sup = docSnap.data();
           let dealerInfo = sup.dealerName ? ` [${sup.dealerName}]` : '';
-          html += `<option value="${sup.companyName}">${sup.companyName}${dealerInfo}</option>`;
-          filterHtml += `<option value="${sup.companyName}">${sup.companyName}</option>`;
+          html += `<option value="${esc(sup.companyName)}">${esc(sup.companyName)}${esc(dealerInfo)}</option>`;
+          filterHtml += `<option value="${esc(sup.companyName)}">${esc(sup.companyName)}</option>`;
         });
         select.innerHTML = html;
         filterSelect.innerHTML = filterHtml;
@@ -449,10 +460,10 @@
       let html = '';
       filtered.forEach(p => {
         html += `
-          <div onclick="window.selectProductFromSearch('${p.id}')" class="p-2.5 hover:bg-emerald-50 cursor-pointer border-b flex justify-between items-center">
+          <div onclick="window.selectProductFromSearch('${esc(p.id)}')" class="p-2.5 hover:bg-emerald-50 cursor-pointer border-b flex justify-between items-center">
             <div>
-              <span class="font-bold text-gray-800">${p.name}</span>
-              <span class="text-[10px] text-gray-400 block">Stock: ${p.stock || 0} | MRP: ৳${p.mrp}</span>
+              <span class="font-bold text-gray-800">${esc(p.name)}</span>
+              <span class="text-[10px] text-gray-400 block">Stock: ${esc(p.stock || 0)} | MRP: ৳${esc(p.mrp)}</span>
             </div>
             <span class="text-emerald-600 font-bold text-xs"><i class="fa-solid fa-plus"></i> Add</span>
           </div>
@@ -516,98 +527,10 @@
       renderStockCart();
     };
 
-    let batchMap = {};
-
-    // When admin changed the MRP on the PO:
-    //  - product still has stock > 0  -> create a duplicate product entry (new TP / MRP), receive into it
-    //  - product stock is 0           -> just update the MRP on the existing product
-    // Returns false if the admin cancels the confirmation.
-    async function prepareMrpBatches() {
-      batchMap = {};
-      const plan = [];
-      for (const c of stockCart) {
-        const poIt = c.poItemId && loadedPo.items.find(i => i.id === c.poItemId);
-        if (!poIt) continue;
-        // later delivery of an item that already moved to its own entry: keep using it
-        if (poIt.batchProductId) {
-          const bs = await getDoc(doc(db, "products", String(poIt.batchProductId)));
-          if (bs.exists()) { plan.push({ c, poIt, mode: 'reuse', targetId: bs.id }); continue; }
-        }
-        const changed = poIt.mrp != null && poIt.supplierMrp != null && Number(poIt.mrp) !== Number(poIt.supplierMrp);
-        const ps = await getDoc(doc(db, "products", String(c.id)));
-        if (!ps.exists()) continue;
-        const data = ps.data();
-        if (changed) {
-          const oldStock = Number(data.stock || 0);
-          plan.push({ c, poIt, data, oldStock, mode: oldStock > 0 ? 'duplicate' : 'inplace' });
-          continue;
-        }
-        // TP-only change: TP is updated on the existing product (by the normal stock-in step) and its discount is removed
-        const dp = Number(data.discountPrice || 0);
-        const hasDiscount = dp > 0 && dp !== Number(data.mrp || 0);
-        if (hasDiscount && Number(c.tp) !== Number(data.tp || 0)) plan.push({ c, poIt, data, mode: 'tponly' });
-      }
-
-      const msgs = plan.filter(p => p.mode !== 'reuse').map(p => p.mode === 'tponly'
-        ? `• ${p.c.name}: TP changes ৳${p.data.tp} → ৳${p.c.tp}. The discount price (৳${p.data.discountPrice}) will be removed, MRP ৳${p.data.mrp} only.`
-        : p.mode === 'duplicate'
-        ? `• ${p.c.name}: ${p.oldStock} pcs still in stock at old MRP ৳${p.data.mrp}. A NEW product entry will be created (TP ৳${p.c.tp}, MRP ৳${p.poIt.mrp}) and this stock-in goes into it. Discount price will not carry over (MRP only) and it gets a new SKU.`
-        : `• ${p.c.name}: stock is 0, so MRP will be updated to ৳${p.poIt.mrp} on the existing product (discount price removed, MRP only).`);
-      if (msgs.length && !confirm('MRP was changed on this PO:\n\n' + msgs.join('\n') + '\n\nContinue?')) return false;
-
-      // next SKU, same scheme as products.html: first 3 letters of supplier + 3-digit number (e.g. dab001)
-      let allSkus = null;
-      const nextSku = async (supplier) => {
-        if (!allSkus) {
-          const sn = await getDocs(collection(db, "products"));
-          allSkus = []; sn.forEach(d => allSkus.push(String(d.data().sku || '').toLowerCase()));
-        }
-        const clean = String(supplier || 'GEN').replace(/[^a-zA-Z]/g, '').toLowerCase();
-        const prefix = clean.length >= 3 ? clean.substring(0, 3) : (clean + 'gen').substring(0, 3);
-        let max = 0;
-        allSkus.forEach(s => { if (s.startsWith(prefix)) { const n = parseInt(s.substring(prefix.length), 10); if (!isNaN(n) && n > max) max = n; } });
-        if (max >= 999) alert('Warning: SKU limit (999) reached for prefix ' + prefix);
-        const sku = prefix + String(Math.min(max + 1, 999)).padStart(3, '0');
-        allSkus.push(sku);
-        return sku;
-      };
-
-      for (const p of plan) {
-        if (p.mode === 'reuse') {
-          batchMap[p.poIt.id] = p.targetId; p.c.id = p.targetId;
-        } else if (p.mode === 'duplicate') {
-          const now = new Date().toISOString();
-          // discount is dropped: shop shows MRP only (this app stores price = discountPrice = MRP when there is no discount)
-          const copy = { ...p.data, sku: await nextSku(p.data.supplier), tp: Number(p.c.tp), mrp: Number(p.poIt.mrp), discountPrice: Number(p.poIt.mrp), price: Number(p.poIt.mrp), stock: 0, priceBatchOf: p.c.id, createdAt: now, updatedAt: now };
-          const ref = await addDoc(collection(db, "products"), copy);
-          batchMap[p.poIt.id] = ref.id; p.c.id = ref.id; p.c.currentStock = 0;
-        } else if (p.mode === 'tponly') {
-          await updateDoc(doc(db, "products", String(p.c.id)), { discountPrice: Number(p.data.mrp), price: Number(p.data.mrp), updatedAt: new Date().toISOString() });
-        } else {
-          await updateDoc(doc(db, "products", String(p.c.id)), { mrp: Number(p.poIt.mrp), discountPrice: Number(p.poIt.mrp), price: Number(p.poIt.mrp), updatedAt: new Date().toISOString() });
-          batchMap[p.poIt.id] = p.c.id;
-        }
-      }
-      return true;
-    }
-
-    async function applyPoReceipt() {
-      const po = loadedPo;
-      const items = po.items.map(it => {
-        const got = stockCart.find(c => (c.poItemId || c.id) === it.id);
-        const out = { ...it, receivedQty: Number(it.receivedQty || 0) + (got ? Number(got.qty) : 0) };
-        if (batchMap[it.id]) out.batchProductId = batchMap[it.id];
-        return out;
-      });
-      const status = items.every(it => it.receivedQty >= it.qty) ? 'Received' : 'Partially Received';
-      const history = [...(po.history || []), { at: new Date().toISOString(), by: 'Admin', action: status, note: 'Stock-in ' + currentInvoiceNo }];
-      await updateDoc(doc(db, "purchase_orders", po.docId), { items, status, history });
-    }
-
     // Update Cart Quantity or TP
     window.updateCartItem = function(index, field, value) {
       const val = Number(value);
-      if(field === 'qty') stockCart[index].qty = val > 0 ? val : 1;
+      if(field === 'qty') stockCart[index].qty = Math.floor(val) > 0 ? Math.floor(val) : 1;
       if(field === 'tp') stockCart[index].tp = val >= 0 ? val : 0;
       renderStockCart();
     };
@@ -639,7 +562,7 @@
 
         html += `
           <tr class="border-b hover:bg-gray-50">
-            <td class="p-2.5 font-bold text-gray-800">${item.name}</td>
+            <td class="p-2.5 font-bold text-gray-800">${esc(item.name)}</td>
             <td class="p-2.5 text-center font-semibold text-blue-600">${item.currentStock} pcs</td>
             <td class="p-2.5 text-center">
               <input type="number" min="1" value="${item.qty}" onchange="window.updateCartItem(${index}, 'qty', this.value)" class="w-16 px-2 py-1 border rounded-lg text-center font-bold text-emerald-700 bg-white">
@@ -660,111 +583,78 @@
       document.getElementById('totalStockCost').innerText = '৳ ' + totalCost;
     }
 
-    // Finalize Stock-In
+    // printing must never make a SAVED chalan look like a failed one
+    const safePrint = (rec) => { try { window.printStockInvoice(rec); } catch (e) { console.error(e); } };
+    // Finalize Stock-In -> ONE atomic server call (receiveStockIn / updateStockIn). Safe to retry.
     window.finalizeStockIn = async function() {
+      if (saving) return;
       const supplier = document.getElementById('stockSupplierSelect').value;
-      if(!supplier) {
-        alert("Please select a supplier!");
-        return;
-      }
-      if(stockCart.length === 0) {
-        alert("Stock-in cart is empty!");
-        return;
-      }
+      if (!supplier) { alert("Please select a supplier!"); return; }
+      if (stockCart.length === 0) { alert("Stock-in cart is empty!"); return; }
 
       const editId = document.getElementById('editStockId').value;
-      const chalanBase64 = document.getElementById('chalanImageBase64').value;
+      const chalanBase64 = document.getElementById('chalanImageBase64').value;   // optional
+      const items = stockCart.map(i => ({ id: i.id, qty: i.qty, tp: i.tp, ...(i.poItemId ? { poItemId: i.poItemId } : {}) }));
 
-      if(!editId && !chalanBase64) {
-        alert("Please upload the supplier chalan memo/image.");
-        return;
-      }
-
+      const btn = document.getElementById('submitStockBtn');
+      const label = btn.innerText;
+      saving = true; btn.disabled = true; btn.classList.add('opacity-60'); btn.innerText = 'Saving...';
       try {
         if (editId) {
-          const existingRec = stockHistoryStore[editId];
-          const stockInRecord = {
-            invoiceNo: existingRec.invoiceNo,
-            supplier: supplier,
-            chalanImage: chalanBase64 || existingRec.chalanImage,
-            items: stockCart,
-            totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
-            totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
-            updatedAt: new Date().toISOString()
-          };
-
-          await updateDoc(doc(db, "stock_in_history", String(editId)), stockInRecord);
-
-          for (const item of stockCart) {
-            await updateDoc(doc(db, "products", String(item.id)), {
-              stock: increment(item.qty),
-              tp: item.tp
-            });
-          }
-
+          const old = stockHistoryStore[editId] || {};
+          const res = await window.callFn('updateStockIn', { docId: editId, items, chalanImage: (chalanBase64 && chalanBase64 !== old.chalanImage) ? chalanBase64 : undefined });
           alert("Stock-in chalan successfully updated!");
-          window.printStockInvoice(stockInRecord);
-          window.resetStockForm();
-
+          safePrint({ ...old, ...res.record, chalanImage: chalanBase64 || old.chalanImage });
         } else {
-          const stockInRecord = {
-            invoiceNo: currentInvoiceNo,
-            supplier: supplier,
-            chalanImage: chalanBase64,
-            items: stockCart,
-            totalItems: stockCart.reduce((sum, i) => sum + i.qty, 0),
-            totalCost: stockCart.reduce((sum, i) => sum + (i.qty * i.tp), 0),
-            createdAt: new Date().toISOString()
-          };
-
-          if (loadedPo) {
-            stockInRecord.poNo = loadedPo.poNo;
-            if (!(await prepareMrpBatches())) return;
+          // a new request id whenever the cart/supplier changed, so a retry of the SAME data can never save twice
+          const fp = JSON.stringify([supplier, items, loadedPo ? loadedPo.docId : '']);
+          if (fp !== lastFp) { currentRequestId = newRequestId(); lastFp = fp; }
+          const payload = { requestId: currentRequestId, supplier, items, chalanImage: chalanBase64 || '', poDocId: loadedPo ? loadedPo.docId : '' };
+          let res = await window.callFn('receiveStockIn', payload);
+          if (res.needsConfirm) {
+            if (!confirm('Please confirm:\n\n' + res.messages.join('\n') + '\n\nContinue?')) return;
+            res = await window.callFn('receiveStockIn', { ...payload, confirmed: true });
           }
-          await addDoc(collection(db, "stock_in_history"), stockInRecord);
-          if (loadedPo) await applyPoReceipt();
-
-          for (const item of stockCart) {
-            await updateDoc(doc(db, "products", String(item.id)), {
-              stock: increment(item.qty),
-              tp: item.tp
-            });
-          }
-
-          alert(`Stock-in successfully completed!\nChalan ID: ${currentInvoiceNo}`);
-          window.printStockInvoice(stockInRecord);
-          window.resetStockForm();
+          alert(`Stock-in successfully completed!\nChalan ID: ${res.invoiceNo}`);
+          safePrint({ ...res.record, chalanImage: chalanBase64 });
         }
-
+        window.resetStockForm();
         loadProductsForSearch();
         loadStockInHistory();
-
       } catch (err) {
-        alert("Error saving stock-in: " + err.message);
+        alert("Stock-in NOT saved: " + (err.message || err) + "\n\nYou can press Confirm again - it will not create a duplicate.");
+      } finally {
+        saving = false; btn.disabled = false; btn.classList.remove('opacity-60');
+        if (btn.innerText === 'Saving...') btn.innerText = label;
       }
     };
 
-    // Edit Stock-In Record
+    // Edit Stock-In Record (server applies only the difference)
     window.editStockIn = function(id) {
-      const rec = stockHistoryStore[id];
-      if(!rec) return;
+      const key = keyOf(id);
+      const rec = key && stockHistoryStore[key];
+      if (!rec) return;
+      if (rec.poNo) { alert("This chalan was received from a Purchase Order (" + rec.poNo + ") and cannot be edited.\nVoid it and receive again."); return; }
 
-      // If called from detail view, switch back to dashboard view first
       backToStockDashboard();
 
-      document.getElementById('editStockId').value = id;
+      document.getElementById('editStockId').value = key;
       document.getElementById('stockSupplierSelect').value = rec.supplier;
+      document.getElementById('stockSupplierSelect').disabled = true;   // supplier of a saved chalan cannot change
       document.getElementById('invoiceBadge').innerText = `Chalan ID: ${rec.invoiceNo}`;
-      document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> Edit Stock-In Chalan (${rec.invoiceNo})`;
+      document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> Edit Stock-In Chalan (${esc(rec.invoiceNo)})`;
       document.getElementById('cancelEditBtn').classList.remove('hidden');
       document.getElementById('submitStockBtn').innerText = "Save Changes (Update)";
 
-      if(rec.chalanImage) {
+      if (rec.chalanImage) {
         document.getElementById('chalanImageBase64').value = rec.chalanImage;
         document.getElementById('imageStatusText').innerHTML = `<span class="text-blue-600 font-bold">✓ Previous memo image is preserved.</span>`;
       }
 
-      stockCart = JSON.parse(JSON.stringify(rec.items));
+      stockCart = (rec.items || []).map(i => {
+        const p = productsList.find(x => x.id === i.id);
+        return { id: i.id, name: i.name, currentStock: Number(p ? p.stock || 0 : 0), tp: Number(i.tp), qty: Number(i.qty) };
+      });
       renderStockCart();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -774,10 +664,11 @@
       loadedPo = null; document.getElementById('poLoadedInfo').classList.add('hidden'); document.getElementById('poLoadBox').classList.add('hidden');
       document.getElementById('editStockId').value = "";
       document.getElementById('stockSupplierSelect').value = "";
+      document.getElementById('stockSupplierSelect').disabled = false;
       document.getElementById('productSearchInput').value = "";
       document.getElementById('chalanImageFile').value = "";
       document.getElementById('chalanImageBase64').value = "";
-      document.getElementById('imageStatusText').innerText = "Image will be automatically resized below 100KB.";
+      document.getElementById('imageStatusText').innerText = "Optional. Image will be automatically resized below 100KB.";
       document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-square-plus mr-1"></i> Create New Stock-In Chalan (Stock In Entry)`;
       document.getElementById('cancelEditBtn').classList.add('hidden');
       document.getElementById('submitStockBtn').innerText = "Confirm Stock-In & Generate Invoice";
@@ -786,28 +677,29 @@
       renderStockCart();
     };
 
-    // Delete Stock-In Record & Revert Product Stock
+    // Void a chalan (server reverses stock + PO receipt, archives the record; nothing is silently lost)
     window.deleteStockIn = async function(id) {
-      if(!confirm("Are you sure you want to delete this stock-in chalan? (It will also deduct the added quantities from product stock)")) return;
-
+      const key = keyOf(id);
+      const rec = key && stockHistoryStore[key];
+      if (!rec) return;
+      const reason = prompt(`Void chalan ${rec.invoiceNo}?\nStock added by this chalan will be taken back.\n\nWrite the reason (required):`);
+      if (reason === null) return;
+      if (reason.trim().length < 3) { alert("Please write a reason."); return; }
       try {
-        const rec = stockHistoryStore[id];
-        if (rec && rec.items && Array.isArray(rec.items)) {
-          for (const item of rec.items) {
-            const deductQty = -Math.abs(Number(item.qty || 0));
-            await updateDoc(doc(db, "products", String(item.id)), {
-              stock: increment(deductQty)
-            });
-          }
+        try {
+          await window.callFn('voidStockIn', { docId: key, reason: reason.trim() });
+        } catch (e) {
+          if (window.adminRole === 'master' && /Cannot reverse/.test(e.message || '') &&
+              confirm((e.message || '') + '\n\nForce void anyway? (that product stock will be set to 0)')) {
+            await window.callFn('voidStockIn', { docId: key, reason: reason.trim(), force: true });
+          } else { throw e; }
         }
-
-        await deleteDoc(doc(db, "stock_in_history", String(id)));
-        alert("Stock-in chalan deleted and product stock adjusted successfully!");
+        alert("Chalan voided and stock adjusted.");
         backToStockDashboard();
         loadStockInHistory();
         loadProductsForSearch();
-      } catch(err) {
-        alert("Error deleting stock-in: " + err.message);
+      } catch (err) {
+        alert("Could not void: " + (err.message || err));
       }
     };
 
@@ -875,13 +767,13 @@
         html += `
           <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border text-xs hover:border-emerald-500 transition">
             <div>
-              <span onclick="window.openStockDetail('${rec.invoiceNo}')" class="font-bold text-emerald-700 underline cursor-pointer hover:text-emerald-900">${rec.invoiceNo}</span> 
-              <span class="text-gray-500">(Supplier: ${rec.supplier})</span>
+              <span onclick="window.openStockDetail('${esc(rec.id)}')" class="font-bold text-emerald-700 underline cursor-pointer hover:text-emerald-900">${esc(rec.invoiceNo)}</span> 
+              <span class="text-gray-500">(Supplier: ${esc(rec.supplier)})</span>
               <p class="text-[10px] text-gray-400">Date: ${dateStr}</p>
             </div>
             <div class="flex items-center space-x-2">
               <span class="font-extrabold text-emerald-700 mr-2">৳ ${rec.totalCost}</span>
-              <button onclick="window.openStockDetail('${rec.invoiceNo}')" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1" title="View Details">
+              <button onclick="window.openStockDetail('${esc(rec.id)}')" class="bg-emerald-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-emerald-700 shadow flex items-center space-x-1" title="View Details">
                 <i class="fa-solid fa-eye"></i>
                 <span>Details</span>
               </button>
@@ -900,8 +792,9 @@
 
       const filtered = stockHistoryArray.filter(rec => {
         const recDateObj = new Date(rec.createdAt || rec.updatedAt);
-        const recDateStr = recDateObj.toISOString().split('T')[0];
-        const recMonthStr = recDateObj.toISOString().slice(0, 7);
+        const p2 = n => String(n).padStart(2, '0');
+        const recMonthStr = recDateObj.getFullYear() + '-' + p2(recDateObj.getMonth() + 1);   // local time, not UTC
+        const recDateStr = recMonthStr + '-' + p2(recDateObj.getDate());
 
         let matchDate = !dateVal || recDateStr === dateVal;
         let matchMonth = !monthVal || recMonthStr === monthVal;
@@ -921,13 +814,14 @@
     };
 
     // Open Stock-In Detail Page via URL parameter (e.g. ?id=STK-148836)
-    window.openStockDetail = function(invoiceNo, pushHistory = true) {
-      const rec = Object.values(stockHistoryStore).find(r => r.invoiceNo === invoiceNo);
+    window.openStockDetail = function(idOrInvoice, pushHistory = true) {
+      const key = keyOf(idOrInvoice);
+      const rec = key && stockHistoryStore[key];
       if(!rec) return;
       currentDetailRecord = rec;
 
       if(pushHistory) {
-        const newUrl = `${window.location.pathname}?id=${rec.invoiceNo}`;
+        const newUrl = `${window.location.pathname}?id=${encodeURIComponent(key)}`;
         window.history.pushState({ path: newUrl }, '', newUrl);
       }
 
@@ -941,7 +835,7 @@
       // Bind Detail-level Action Buttons
       document.getElementById('detailPrintBtn').setAttribute('onclick', `window.printStockInvoice(${JSON.stringify(rec)})`);
       
-      const docKey = Object.keys(stockHistoryStore).find(k => stockHistoryStore[k].invoiceNo === rec.invoiceNo);
+      const docKey = key;
       document.getElementById('detailEditBtn').setAttribute('onclick', `window.editStockIn('${docKey}')`);
       document.getElementById('detailDeleteBtn').setAttribute('onclick', `window.deleteStockIn('${docKey}')`);
 
@@ -958,7 +852,7 @@
         rec.items.forEach(i => {
           itemsHtml += `
             <tr class="border-b hover:bg-gray-50">
-              <td class="p-2.5 font-bold text-gray-800">${i.name}</td>
+              <td class="p-2.5 font-bold text-gray-800">${esc(i.name)}</td>
               <td class="p-2.5 text-center font-semibold text-emerald-700">${i.qty} pcs</td>
               <td class="p-2.5 text-right font-semibold">৳ ${i.tp}</td>
               <td class="p-2.5 text-right font-extrabold text-emerald-700">৳ ${i.qty * i.tp}</td>
@@ -978,9 +872,9 @@
       const urlParams = new URLSearchParams(window.location.search);
       const stockId = urlParams.get('id');
       if(stockId && Object.keys(stockHistoryStore).length > 0) {
-        const rec = Object.values(stockHistoryStore).find(r => r.invoiceNo === stockId);
-        if(rec) {
-          openStockDetail(rec.invoiceNo, false);
+        const key = keyOf(stockId);
+        if(key) {
+          openStockDetail(key, false);
         } else {
           document.getElementById('mainStockEntryView').classList.remove('hidden');
         }
@@ -1024,7 +918,7 @@
 
       const itemsRows = rec.items.map(i => `
         <tr>
-          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${esc(i.name)}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">${i.qty}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.tp}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.qty * i.tp}</td>
@@ -1034,7 +928,7 @@
       printWin.document.write(`
         <html>
           <head>
-            <title>Stock-In Chalan - ${rec.invoiceNo}</title>
+            <title>Stock-In Chalan - ${esc(rec.invoiceNo)}</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
               .header { text-align: center; border-bottom: 2px solid #047857; padding-bottom: 10px; }
@@ -1050,10 +944,10 @@
             <div class="header">
               <h2>Laland Express / Good Mart Enterprise</h2>
               <p style="font-size: 11px;">Kamarpara, Rangpur | Goods Receiving Note (GRN)</p>
-              <p style="font-size: 12px; color: #047857;"><strong>Chalan ID:</strong> ${rec.invoiceNo}</p>
+              <p style="font-size: 12px; color: #047857;"><strong>Chalan ID:</strong> ${esc(rec.invoiceNo)}</p>
             </div>
             <div class="details">
-              <p><strong>Supplier Name:</strong> ${rec.supplier}</p>
+              <p><strong>Supplier Name:</strong> ${esc(rec.supplier)}</p>
               <p><strong>Date:</strong> ${new Date(rec.createdAt || rec.updatedAt).toLocaleString()}</p>
             </div>
             <table>
@@ -1076,7 +970,7 @@
             ${rec.chalanImage ? `
               <div class="memo-section">
                 <p style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Supplier Chalan / Memo Image:</p>
-                <img src="${rec.chalanImage}" alt="Supplier Chalan Memo">
+                <img src="${esc(rec.chalanImage)}" alt="Supplier Chalan Memo">
               </div>
             ` : ''}
           </body>
