@@ -12,7 +12,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const GROUPS = [
-  { title: 'Dashboard', items: [['index.html', 'Dashboard', 'fa-gauge']] },
+  { title: 'Dashboard', items: [['index.html', 'Dashboard', 'fa-gauge'], ['finance.html', 'Finance', 'fa-landmark']] },
   { title: 'Operations', items: [['orders.html', 'Orders', 'fa-cart-shopping'], ['rider.html', 'Rider Finance', 'fa-wallet'], ['day-close.html', 'Day Close', 'fa-cash-register']] },
   { title: 'Products & Suppliers', items: [['products.html', 'Products', 'fa-box'], ['stock-in.html', 'Stock-In', 'fa-truck-ramp-box'], ['suppliers.html', 'Suppliers', 'fa-truck-field'], ['purchase-orders.html', 'Purchase Orders', 'fa-file-invoice']] },
   { title: 'Admin', items: [['customers.html', 'Customers', 'fa-users'], ['delivery-riders.html', 'Delivery Riders', 'fa-motorcycle'], ['locations.html', 'Locations', 'fa-location-dot'], ['data-tools.html', 'Data Tools', 'fa-screwdriver-wrench']] }
