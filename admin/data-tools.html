@@ -21,6 +21,28 @@
       এখান থেকে একটি প্রোডাক্টের স্টক-মুভমেন্ট ইতিহাস (বিক্রি ও ফেরতের সারি) মুছবে। মোছা ফিরিয়ে আনা যাবে না। লেজার, অর্ডার ও কাস্টমারের হিসাব অপরিবর্তিত থাকবে। প্রতিটি মোছা লগ হবে।
     </div>
 
+    <section class="bg-white rounded-2xl border-2 border-rose-300 p-5 shadow-sm space-y-4">
+      <h2 class="font-bold text-sm text-rose-700"><i class="fa-solid fa-rotate-left mr-1"></i> সম্পূর্ণ রিসেট (এক ক্লিক)</h2>
+      <p class="text-xs text-gray-600">যেগুলো মুছতে চান টিক দিন। প্রোডাক্ট, সাপ্লায়ার, কাস্টমার, রাইডার অ্যাকাউন্ট ও অ্যাডমিন মুছবে না।</p>
+      <div class="space-y-2 text-sm">
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="stockin" checked> <span><b>Stock-in</b> ইতিহাস (stock_in_history, void, requests, counter)</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="po" checked> <span><b>Purchase Orders</b> (সব PO)</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="movements" checked> <span><b>প্রোডাক্ট মুভমেন্ট</b> (সব প্রোডাক্ট) + সব স্টক <b>০</b> করা</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="orders" checked> <span><b>সব অর্ডার ও রাইডার ইতিহাস</b> (Pending/Processing সহ, cash settlement, payout) + রাইডারের ক্যাশ/আয় ০</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="ledger" checked> <span><b>ফিন্যান্স লেজার</b> (ledger, balances, receivables, claims, day close, wallet transfers)</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="supplierPayments" checked> <span><b>সাপ্লায়ার পেমেন্ট</b> (supplier_payments)</span></label>
+        <label class="flex gap-2"><input type="checkbox" class="rg" value="wallets"> <span><b>কাস্টমার ওয়ালেট</b> ০ করা (ডিফল্টে টিক নেই)</span></label>
+      </div>
+      <label class="flex gap-2 text-sm"><input type="checkbox" id="rBackup" checked> <span>মোছার আগে JSON ব্যাকআপ রাখুন (Firebase Storage → backups/)</span></label>
+      <button id="rPreview" class="w-full bg-gray-700 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-gray-800"><i class="fa-solid fa-magnifying-glass mr-1"></i> আগে প্রিভিউ দেখুন (কী কী মুছবে)</button>
+      <pre id="rCounts" class="hidden bg-gray-50 border rounded-xl p-3 text-xs whitespace-pre-wrap"></pre>
+      <div id="rRun" class="hidden space-y-2 border-t pt-3">
+        <input id="rConfirm" placeholder="নিশ্চিত করতে RESET লিখুন" class="w-full px-3 py-2 border rounded-xl text-sm">
+        <button id="rGo" class="w-full bg-rose-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-rose-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i> রিসেট করুন</button>
+      </div>
+      <p id="rResult" class="text-xs text-gray-600 whitespace-pre-wrap"></p>
+    </section>
+
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-4">
       <h2 class="font-bold text-sm text-emerald-700">১. প্রোডাক্ট বেছে নিন</h2>
       <input id="search" placeholder="প্রোডাক্টের নাম / SKU খুঁজুন..." class="w-full px-3 py-2 border rounded-xl text-sm bg-white">
@@ -110,6 +132,38 @@
         alert('ব্যর্থ: ' + (e.message || e));
       }
       $('clearBtn').disabled = false;
+    });
+
+    // ---------- full reset
+    const rGroups = () => [...document.querySelectorAll('.rg:checked')].map(x => x.value);
+    const resetFn = httpsCallable(fns, 'resetSystemData', { timeout: 540000 });
+    const fmt = (c) => Object.entries(c).map(([k, v]) => k + ': ' + v).join('\n');
+
+    $('rPreview').addEventListener('click', async () => {
+      const groups = rGroups();
+      if (!groups.length) return alert('কিছু একটা বেছে নিন।');
+      $('rPreview').disabled = true; $('rResult').textContent = '';
+      try {
+        const r = (await resetFn({ groups, dryRun: true })).data;
+        $('rCounts').textContent = 'এগুলো মুছবে/রিসেট হবে:\n' + fmt(r.counts);
+        $('rCounts').classList.remove('hidden');
+        $('rRun').classList.remove('hidden');
+      } catch (e) { alert('ব্যর্থ: ' + (e.message || e)); }
+      $('rPreview').disabled = false;
+    });
+
+    $('rGo').addEventListener('click', async () => {
+      const groups = rGroups();
+      if ($('rConfirm').value.trim() !== 'RESET') return alert('RESET লিখে নিশ্চিত করুন।');
+      if (!confirm('সত্যিই রিসেট করবেন? এটি ফিরিয়ে আনা যাবে না।')) return;
+      $('rGo').disabled = true; $('rResult').textContent = 'চলছে... অপেক্ষা করুন (কয়েক মিনিট লাগতে পারে)';
+      try {
+        const r = (await resetFn({ groups, confirm: 'RESET', backup: $('rBackup').checked })).data;
+        $('rResult').textContent = 'সম্পন্ন।\n' + fmt(r.counts) + (r.backup ? '\nব্যাকআপ: ' + r.backup : '');
+        $('rRun').classList.add('hidden'); $('rConfirm').value = '';
+        alert('রিসেট সম্পন্ন।');
+      } catch (e) { $('rResult').textContent = ''; alert('ব্যর্থ: ' + (e.message || e)); }
+      $('rGo').disabled = false;
     });
 
     loadProducts();
