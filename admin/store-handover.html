@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Handover - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-handshake text-xl"></i><h1 class="font-bold text-base">Store Handover (স্টোর হ্যান্ডওভার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+
+    <section id="createBox" class="hidden bg-white rounded-2xl border p-4 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-emerald-700">নতুন হ্যান্ডওভার শুরু করুন (মাস্টার)</h2>
+      <p class="text-xs text-gray-500">এই মুহূর্তের সব stock-এর একটা স্থির তালিকা তৈরি হবে। স্টোর ম্যানেজার গুনে মিলিয়ে নেবে।</p>
+      <div class="flex gap-2">
+        <select id="toSel" class="flex-1 px-3 py-2 border rounded-xl text-sm"></select>
+        <button id="createBtn" class="px-5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700">শুরু করুন</button>
+      </div>
+    </section>
+
+    <section id="listBox" class="hidden space-y-2"></section>
+    <section id="detail" class="hidden bg-white rounded-2xl border p-4 shadow-sm space-y-3"></section>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+    const call = (n, d) => httpsCallable(fns, n, { timeout: 120000 })(d).then(r => r.data);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => '৳ ' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const when = (i) => i ? new Date(i).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }) : '';
+    const STATUS = { pending: ['অপেক্ষমাণ', 'bg-amber-100 text-amber-700'], accepted: ['গৃহীত (মিলেছে)', 'bg-emerald-100 text-emerald-700'], accepted_with_differences: ['গৃহীত (গরমিলসহ)', 'bg-rose-100 text-rose-700'], cancelled: ['বাতিল', 'bg-gray-200 text-gray-600'] };
+
+    let role = '', uid = '', list = [], cur = null;
+
+    async function loadList() {
+      const q = role === 'master' ? collection(db, 'store_handovers') : query(collection(db, 'store_handovers'), where('toUid', '==', uid));
+      const snap = await getDocs(q);
+      list = snap.docs.map(d => d.data()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      $('listBox').classList.remove('hidden');
+      $('listBox').innerHTML = list.map(h => {
+        const st = STATUS[h.status] || [h.status, 'bg-gray-100'];
+        return `<button data-id="${esc(h.id)}" class="w-full text-left bg-white border rounded-2xl p-4 shadow-sm hover:border-emerald-400">
+          <div class="flex justify-between items-center"><b class="text-sm">${esc(h.id)}</b><span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${st[1]}">${st[0]}</span></div>
+          <p class="text-xs text-gray-500">${esc(h.fromName)} → ${esc(h.toName)} · ${when(h.createdAt)}</p>
+          <p class="text-xs mt-1">${h.productCount} পণ্য · ${h.totalQty} পিস · বিক্রয় মূল্যে ${money(h.totalPrice)}</p></button>`;
+      }).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কোনো হ্যান্ডওভার নেই।</p>';
+    }
+
+    $('listBox').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (b) open(b.dataset.id); });
+
+    async function open(id) {
+      cur = list.find(h => h.id === id); if (!cur) return;
+      let tpTotal = null;
+      if (role === 'master') { try { const p = await getDoc(doc(db, 'store_handovers_private', id)); if (p.exists()) tpTotal = p.data().totalTp; } catch (e) { } }
+      const h = cur, pending = h.status === 'pending', mine = role === 'store' && pending;
+      const st = STATUS[h.status] || [h.status, ''];
+      const diffMap = {}; (h.differences || []).forEach(d => diffMap[d.id] = d);
+      $('detail').classList.remove('hidden');
+      $('detail').innerHTML = `
+        <div class="flex justify-between items-start gap-2"><div><h2 class="font-extrabold text-sm">${esc(h.id)} <span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${st[1]}">${st[0]}</span></h2>
+          <p class="text-xs text-gray-500">${esc(h.fromName)} → ${esc(h.toName)} · ${when(h.createdAt)}</p></div>
+          <button id="closeDetail" class="text-gray-400 hover:text-gray-700"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div class="bg-gray-50 rounded-xl p-3">পণ্য / পিস<br><b>${h.productCount} / ${h.totalQty}</b></div>
+          <div class="bg-gray-50 rounded-xl p-3">MRP-তে মোট<br><b>${money(h.totalMrp)}</b></div>
+          <div class="bg-gray-50 rounded-xl p-3">বিক্রয় দামে মোট<br><b>${money(h.totalPrice)}</b></div>
+          ${tpTotal !== null ? `<div class="bg-gray-50 rounded-xl p-3">TP-তে মোট (শুধু মাস্টার)<br><b>${money(tpTotal)}</b></div>` : ''}
+        </div>
+        ${h.status.startsWith('accepted') ? `<p class="text-xs bg-gray-50 rounded-xl p-3">গ্রহণ করেছেন: <b>${esc(h.acceptedByName)}</b> · ${when(h.acceptedAt)} · গোনা পিস: <b>${h.countedQty}</b>${h.differenceCount ? ` · গরমিল: <b class="text-rose-700">${h.differenceCount}টি পণ্য, ${money(h.differenceValue)}</b>` : ''}${h.note ? `<br>নোট: ${esc(h.note)}` : ''}</p>` : ''}
+        <div class="overflow-x-auto"><table class="w-full text-xs"><thead class="bg-gray-50 text-gray-500"><tr>
+          <th class="p-2 text-left">পণ্য</th><th class="p-2 text-right">সিস্টেম পিস</th>${mine ? '<th class="p-2 text-right">আমি গুনেছি</th>' : ''}<th class="p-2 text-right">MRP</th><th class="p-2 text-right">বিক্রয় দাম</th><th class="p-2 text-right">মোট</th></tr></thead>
+          <tbody class="divide-y">${h.items.map(i => `<tr class="${diffMap[i.id] ? 'bg-rose-50' : ''}"><td class="p-2"><b>${esc(i.name)}</b><br><span class="text-[10px] text-gray-400">${esc(i.sku)}</span></td>
+            <td class="p-2 text-right font-bold">${i.qty}</td>
+            ${mine ? `<td class="p-2 text-right"><input type="number" min="0" data-c="${esc(i.id)}" value="${i.qty}" class="cnt w-20 border rounded-lg px-2 py-1 text-right"></td>` : ''}
+            <td class="p-2 text-right">${money(i.mrp)}</td><td class="p-2 text-right">${money(i.price)}</td><td class="p-2 text-right">${money(i.qty * i.price)}</td></tr>
+            ${diffMap[i.id] ? `<tr class="bg-rose-50"><td colspan="6" class="px-2 pb-2 text-[11px] text-rose-700">গোনা: ${diffMap[i.id].countedQty} · পার্থক্য: ${diffMap[i.id].diffQty} পিস (${money(diffMap[i.id].diffValue)})</td></tr>` : ''}`).join('')}</tbody></table></div>
+        ${mine ? `<p id="diffInfo" class="text-xs text-emerald-700">সব মিলেছে</p>
+          <textarea id="note" rows="2" placeholder="গরমিল থাকলে কারণ লিখুন..." class="w-full border rounded-xl px-3 py-2 text-sm"></textarea>
+          <button id="acceptBtn" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700"><i class="fa-solid fa-check mr-1"></i> বুঝে পেলাম, গ্রহণ করছি</button>` : ''}
+        ${role === 'master' && pending ? '<button id="cancelBtn" class="w-full border border-rose-300 text-rose-700 py-2.5 rounded-xl font-bold text-sm">এই হ্যান্ডওভার বাতিল করুন</button>' : ''}`;
+      $('closeDetail').onclick = () => $('detail').classList.add('hidden');
+      if (mine) {
+        const upd = () => { let n = 0, v = 0; document.querySelectorAll('.cnt').forEach(el => { const it = h.items.find(x => x.id === el.dataset.c); const c = el.value === '' ? it.qty : Number(el.value); if (c !== it.qty) { n++; v += (c - it.qty) * it.price; } });
+          $('diffInfo').className = 'text-xs ' + (n ? 'text-rose-700' : 'text-emerald-700'); $('diffInfo').textContent = n ? `গরমিল: ${n}টি পণ্য, ${money(v)}` : 'সব মিলেছে'; };
+        document.querySelectorAll('.cnt').forEach(el => el.addEventListener('input', upd));
+        $('acceptBtn').onclick = async () => {
+          const counts = {}; document.querySelectorAll('.cnt').forEach(el => { counts[el.dataset.c] = el.value === '' ? undefined : Number(el.value); });
+          if (!confirm('গ্রহণ করলে এই স্টকের দায়িত্ব আপনার হবে। নিশ্চিত?')) return;
+          $('acceptBtn').disabled = true;
+          try { const r = await call('acceptStoreHandover', { id: h.id, counts, note: $('note').value }); alert(r.differenceCount ? 'গ্রহণ করা হয়েছে (গরমিল রেকর্ড হয়েছে)।' : 'গ্রহণ সম্পন্ন।'); await loadList(); open(h.id); }
+          catch (e) { alert('ব্যর্থ: ' + (e.message || e)); $('acceptBtn').disabled = false; }
+        };
+      }
+      if (role === 'master' && pending) $('cancelBtn').onclick = async () => {
+        if (!confirm('বাতিল করবেন?')) return;
+        try { await call('cancelStoreHandover', { id: h.id }); await loadList(); open(h.id); } catch (e) { alert('ব্যর্থ: ' + (e.message || e)); }
+      };
+      $('detail').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    $('createBtn').onclick = async () => {
+      const to = $('toSel').value; if (!to) return alert('স্টোর ম্যানেজার বেছে নিন।');
+      if (!confirm('এই মুহূর্তের stock-এর স্ন্যাপশট নিয়ে হ্যান্ডওভার শুরু করবেন?')) return;
+      $('createBtn').disabled = true;
+      try { const r = await call('createStoreHandover', { toUid: to }); alert(`তৈরি হয়েছে: ${r.id}\n${r.productCount} পণ্য, ${r.totalQty} পিস`); await loadList(); open(r.id); }
+      catch (e) { alert('ব্যর্থ: ' + (e.message || e)); }
+      $('createBtn').disabled = false;
+    };
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false || !['master', 'store'].includes(s.data().role || 'master')) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master'; uid = u.uid; $('msg').classList.add('hidden');
+      if (role === 'master') {
+        const a = await getDocs(query(collection(db, 'admins'), where('role', '==', 'store')));
+        $('toSel').innerHTML = '<option value="">স্টোর ম্যানেজার বেছে নিন</option>' + a.docs.filter(d => d.data().active !== false).map(d => `<option value="${d.id}">${esc(d.data().name || d.data().email || d.id)}</option>`).join('');
+        $('createBox').classList.remove('hidden');
+      }
+      try { await loadList(); } catch (e) { $('msg').classList.remove('hidden'); $('msg').textContent = 'লোড ব্যর্থ: ' + e.message; }
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Receive - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-clipboard-check text-xl"></i><h1 class="font-bold text-base">Stock Receive (স্টোর রিসিভ)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+    <div id="tabs" class="hidden flex gap-2 text-sm font-bold">
+      <button data-t="pending" class="tab px-4 py-2 rounded-xl">অপেক্ষমাণ <span id="cPending" class="ml-1 bg-red-500 text-white rounded-full px-1.5 text-[11px]">0</span></button>
+      <button data-t="received" class="tab px-4 py-2 rounded-xl">গৃহীত</button>
+      <button data-t="other" class="tab px-4 py-2 rounded-xl">ফেরত / বাতিল</button>
+    </div>
+    <div id="list" class="space-y-3"></div>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+    const call = (n, d) => httpsCallable(fns, n)(d).then(r => r.data);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }) : '';
+
+    let role = '', uid = '', rows = [], tab = 'pending';
+    const canReceive = () => role === 'store' || role === 'master';
+
+    function render() {
+      const pending = rows.filter(r => r.status === 'pending');
+      $('cPending').textContent = pending.length;
+      document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      const list = tab === 'pending' ? pending : tab === 'received' ? rows.filter(r => r.status === 'received') : rows.filter(r => ['rejected', 'cancelled'].includes(r.status));
+      $('list').innerHTML = list.map(card).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
+    }
+
+    function card(r) {
+      const items = (r.items || []).map(i => `<tr><td class="py-1">${esc(i.name)}</td><td class="py-1 text-right font-bold">${Number(i.qty)} পিস</td></tr>`).join('');
+      let foot = '', badge = '';
+      if (r.status === 'pending') {
+        badge = '<span class="text-[11px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">অপেক্ষমাণ</span>';
+        if (canReceive()) foot += `<button data-act="receive" data-id="${esc(r.invoiceNo)}" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-700"><i class="fa-solid fa-check mr-1"></i> রিসিভ করলাম</button>
+          <button data-act="reject" data-id="${esc(r.invoiceNo)}" class="flex-1 bg-rose-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-rose-700"><i class="fa-solid fa-xmark mr-1"></i> ফেরত দিন</button>`;
+        if (role === 'master' || (role === 'vendor' && r.createdBy === uid)) foot += `<button data-act="cancel" data-id="${esc(r.invoiceNo)}" class="px-4 border rounded-xl text-sm text-gray-600 hover:bg-gray-50">বাতিল</button>`;
+      } else if (r.status === 'received') {
+        badge = '<span class="text-[11px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">গৃহীত</span>';
+        foot = `<p class="text-xs text-gray-500">রিসিভ করেছেন: <b>${esc(r.receivedByName)}</b> · ${fmtDate(r.receivedAt)}</p>`;
+      } else if (r.status === 'rejected') {
+        badge = '<span class="text-[11px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">ফেরত</span>';
+        foot = `<p class="text-xs text-rose-700">ফেরত দিয়েছেন: <b>${esc(r.rejectedByName)}</b> · ${fmtDate(r.rejectedAt)}<br>কারণ: ${esc(r.rejectReason)}</p>`;
+      } else {
+        badge = '<span class="text-[11px] font-bold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">বাতিল</span>';
+      }
+      return `<div class="bg-white rounded-2xl border p-4 shadow-sm space-y-3">
+        <div class="flex justify-between items-start gap-2">
+          <div><p class="font-extrabold text-sm">${esc(r.invoiceNo)} ${badge}</p>
+          <p class="text-xs text-gray-500">${esc(r.vendor)}${r.poNo ? ' · PO ' + esc(r.poNo) : ''}</p>
+          <p class="text-[11px] text-gray-400">স্টক-ইন করেছেন: ${esc(r.createdByName)} · ${fmtDate(r.createdAt)}</p></div>
+          <p class="text-sm font-bold text-emerald-700 whitespace-nowrap">${Number(r.totalItems)} পিস · ${(r.items || []).length} পণ্য</p>
+        </div>
+        <table class="w-full text-xs"><tbody class="divide-y">${items}</tbody></table>
+        ${foot ? `<div class="flex gap-2 items-center">${foot}</div>` : ''}
+      </div>`;
+    }
+
+    $('list').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const id = b.dataset.id, act = b.dataset.act;
+      const r = rows.find(x => x.invoiceNo === id); if (!r) return;
+      try {
+        if (act === 'receive') {
+          if (!confirm(`${id}\n${r.totalItems} পিস, ${r.items.length}টি পণ্য\n\nআপনি কি গুদামে গুনে এই পণ্যগুলো বুঝে পেয়েছেন?\nরিসিভ করলে stock যুক্ত হবে এবং এই পণ্যের দায়িত্ব আপনার হবে।`)) return;
+          b.disabled = true; await call('receiveStoreStockIn', { invoiceNo: id }); alert('রিসিভ সম্পন্ন। stock যুক্ত হয়েছে।');
+        } else if (act === 'reject') {
+          const reason = prompt('ফেরত দেওয়ার কারণ লিখুন (যেমন: পিস কম, ভুল পণ্য):'); if (!reason) return;
+          b.disabled = true; await call('rejectStockIn', { invoiceNo: id, reason }); alert('ফেরত দেওয়া হয়েছে। stock বদলায়নি।');
+        } else if (act === 'cancel') {
+          if (!confirm('এই চালানটি বাতিল করবেন?')) return;
+          b.disabled = true; await call('cancelPendingStockIn', { invoiceNo: id });
+        }
+      } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); b.disabled = false; }
+    });
+    document.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master'; uid = u.uid;
+      $('msg').classList.add('hidden'); $('tabs').classList.remove('hidden');
+      onSnapshot(query(collection(db, 'stock_in_pending'), orderBy('createdAt', 'desc'), limit(150)),
+        (snap) => { rows = snap.docs.map(d => d.data()); render(); },
+        (err) => { $('msg').classList.remove('hidden'); $('msg').textContent = 'লোড ব্যর্থ: ' + err.message; });
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
