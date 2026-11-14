@@ -624,7 +624,7 @@
             if (!confirm('Please confirm:\n\n' + res.messages.join('\n') + '\n\nContinue?')) return;
             res = await window.callFn('receiveStockIn', { ...payload, confirmed: true });
           }
-          alert(`Stock-in successfully completed!\nChalan ID: ${res.invoiceNo}`);
+          alert(`Chalan sent to the store manager!\nChalan ID: ${res.invoiceNo}\n\nStock will be added only after the store manager receives it (Stock Receive page).`);
           safePrint({ ...res.record, chalanImage: chalanBase64 });
         }
         window.resetStockForm();
