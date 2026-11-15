@@ -65,11 +65,11 @@
       const card = (t, v, c = 'text-gray-800') => `<div class="bg-white rounded-2xl border p-4 shadow-sm"><p class="text-[11px] text-gray-500">${t}</p><p class="text-lg font-extrabold ${c}">${v}</p></div>`;
       $('cards').innerHTML =
         card('মোট পণ্য / পিস', view.filter(p => p.qty > 0).length + ' / ' + sum(p => p.qty).toLocaleString('en-IN')) +
-        (showTp() ? card('ক্রয় মূল্যে (TP) মোট', money(sum(p => p.vTp)), 'text-blue-700') : '') +
+        (showTp() ? card('ক্রয় মূল্যে (গড় TP) মোট', money(sum(p => p.vTp)), 'text-blue-700') : '') +
         card('MRP-তে মোট', money(sum(p => p.vMrp)), 'text-amber-700') +
         card('বিক্রয় (ডিসকাউন্ট) দামে মোট', money(sum(p => p.vPrice)), 'text-emerald-700') +
         (showTp() ? card('সম্ভাব্য লাভ (বিক্রয় − TP)', money(sum(p => p.vPrice) - sum(p => p.vTp)), 'text-purple-700') : '');
-      $('thead').innerHTML = `<tr><th class="p-2 text-left">পণ্য</th><th class="p-2 text-right">পিস</th>${showTp() ? '<th class="p-2 text-right">TP</th>' : ''}<th class="p-2 text-right">MRP</th><th class="p-2 text-right">বিক্রয় দাম</th>${showTp() ? '<th class="p-2 text-right">TP মোট</th>' : ''}<th class="p-2 text-right">MRP মোট</th><th class="p-2 text-right">বিক্রয় মোট</th></tr>`;
+      $('thead').innerHTML = `<tr><th class="p-2 text-left">পণ্য</th><th class="p-2 text-right">পিস</th>${showTp() ? '<th class="p-2 text-right">গড় TP</th>' : ''}<th class="p-2 text-right">MRP</th><th class="p-2 text-right">বিক্রয় দাম</th>${showTp() ? '<th class="p-2 text-right">TP মোট</th>' : ''}<th class="p-2 text-right">MRP মোট</th><th class="p-2 text-right">বিক্রয় মোট</th></tr>`;
       $('tbody').innerHTML = view.map(p => `<tr class="${p.qty <= 0 ? 'text-gray-400' : ''}">
         <td class="p-2"><b>${esc(p.name)}</b><br><span class="text-[10px] text-gray-400">${esc(p.sku)} ${esc(p.category)}</span></td>
         <td class="p-2 text-right font-bold ${p.qty < 0 ? 'text-rose-600' : ''}">${p.qty}</td>
@@ -95,7 +95,7 @@
       if (!s.exists() || s.data().active === false || !['master', 'store'].includes(s.data().role || 'master')) { $('msg').textContent = 'অনুমতি নেই।'; return; }
       role = s.data().role || 'master';
       const snap = await getDocs(collection(db, 'products'));
-      all = snap.docs.map(d => { const x = d.data(); const qty = Number(x.stock || 0), tp = Number(x.tp || 0), mrp = Number(x.mrp || 0), price = Number(x.discountPrice || x.price || x.mrp || 0);
+      all = snap.docs.map(d => { const x = d.data(); const qty = Number(x.stock || 0), tp = Number(x.avgCost != null && Number.isFinite(Number(x.avgCost)) ? x.avgCost : (x.tp || 0)), mrp = Number(x.mrp || 0), price = Number(x.discountPrice || x.price || x.mrp || 0);
         return { id: d.id, name: String(x.name || d.id), sku: x.sku || '', category: x.category || '', supplier: x.supplier || x.vendor || '', qty, tp, mrp, price, vTp: qty * tp, vMrp: qty * mrp, vPrice: qty * price }; });
       const fill = (id, key) => { [...new Set(all.map(p => p[key]).filter(Boolean))].sort().forEach(v => $(id).insertAdjacentHTML('beforeend', `<option>${esc(v)}</option>`)); };
       fill('cat', 'category'); fill('sup', 'supplier');
