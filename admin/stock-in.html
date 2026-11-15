@@ -842,6 +842,10 @@
       const docKey = key;
       document.getElementById('detailEditBtn').setAttribute('onclick', `window.editStockIn('${docKey}')`);
       document.getElementById('detailDeleteBtn').setAttribute('onclick', `window.deleteStockIn('${docKey}')`);
+      // only master may edit / void a chalan after the store manager has received it
+      const isMasterRole = window.adminRole === 'master';
+      document.getElementById('detailEditBtn').classList.toggle('hidden', !isMasterRole);
+      document.getElementById('detailDeleteBtn').classList.toggle('hidden', !isMasterRole);
 
       const memoBtn = document.getElementById('detailMemoBtn');
       if(rec.chalanImage) {
