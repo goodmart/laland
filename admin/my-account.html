@@ -9,13 +9,13 @@
 </head>
 <body class="bg-gray-100 text-gray-800 pb-12">
   <header class="bg-emerald-700 text-white shadow">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center gap-2"><i class="fa-solid fa-book text-xl"></i><h1 class="font-bold text-base">আমার হিসাব (My Account Statement)</h1></div>
       <nav></nav>
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto p-4 space-y-4">
+  <main class="max-w-5xl mx-auto p-4 space-y-4">
     <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
 
     <div id="who" class="hidden bg-white border rounded-2xl p-3 flex items-center gap-2 text-xs">
@@ -23,308 +23,350 @@
       <select id="mgrSel" class="flex-1 px-2 py-1.5 border rounded-lg text-sm bg-white"></select>
     </div>
 
-    <div id="cards" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+    <div id="cards" class="hidden grid grid-cols-3 gap-2"></div>
 
     <div id="tabs" class="hidden flex flex-wrap gap-2 text-sm font-bold">
-      <button data-t="all" class="tab px-4 py-2 rounded-xl">সব কার্যকলাপ</button>
-      <button data-t="cash" class="tab px-4 py-2 rounded-xl">ক্যাশ</button>
-      <button data-t="receivable" class="tab px-4 py-2 rounded-xl">বকেয়া (দায়)</button>
-      <button data-t="salary" class="tab px-4 py-2 rounded-xl">বেতন / পাওনা</button>
+      <button data-t="money" class="tab px-4 py-2 rounded-xl">টাকার হিসাব</button>
+      <button data-t="activity" class="tab px-4 py-2 rounded-xl">স্টক ও অন্যান্য কার্যকলাপ</button>
       <button data-t="close" class="tab px-4 py-2 rounded-xl">দিন শেষের মিল</button>
     </div>
 
-    <p id="tabNote" class="hidden text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2"></p>
+    <!-- ===== টাকার হিসাব (monthly statement) ===== -->
+    <section id="moneyBox" class="hidden space-y-3">
+      <div class="bg-white border rounded-2xl p-3 flex flex-wrap items-center gap-2 text-sm">
+        <button id="mPrev" class="px-3 py-1.5 border rounded-lg hover:bg-gray-50" title="আগের মাস"><i class="fa-solid fa-chevron-left"></i></button>
+        <select id="mSel" class="px-3 py-1.5 border rounded-lg bg-white font-bold"></select>
+        <button id="mNext" class="px-3 py-1.5 border rounded-lg hover:bg-gray-50" title="পরের মাস"><i class="fa-solid fa-chevron-right"></i></button>
+        <span id="mBadge" class="text-[11px] font-bold px-2 py-1 rounded-full"></span>
+        <span class="flex-1"></span>
+        <button id="mClose" class="hidden px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold"><i class="fa-solid fa-lock mr-1"></i>এই মাস ক্লোজ করুন</button>
+        <button id="csvBtn" class="px-3 py-1.5 rounded-lg border bg-white text-gray-600 text-xs"><i class="fa-solid fa-file-csv mr-1"></i>Excel/CSV</button>
+        <button id="refBtn" class="px-3 py-1.5 rounded-lg border bg-white text-gray-600 text-xs"><i class="fa-solid fa-rotate mr-1"></i>রিফ্রেশ</button>
+      </div>
+      <p id="accNote" class="text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2"></p>
+      <div id="mSum" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+      <div id="mFlags" class="flex flex-wrap gap-2 text-xs"></div>
+      <div id="mTable" class="hidden sm:block bg-white border rounded-2xl overflow-x-auto"></div>
+      <div id="mCards" class="sm:hidden bg-white border rounded-2xl divide-y overflow-hidden"></div>
+    </section>
 
-    <div id="filters" class="hidden flex flex-wrap items-center gap-2 text-xs">
-      <button data-f="all" class="chip px-3 py-1.5 rounded-full">সব</button>
-      <button data-f="today" class="chip px-3 py-1.5 rounded-full">আজ</button>
-      <button data-f="7" class="chip px-3 py-1.5 rounded-full">৭ দিন</button>
-      <button data-f="30" class="chip px-3 py-1.5 rounded-full">৩০ দিন</button>
-      <span class="flex-1"></span>
-      <button id="csvBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-file-csv mr-1"></i>CSV</button>
-      <button id="refBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-rotate mr-1"></i>রিফ্রেশ</button>
-    </div>
+    <!-- ===== স্টক ও অন্যান্য কার্যকলাপ ===== -->
+    <section id="actBox" class="hidden space-y-3">
+      <p class="text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2">স্টক রিসিভ, সাপ্লায়ার রিটার্ন, হ্যান্ডওভার ও দিন শেষের গণনা জমা। এখানে শুধু পণ্য ও পিস দেখানো হয়। টাকার হিসাব "টাকার হিসাব" ট্যাবে।</p>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span id="cats" class="flex flex-wrap gap-2"></span>
+        <span class="flex-1"></span>
+        <button data-f="all" class="chip px-3 py-1.5 rounded-full">সব সময়</button>
+        <button data-f="7" class="chip px-3 py-1.5 rounded-full">৭ দিন</button>
+        <button data-f="30" class="chip px-3 py-1.5 rounded-full">৩০ দিন</button>
+      </div>
+      <div id="actList" class="space-y-2"></div>
+    </section>
 
-    <div id="cats" class="hidden flex flex-wrap gap-2 text-xs"></div>
-    <div id="sum" class="hidden grid grid-cols-2 gap-2"></div>
-    <div id="list" class="space-y-2"></div>
-    <button id="moreBtn" class="hidden w-full bg-white border rounded-xl py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50">আরও পুরনো দেখুন</button>
+    <div id="closeList" class="hidden space-y-2"></div>
   </main>
 
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
     const app = getApps().length ? getApp() : initializeApp(cfg);
-    const auth = getAuth(app), db = getFirestore(app);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
     const num = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const money = (n) => '৳ ' + num(n);
     const dayOf = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
-    const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' });
-    const PAGE = 100;
+    const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hour12: false });
+    const shortDay = (iso) => new Date(iso).toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka', day: '2-digit', month: 'short' });
+    const curMonth = () => dayOf(new Date().toISOString()).slice(0, 7);
+    const monthRange = (m) => { const [y, mo] = m.split('-').map(Number); const nx = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+      return { startISO: new Date(`${m}-01T00:00:00+06:00`).toISOString(), endISO: new Date(`${nx}-01T00:00:00+06:00`).toISOString() }; };
+    const prevDay = (d) => new Date(new Date(d + 'T00:00:00Z').getTime() - 86400000).toISOString().slice(0, 10);
+    const BN_MONTH = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+    const monthName = (m) => `${BN_MONTH[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 
     // Ledger convention (server): amount > 0 = debit, amount < 0 = credit.
-    //  cash       : + cash came to my hand, - cash left my hand
-    //  receivable : + I owe the company more (shortage), - my dues went down
-    //  salary     : stored as a credit (negative). `sign` -1 flips it so that + = money owed TO me
+    //   cash       : + cash came to my hand,  - cash left my hand
+    //   receivable : + I owe the company more (shortage), - my dues went down
+    //   salary     : stored as a credit (negative); sign -1 flips it so that + = money owed TO me
     const ACCTS = {
-      cash:       { suffix: 'cash',       sign: 1,  title: 'হাতে থাকা ক্যাশ', plus: 'যোগ হয়েছে', minus: 'কমেছে', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
-                    note: 'আপনার কাছে সিস্টেম অনুযায়ী যত ক্যাশ থাকার কথা। রাইডার ক্যাশ জমা দিলে বাড়ে, রিফান্ড বা মাস্টারকে হস্তান্তর করলে কমে। দিন শেষে গণনার সাথে মিলিয়ে ঘাটতি/বাড়তি ধরা হয়।' },
-      receivable: { suffix: 'receivable', sign: 1,  title: 'আমার বকেয়া (দায়)', plus: 'দায় বেড়েছে', minus: 'দায় কমেছে', plusCls: 'text-rose-600', minusCls: 'text-emerald-700',
+      cash:       { suffix: 'cash',       sign: 1,  title: 'হাতে থাকা ক্যাশ', plus: 'জমা (+)', minus: 'খরচ (−)', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
+                    note: 'আপনার কাছে সিস্টেম অনুযায়ী যত ক্যাশ থাকার কথা। রাইডার ক্যাশ জমা দিলে বাড়ে; রিফান্ড দিলে বা মাস্টারকে হস্তান্তর করলে কমে। দিন শেষে গণনার সাথে মিলিয়ে ঘাটতি/বাড়তি ধরা হয়।' },
+      receivable: { suffix: 'receivable', sign: 1,  title: 'আমার বকেয়া (দায়)', plus: 'দায় বাড়ল (+)', minus: 'দায় কমল (−)', plusCls: 'text-rose-600', minusCls: 'text-emerald-700',
                     note: 'দিন শেষে ক্যাশ কম পাওয়া গেলে এখানে বকেয়া হিসেবে জমা হয়। টাকা পরিশোধ করলে বা বেতন থেকে কাটা গেলে কমে।' },
-      salary:     { suffix: 'salary',     sign: -1, title: 'আমার পাওনা (বেতন/বাড়তি ক্যাশ)', plus: 'পাওনা বেড়েছে', minus: 'পাওনা কমেছে', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
+      salary:     { suffix: 'salary',     sign: -1, title: 'আমার পাওনা', plus: 'পাওনা বাড়ল (+)', minus: 'পাওনা কমল (−)', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
                     note: 'মাসের বেতন ও দিন শেষে পাওয়া বাড়তি ক্যাশ এখানে জমা হয়। বকেয়া কাটা গেলে বা উত্তোলন করলে কমে।' }
     };
     const TYPE_LBL = {
-      rider_settlement: 'রাইডারের ক্যাশ জমা নিলাম',
-      manager_surplus: 'দিন শেষে ক্যাশ বেশি পাওয়া গেছে',
-      manager_shortage: 'দিন শেষে ক্যাশ কম পাওয়া গেছে',
-      manager_repay: 'বকেয়া পরিশোধ',
-      wallet_transfer: 'রিফান্ডের ক্যাশ মাস্টারকে হস্তান্তর',
-      menu_refund_cash: 'কাস্টমারকে রিফান্ডের ক্যাশ দিয়েছি',
-      menu_refund_cash_reversed: 'রিফান্ড কমানো হয়েছে (ক্যাশ ফেরত)',
-      manager_salary: 'মাসিক বেতন জমা',
-      manager_salary_deduction: 'বেতন থেকে বকেয়া কাটা হয়েছে',
-      manager_salary_cashout: 'পাওনা উত্তোলন (পরিশোধ)'
+      rider_settlement: 'রাইডারের ক্যাশ জমা', manager_surplus: 'দিন শেষে বাড়তি', manager_shortage: 'দিন শেষে ঘাটতি', manager_repay: 'বকেয়া পরিশোধ',
+      wallet_transfer: 'রিফান্ড ক্যাশ মাস্টারকে', menu_refund_cash: 'কাস্টমার রিফান্ড', menu_refund_cash_reversed: 'রিফান্ড ফেরত',
+      manager_salary: 'মাসিক বেতন', manager_salary_deduction: 'বেতন থেকে কাটা', manager_salary_cashout: 'পাওনা উত্তোলন'
+    };
+    const OVERRIDE = {
+      receivable: { manager_shortage: 'ঘাটতির টাকা আমার বকেয়ায় যোগ হয়েছে', manager_repay: 'বকেয়া পরিশোধ করেছি', manager_salary_deduction: 'বেতন থেকে বকেয়া কাটা হয়েছে' },
+      salary: { manager_surplus: 'বাড়তি ক্যাশ আমার পাওনায় যোগ হয়েছে', manager_salary_deduction: 'বেতন থেকে বকেয়া কাটা হয়েছে', manager_salary: 'মাসিক বেতন জমা' }
     };
 
-    let role = '', myUid = '', viewUid = '', tab = 'all', filter = 'all', cat = 'all', act = { items: null };
-    const state = {};   // per account: { lines:[], cursor, curBal (raw balance before the oldest loaded line), done }
-    let raw = {};       // current raw balances
-
-    const resetState = () => { act = { items: null }; ['cash', 'receivable', 'salary'].forEach(k => state[k] = { lines: [], cursor: null, curBal: null, done: false }); };
+    let role = '', myUid = '', viewUid = '', tab = 'money', accKey = 'cash', month = curMonth(), filter = 'all', cat = 'all';
+    let raw = {}, closesByDay = null, act = null, view = null;
     const accId = (k) => `mgr:${viewUid}:${ACCTS[k].suffix}`;
 
+    // ================= cards =================
     async function loadBalances() {
       raw = {};
       for (const k of Object.keys(ACCTS)) {
-        try { const s = await getDoc(doc(db, 'account_balances', accId(k))); raw[k] = s.exists() ? Number(s.data().balance || 0) : 0; }
-        catch (e) { raw[k] = 0; }
+        try { const s = await getDoc(doc(db, 'account_balances', accId(k))); raw[k] = s.exists() ? Number(s.data().balance || 0) : 0; } catch (e) { raw[k] = 0; }
       }
+      drawCards();
+    }
+    function drawCards() {
       $('cards').innerHTML = Object.keys(ACCTS).map(k => {
-        const v = raw[k] * ACCTS[k].sign;
-        const cls = k === 'receivable' ? (v > 0 ? 'text-rose-600' : 'text-gray-800') : (v < 0 ? 'text-rose-600' : 'text-gray-800');
-        return `<button data-card="${k}" class="bg-white border rounded-2xl p-3 text-left shadow-sm hover:bg-emerald-50"><p class="text-[11px] text-gray-500">${ACCTS[k].title}</p><p class="text-xl font-extrabold ${cls}">${money(v)}</p></button>`;
+        const v = r2(raw[k] * ACCTS[k].sign), sel = k === accKey && tab === 'money';
+        const bad = k === 'receivable' ? v > 0 : v < 0;
+        return `<button data-card="${k}" class="text-left rounded-2xl p-3 border shadow-sm ${sel ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-400' : 'bg-white hover:bg-emerald-50'}">
+          <p class="text-[10px] sm:text-[11px] text-gray-500">${ACCTS[k].title}</p><p class="text-base sm:text-xl font-extrabold ${bad ? 'text-rose-600' : 'text-gray-800'}">${money(v)}</p></button>`;
       }).join('');
     }
 
-    async function loadMore() {
-      if (tab === 'close') return;
-      const st = state[tab];
-      if (st.done) return;
-      if (st.curBal === null) st.curBal = raw[tab];   // newest line ends at the current balance
-      $('moreBtn').disabled = true;
-      try {
-        const parts = [where('accountId', '==', accId(tab)), orderBy('createdAt', 'desc'), limit(PAGE)];
-        if (st.cursor) parts.push(startAfter(st.cursor));
-        const snap = await getDocs(query(collection(db, 'ledger'), ...parts));
-        snap.docs.forEach(d => {
-          const x = d.data();
-          const after = st.curBal;                       // balance right after this line (raw)
-          st.curBal = Math.round((st.curBal - Number(x.amount || 0)) * 100) / 100;
-          st.lines.push({ id: d.id, ...x, after });
-        });
-        st.cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : st.cursor;
-        if (snap.docs.length < PAGE) st.done = true;
-      } catch (e) {
-        const needIdx = /index/i.test(e.message || '');
-        $('list').innerHTML = `<p class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl p-4">${needIdx ? 'ডেটাবেস ইনডেক্স এখনো চালু হয়নি। অ্যাডমিনকে বলুন: firebase deploy --only firestore:indexes' : 'লোড ব্যর্থ: ' + esc(e.message)}</p>`;
-        st.done = true;
-      }
-      $('moreBtn').disabled = false;
+    // ================= monthly statement =================
+    function fillMonths() {
+      const opts = []; let y = Number(curMonth().slice(0, 4)), m = Number(curMonth().slice(5, 7));
+      for (let i = 0; i < 24; i++) { opts.push(`${y}-${String(m).padStart(2, '0')}`); m--; if (m === 0) { m = 12; y--; } }
+      $('mSel').innerHTML = opts.map(o => `<option value="${o}">${monthName(o)}</option>`).join('');
+      $('mSel').value = month;
     }
 
-    const inFilter = (iso) => {
-      if (filter === 'all') return true;
-      const today = dayOf(new Date().toISOString());
-      if (filter === 'today') return dayOf(iso) === today;
-      const days = Number(filter);
-      return (Date.now() - new Date(iso).getTime()) <= days * 86400000;
-    };
+    async function loadClosesByDay() {
+      if (closesByDay) return;
+      closesByDay = {};
+      try { (await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)))).docs.forEach(d => { const r = d.data(); closesByDay[r.dayKey] = r; }); } catch (e) { console.warn('day_closes', e.message); }
+    }
 
+    async function loadMonth() {
+      $('mSum').innerHTML = ''; $('mTable').innerHTML = ''; $('mFlags').innerHTML = '';
+      $('mCards').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
+      const a = ACCTS[accKey], { startISO, endISO } = monthRange(month);
+      await loadClosesByDay();
+      // every line from the start of the month up to now (balance-now minus those lines = the opening balance)
+      const all = []; let cursor = null;
+      try {
+        for (;;) {
+          const parts = [where('accountId', '==', accId(accKey)), where('createdAt', '>=', startISO), orderBy('createdAt', 'desc'), limit(500)];
+          if (cursor) parts.push(startAfter(cursor));
+          const snap = await getDocs(query(collection(db, 'ledger'), ...parts));
+          snap.docs.forEach(d => all.push({ id: d.id, ...d.data() }));
+          if (snap.docs.length < 500) break; cursor = snap.docs[snap.docs.length - 1];
+        }
+      } catch (e) {
+        const needIdx = /index/i.test(e.message || '');
+        $('mCards').innerHTML = `<p class="text-sm text-rose-700 p-4">${needIdx ? 'ডেটাবেস ইনডেক্স এখনো চালু হয়নি। অ্যাডমিনকে বলুন: firebase deploy --only firestore:indexes' : 'লোড ব্যর্থ: ' + esc(e.message)}</p>`;
+        return;
+      }
+      const laterSum = all.filter(l => l.createdAt >= endISO).reduce((t, l) => t + Number(l.amount || 0), 0);
+      const inM = all.filter(l => l.createdAt < endISO).sort((x, y) => String(x.createdAt).localeCompare(String(y.createdAt)));
+      const closingRaw = r2(raw[accKey] - laterSum);
+      const plusRaw = r2(inM.filter(l => l.amount > 0).reduce((t, l) => t + l.amount, 0));
+      const minusRaw = r2(inM.filter(l => l.amount < 0).reduce((t, l) => t - l.amount, 0));
+      const openingRaw = r2(closingRaw - (plusRaw - minusRaw));
 
-    // ================= সব কার্যকলাপ: one timeline of everything this manager is responsible for =================
-    const CATS = { money: ['টাকা', 'fa-coins', 'bg-emerald-100 text-emerald-700'], close: ['দিন শেষ', 'fa-calendar-check', 'bg-sky-100 text-sky-700'],
-      stockin: ['স্টক রিসিভ', 'fa-truck-ramp-box', 'bg-indigo-100 text-indigo-700'], return: ['সাপ্লায়ার রিটার্ন', 'fa-rotate-left', 'bg-purple-100 text-purple-700'],
-      handover: ['হ্যান্ডওভার', 'fa-handshake', 'bg-amber-100 text-amber-700'] };
-    const ACC_SHORT = { cash: 'ক্যাশ', receivable: 'বকেয়া', salary: 'পাওনা' };
+      // rider names for settlement lines
+      const ids = [...new Set(inM.filter(l => l.type === 'rider_settlement' && l.refId).map(l => l.refId))];
+      const settle = {};
+      await Promise.all(ids.map(async id => { try { const s = await getDoc(doc(db, 'cash_settlements', id)); if (s.exists()) settle[id] = s.data(); } catch (e) { /* name stays generic */ } }));
+
+      // rows (oldest first, like the Excel sheet) with running balance
+      let run = openingRaw, lossTotal = 0, surplusTotal = 0;
+      const rows = inM.map(l => {
+        run = r2(run + Number(l.amount || 0));
+        const v = r2(Number(l.amount || 0) * a.sign);
+        const lbl = (OVERRIDE[accKey] && OVERRIDE[accKey][l.type]) || TYPE_LBL[l.type] || l.type;
+        let part = lbl, by = '', flag = null;
+        if (l.type === 'rider_settlement') {
+          const s = settle[l.refId]; by = s ? (s.riderName || 'রাইডার') : 'রাইডার';
+          part = `রাইডার ${by} এর ক্যাশ জমা নিলাম` + (s ? ` · ${s.method || ''} · ${(s.invoices || []).length}টি ইনভয়েস` : '');
+        } else if (l.type === 'manager_shortage' || l.type === 'manager_surplus') {
+          const cd = prevDay(l.dayKey), c = closesByDay[cd]; by = 'সিস্টেম (দিন শেষ)';
+          if (accKey === 'cash') part = (l.type === 'manager_shortage' ? 'দিন শেষে ক্যাশ কম পাওয়া গেছে' : 'দিন শেষে ক্যাশ বেশি পাওয়া গেছে');
+          if (c && typeof c.counted === 'number') part += ` (${cd}: আমি গুনেছি ${num(c.counted)}, সিস্টেমে ${num(c.expected)})`;
+          const amt = Math.abs(Number(l.amount || 0));
+          flag = { kind: l.type === 'manager_shortage' ? 'loss' : 'surplus', amt };
+          if (accKey === 'cash') { if (flag.kind === 'loss') lossTotal += amt; else surplusTotal += amt; }
+        } else if (['manager_salary', 'manager_salary_deduction'].includes(l.type)) by = 'সিস্টেম';
+        return { at: l.createdAt, part, by, typeLbl: TYPE_LBL[l.type] || l.type, ref: l.refId || '', v, flag, bal: r2(run * a.sign) };
+      });
+      view = { month, accKey, a, opening: r2(openingRaw * a.sign), closing: r2(closingRaw * a.sign), plus: 0, minus: 0, rows, openingRaw, closingRaw, plusRaw, minusRaw, lossTotal: r2(lossTotal), surplusTotal: r2(surplusTotal) };
+      rows.forEach(r => { if (r.v > 0) view.plus += r.v; else view.minus += -r.v; });
+      view.plus = r2(view.plus); view.minus = r2(view.minus);
+      await drawBadge(closingRaw);
+      drawStatement();
+    }
+
+    async function drawBadge(closingRaw) {
+      const b = $('mBadge'); $('mClose').classList.add('hidden');
+      if (month >= curMonth()) { b.className = 'text-[11px] font-bold px-2 py-1 rounded-full bg-sky-100 text-sky-700'; b.textContent = 'চলমান মাস (এখনো ক্লোজ হয়নি)'; return; }
+      try {
+        const s = await getDoc(doc(db, 'manager_month_closes', `${viewUid}_${month}`));
+        if (s.exists()) {
+          const rec = s.data(), snapClosing = rec.accounts && rec.accounts[accKey] ? Number(rec.accounts[accKey].closing) : null;
+          if (snapClosing !== null && Math.abs(snapClosing - closingRaw) > 0.01) { b.className = 'text-[11px] font-bold px-2 py-1 rounded-full bg-rose-100 text-rose-700'; b.textContent = 'ক্লোজ রেকর্ডের সাথে মিলছে না, মাস্টারকে জানান'; }
+          else { b.className = 'text-[11px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700'; b.textContent = '✔ মাস ক্লোজড · ' + dayOf(rec.closedAt); }
+          return;
+        }
+      } catch (e) { /* no permission or no record */ }
+      b.className = 'text-[11px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700'; b.textContent = 'ক্লোজ রেকর্ড নেই';
+      if (role === 'master') $('mClose').classList.remove('hidden');
+    }
+
+    function drawStatement() {
+      const v = view, a = v.a, nm = monthName(v.month);
+      $('accNote').textContent = a.note;
+      $('mSum').innerHTML = [
+        ['Opening Balance (মাসের শুরু)', money(v.opening), 'text-gray-800'],
+        [a.plus + ' মোট', '+ ' + money(v.plus), a.plusCls],
+        [a.minus + ' মোট', '− ' + money(v.minus), a.minusCls],
+        ['Closing Balance (মাসের শেষ)', money(v.closing), 'text-emerald-800']
+      ].map(([l, x, c]) => `<div class="bg-white border rounded-2xl p-3"><p class="text-[10px] text-gray-500">${l}</p><p class="text-base sm:text-lg font-extrabold ${c}">${x}</p></div>`).join('');
+      $('mFlags').innerHTML = (v.accKey === 'cash' && (v.lossTotal || v.surplusTotal))
+        ? `<span class="px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 font-bold">এই মাসে মোট ঘাটতি: ${money(v.lossTotal)}</span><span class="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">মোট বাড়তি: ${money(v.surplusTotal)}</span>` : '';
+
+      const cls = (x) => x > 0 ? a.plusCls : a.minusCls;
+      const flagTxt = (f) => f ? (f.kind === 'loss' ? `ঘাটতি ${num(f.amt)}` : `বাড়তি ${num(f.amt)}`) : '';
+      // desktop table (the Excel layout)
+      const trs = v.rows.map(r => `<tr class="border-t hover:bg-gray-50">
+        <td class="p-2 whitespace-nowrap">${dayOf(r.at)}</td><td class="p-2">${timeOf(r.at)}</td><td class="p-2 min-w-[220px]">${esc(r.part)}</td><td class="p-2">${esc(r.by)}</td>
+        <td class="p-2">${esc(r.typeLbl)}</td><td class="p-2 text-[10px] text-gray-400 max-w-[130px] truncate" title="${esc(r.ref)}">${esc(r.ref)}</td>
+        <td class="p-2 text-right font-bold ${a.plusCls}">${r.v > 0 ? num(r.v) : ''}</td><td class="p-2 text-right font-bold ${a.minusCls}">${r.v < 0 ? num(-r.v) : ''}</td>
+        <td class="p-2 text-right text-[11px] font-bold ${r.flag && r.flag.kind === 'loss' ? 'text-rose-600' : 'text-emerald-700'}">${flagTxt(r.flag)}</td><td class="p-2 text-right font-extrabold">${num(r.bal)}</td></tr>`).join('');
+      $('mTable').innerHTML = `<table class="w-full text-xs"><thead class="bg-emerald-700 text-white"><tr>
+        <th class="p-2 text-left">তারিখ</th><th class="p-2 text-left">সময়</th><th class="p-2 text-left">বিবরণ</th><th class="p-2 text-left">কার সাথে</th><th class="p-2 text-left">ধরন</th><th class="p-2 text-left">নম্বর</th>
+        <th class="p-2 text-right">${a.plus}</th><th class="p-2 text-right">${a.minus}</th><th class="p-2 text-right">ঘাটতি / বাড়তি</th><th class="p-2 text-right">ব্যালেন্স</th></tr></thead>
+        <tbody>
+          <tr class="bg-sky-50 font-bold"><td class="p-2">${v.month}-01</td><td class="p-2">00:00</td><td class="p-2" colspan="5">Opening Balance · ${nm} (গত মাসের Closing)</td><td></td><td></td><td></td><td class="p-2 text-right">${num(v.opening)}</td></tr>
+          ${trs || '<tr><td colspan="10" class="p-6 text-center text-gray-400">এই মাসে কোনো লেনদেন নেই।</td></tr>'}
+          <tr class="bg-emerald-50 font-extrabold border-t-2"><td class="p-2" colspan="6">মোট · Closing Balance (${nm})</td><td class="p-2 text-right ${a.plusCls}">${num(v.plus)}</td><td class="p-2 text-right ${a.minusCls}">${num(v.minus)}</td><td class="p-2 text-right text-[11px]">${v.accKey === 'cash' ? 'ঘাটতি ' + num(v.lossTotal) + ' · বাড়তি ' + num(v.surplusTotal) : ''}</td><td class="p-2 text-right">${num(v.closing)}</td></tr>
+        </tbody></table>`;
+      // mobile cards
+      const cards = v.rows.map(r => `<div class="px-3 py-2.5 space-y-1">
+        <div class="flex justify-between gap-3"><p class="text-xs font-bold">${esc(r.part)}</p><p class="font-extrabold text-sm whitespace-nowrap ${cls(r.v)}">${r.v > 0 ? '+' : '−'} ${num(Math.abs(r.v))}</p></div>
+        <div class="flex justify-between gap-3 text-[10px] text-gray-400"><span>${shortDay(r.at)} · ${timeOf(r.at)} · ${esc(r.typeLbl)}${r.by ? ' · ' + esc(r.by) : ''}</span><span class="whitespace-nowrap">ব্যালেন্স ${num(r.bal)}</span></div>
+        ${r.ref ? `<p class="text-[10px] text-gray-300 break-all">${esc(r.ref)}</p>` : ''}${r.flag ? `<span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${r.flag.kind === 'loss' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${flagTxt(r.flag)}</span>` : ''}</div>`).join('');
+      $('mCards').innerHTML = `<div class="px-3 py-2.5 bg-sky-50 flex justify-between text-xs font-bold"><span>Opening Balance · ${nm}</span><span>${money(v.opening)}</span></div>
+        ${cards || '<p class="p-6 text-center text-sm text-gray-400">এই মাসে কোনো লেনদেন নেই।</p>'}
+        <div class="px-3 py-2.5 bg-emerald-50 flex justify-between text-xs font-extrabold"><span>Closing Balance · ${nm}</span><span>${money(v.closing)}</span></div>`;
+    }
+
+    function exportCsv() {
+      if (!view) return;
+      const v = view, a = v.a;
+      const head = ['Date', 'Time (24h)', 'Particular', 'By', 'Transaction Type', 'Invoice / Transaction No', a.plus, a.minus, 'Shortage / Surplus', 'Balance'];
+      const out = [[`${v.month}-01`, '00:00', 'Opening Balance', '', 'Opening Balance', 'OPN-' + v.month.replace('-', ''), '', '', '', v.opening],
+        ...v.rows.map(r => [dayOf(r.at), timeOf(r.at), r.part, r.by, r.typeLbl, r.ref, r.v > 0 ? r.v : '', r.v < 0 ? -r.v : '', r.flag ? (r.flag.kind === 'loss' ? 'Shortage ' : 'Surplus ') + r.flag.amt : '', r.bal]),
+        ['', '', 'Total / Closing Balance', '', '', 'CLS-' + v.month.replace('-', ''), v.plus, v.minus, '', v.closing]];
+      const csv = [head, ...out].map(row => row.map(x => '"' + String(x ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+      const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+      el.download = `account-${v.accKey}-${v.month}.csv`; el.click();
+    }
+
+    // ================= স্টক ও অন্যান্য কার্যকলাপ =================
+    const CATS = { stockin: ['স্টক রিসিভ', 'fa-truck-ramp-box', 'bg-indigo-100 text-indigo-700'], return: ['সাপ্লায়ার রিটার্ন', 'fa-rotate-left', 'bg-purple-100 text-purple-700'],
+      handover: ['হ্যান্ডওভার', 'fa-handshake', 'bg-amber-100 text-amber-700'], close: ['দিন শেষ', 'fa-calendar-check', 'bg-sky-100 text-sky-700'] };
     const pcs = (arr) => (arr || []).reduce((t, i) => t + Number(i.qty || 0), 0);
-
     async function loadActivity() {
       const items = [], warn = [];
       const safe = async (name, fn) => { try { await fn(); } catch (e) { console.warn(name, e.message); warn.push(name); } };
-
-      // 1) money: ledger lines of my 3 accounts, grouped by transaction (one row shows its effect on each account)
-      await safe('ledger', async () => {
-        const per = {};
-        for (const k of Object.keys(ACCTS)) {
-          const snap = await getDocs(query(collection(db, 'ledger'), where('accountId', '==', accId(k)), orderBy('createdAt', 'desc'), limit(300)));
-          snap.docs.forEach(d => { const x = d.data(); const g = per[x.txId] || (per[x.txId] = { type: x.type, refId: x.refId, at: x.createdAt, effects: [] }); g.effects.push({ k, v: Number(x.amount || 0) * ACCTS[k].sign }); });
-        }
-        Object.values(per).forEach(g => items.push({ cat: 'money', at: g.at, title: TYPE_LBL[g.type] || g.type, ref: g.refId || '', effects: g.effects }));
-      });
-      // 2) day close: the count I submitted (the shortage / surplus result shows up above as a money row at 00:00)
       await safe('day_closes', async () => {
-        (await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)))).docs.forEach(d => {
-          const r = d.data();
-          if (typeof r.counted === 'number') items.push({ cat: 'close', at: r.countedAt || r.closedAt, title: 'দিন শেষের ক্যাশ গণনা জমা দিলাম', ref: r.dayKey, detail: `আমি গুনেছি ${money(r.counted)}` + (r.status === 'closed' ? ` · সিস্টেমে ছিল ${money(r.expected)} · ` + (Number(r.diff) < 0 ? `ঘাটতি ${money(-r.diff)}` : Number(r.diff) > 0 ? `বাড়তি ${money(r.diff)}` : 'পার্থক্য নেই') : ' · ফলাফল দিন শেষে আসবে') });
-          else if (r.status === 'not_counted') items.push({ cat: 'close', at: r.createdAt, title: 'গণনা জমা দেওয়া হয়নি', ref: r.dayKey, detail: `সিস্টেমে ক্যাশ ছিল ${money(r.expected)}` });
-        });
+        (await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)))).docs.forEach(d => { const r = d.data();
+          if (typeof r.counted === 'number') items.push({ cat: 'close', at: r.countedAt || r.closedAt, title: 'দিন শেষের ক্যাশ গণনা জমা দিলাম', ref: r.dayKey, detail: `আমি গুনেছি ${money(r.counted)}` + (r.status === 'closed' ? ` · সিস্টেমে ছিল ${money(r.expected)} · ` + (Number(r.diff) < 0 ? `ঘাটতি ${money(-r.diff)}` : Number(r.diff) > 0 ? `বাড়তি ${money(r.diff)}` : 'পার্থক্য নেই') : '') });
+          else if (r.status === 'not_counted') items.push({ cat: 'close', at: r.createdAt, title: 'গণনা জমা দেওয়া হয়নি', ref: r.dayKey, detail: `সিস্টেমে ক্যাশ ছিল ${money(r.expected)}` }); });
       });
-      // 3) stock received / refused (quantities only: prices are never shown to the store manager)
       await safe('stock_in_pending', async () => {
         (await getDocs(query(collection(db, 'stock_in_pending'), where('receivedBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
           items.push({ cat: 'stockin', at: r.receivedAt, title: 'চালান রিসিভ করলাম (স্টকে যুক্ত)', ref: r.invoiceNo || d.id, detail: `${r.vendor} · ${(r.items || []).length}টি পণ্য · ${pcs(r.items)} পিস`, lines: r.items }); });
         (await getDocs(query(collection(db, 'stock_in_pending'), where('rejectedBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
           items.push({ cat: 'stockin', at: r.rejectedAt, title: 'চালান ফেরত দিলাম (রিসিভ করিনি)', ref: r.invoiceNo || d.id, detail: `${r.vendor} · ${pcs(r.items)} পিস · কারণ: ${r.rejectReason || ''}`, lines: r.items }); });
       });
-      // 4) returns to supplier I created
       await safe('supplier_returns', async () => {
         (await getDocs(query(collection(db, 'supplier_returns'), where('createdBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
           const tl = r.type === 'damage' ? 'Damage' : 'Fresh', base = `${r.vendor} · ${tl} · ${(r.items || []).length}টি পণ্য · ${r.totalQty} পিস`;
           items.push({ cat: 'return', at: r.createdAt, title: 'সাপ্লায়ার রিটার্ন জমা দিলাম (অপেক্ষমাণ)', ref: r.returnNo, detail: base + ` · কারণ: ${r.reason || ''}`, lines: r.items });
           if (r.confirmedAt) items.push({ cat: 'return', at: r.confirmedAt, title: 'ভেন্ডর কনফার্ম করেছে (স্টক কমেছে)', ref: r.returnNo, detail: base });
-          if (r.cancelledAt) items.push({ cat: 'return', at: r.cancelledAt, title: 'রিটার্ন বাতিল হয়েছে (স্টক বদলায়নি)', ref: r.returnNo, detail: base });
-        });
+          if (r.cancelledAt) items.push({ cat: 'return', at: r.cancelledAt, title: 'রিটার্ন বাতিল হয়েছে (স্টক বদলায়নি)', ref: r.returnNo, detail: base }); });
       });
-      // 5) store (stock) handovers I gave or received
       await safe('store_handovers', async () => {
         const seen = new Set();
-        for (const side of ['toUid', 'fromUid']) {
-          (await getDocs(query(collection(db, 'store_handovers'), where(side, '==', viewUid)))).docs.forEach(d => {
-            if (seen.has(d.id)) return; seen.add(d.id); const r = d.data(), toMe = r.toUid === viewUid;
-            const base = `${toMe ? 'দিয়েছেন ' + (r.fromName || '') : 'পেয়েছেন ' + (r.toName || '')} · ${r.productCount || 0}টি পণ্য · ${r.totalQty || 0} পিস`;
-            items.push({ cat: 'handover', at: r.createdAt, title: toMe ? 'আমাকে স্টক হ্যান্ডওভার পাঠানো হয়েছে' : 'আমি স্টক হ্যান্ডওভার দিলাম', ref: r.id, detail: base });
-            if (r.acceptedAt) items.push({ cat: 'handover', at: r.acceptedAt, title: 'হ্যান্ডওভার গৃহীত' + (r.differenceCount ? ` (${r.differenceCount}টি পণ্যে পার্থক্য)` : ''), ref: r.id, detail: base });
-            if (r.cancelledAt) items.push({ cat: 'handover', at: r.cancelledAt, title: 'হ্যান্ডওভার বাতিল', ref: r.id, detail: base });
-          });
-        }
+        for (const side of ['toUid', 'fromUid']) (await getDocs(query(collection(db, 'store_handovers'), where(side, '==', viewUid)))).docs.forEach(d => {
+          if (seen.has(d.id)) return; seen.add(d.id); const r = d.data(), toMe = r.toUid === viewUid;
+          const base = `${toMe ? 'দিয়েছেন ' + (r.fromName || '') : 'পেয়েছেন ' + (r.toName || '')} · ${r.productCount || 0}টি পণ্য · ${r.totalQty || 0} পিস`;
+          items.push({ cat: 'handover', at: r.createdAt, title: toMe ? 'আমাকে স্টক হ্যান্ডওভার পাঠানো হয়েছে' : 'আমি স্টক হ্যান্ডওভার দিলাম', ref: r.id, detail: base });
+          if (r.acceptedAt) items.push({ cat: 'handover', at: r.acceptedAt, title: 'হ্যান্ডওভার গৃহীত' + (r.differenceCount ? ` (${r.differenceCount}টি পণ্যে পার্থক্য)` : ''), ref: r.id, detail: base });
+          if (r.cancelledAt) items.push({ cat: 'handover', at: r.cancelledAt, title: 'হ্যান্ডওভার বাতিল', ref: r.id, detail: base }); });
       });
-      // 6) refund cash handed to master
-      await safe('wallet_transfers', async () => {
-        (await getDocs(query(collection(db, 'wallet_transfers'), where('uid', '==', viewUid)))).docs.forEach(d => { const r = d.data();
-          items.push({ cat: 'money', at: r.createdAt, title: 'মাস্টারকে ক্যাশ হস্তান্তরের অনুরোধ', ref: d.id, detail: `${money(r.amount)} · ${r.status === 'confirmed' ? 'মাস্টার নিশ্চিত করেছেন' : 'অপেক্ষমাণ'}` }); });
-      });
-
       act = { items: items.filter(x => x.at).sort((a, b) => String(b.at).localeCompare(String(a.at))), warn };
     }
-
-    function actFiltered() { return (act.items || []).filter(x => (cat === 'all' || x.cat === cat) && inFilter(x.at)); }
-
-    function renderAll() {
-      $('filters').classList.remove('hidden'); $('sum').classList.add('hidden'); $('moreBtn').classList.add('hidden');
-      $('tabNote').textContent = 'আপনার দায়িত্বের সব ঘটনা একসাথে, সময় ও তারিখসহ: টাকা, দিন শেষের গণনা, স্টক রিসিভ, সাপ্লায়ার রিটার্ন ও হ্যান্ডওভার। স্টকের ক্ষেত্রে শুধু পণ্য ও পিস দেখানো হয়।';
-      $('tabNote').classList.remove('hidden');
-      $('cats').classList.remove('hidden');
-      $('cats').innerHTML = [['all', 'সব'], ...Object.entries(CATS).map(([k, v]) => [k, v[0]])]
-        .map(([k, l]) => `<button data-cat="${k}" class="px-3 py-1.5 rounded-full ${k === cat ? 'bg-gray-800 text-white' : 'bg-white border text-gray-600'}">${l}</button>`).join('');
-      const list = actFiltered();
-      if (!list.length) { $('list').innerHTML = `<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">এই সময়ে কিছু নেই।</p>`; return; }
+    const inFilter = (iso) => filter === 'all' || (Date.now() - new Date(iso).getTime()) <= Number(filter) * 86400000;
+    function drawActivity() {
+      document.querySelectorAll('.chip').forEach(b => b.className = 'chip px-3 py-1.5 rounded-full ' + (b.dataset.f === filter ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      $('cats').innerHTML = [['all', 'সব'], ...Object.entries(CATS).map(([k, v]) => [k, v[0]])].map(([k, l]) => `<button data-cat="${k}" class="px-3 py-1.5 rounded-full ${k === cat ? 'bg-gray-800 text-white' : 'bg-white border text-gray-600'}">${l}</button>`).join(' ');
+      const list = (act.items || []).filter(x => (cat === 'all' || x.cat === cat) && inFilter(x.at));
+      if (!list.length) { $('actList').innerHTML = '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">এই সময়ে কিছু নেই।</p>'; return; }
       let html = '', cur = '', rows = '';
       const flush = () => { if (cur) html += `<div class="bg-white border rounded-2xl overflow-hidden"><div class="bg-gray-50 px-3 py-2 text-xs font-bold">${cur}</div><div class="divide-y">${rows}</div></div>`; rows = ''; };
       for (const x of list) {
         const d = dayOf(x.at); if (d !== cur) { flush(); cur = d; }
         const c = CATS[x.cat];
-        const eff = (x.effects || []).map(e => { const a = ACCTS[e.k]; return `<span class="inline-block px-2 py-0.5 rounded-full bg-gray-50 border font-bold ${e.v > 0 ? a.plusCls : a.minusCls}">${ACC_SHORT[e.k]} ${e.v > 0 ? '+' : '−'}${num(Math.abs(e.v))}</span>`; }).join(' ');
         const lines = x.lines && x.lines.length ? `<details class="mt-1"><summary class="text-[10px] text-gray-500 cursor-pointer">পণ্যের তালিকা</summary><div class="text-[11px] text-gray-600 pl-2">${x.lines.map(i => `${esc(i.name)} × ${Number(i.qty)}`).join('<br>')}</div></details>` : '';
-        rows += `<div class="px-3 py-2.5 text-xs space-y-1">
-          <div class="flex justify-between gap-2"><p class="font-bold"><span class="inline-block px-1.5 py-0.5 mr-1 rounded text-[10px] ${c[2]}"><i class="fa-solid ${c[1]}"></i> ${c[0]}</span>${esc(x.title)}</p><span class="text-[10px] text-gray-400 whitespace-nowrap">${timeOf(x.at)}</span></div>
-          ${x.detail ? `<p class="text-gray-600">${esc(x.detail)}</p>` : ''}${eff ? `<p class="flex flex-wrap gap-1">${eff}</p>` : ''}${lines}
-          ${x.ref ? `<p class="text-[10px] text-gray-400">রেফারেন্স: ${esc(String(x.ref).length > 40 ? String(x.ref).slice(0, 40) + '…' : x.ref)}</p>` : ''}</div>`;
+        rows += `<div class="px-3 py-2.5 text-xs space-y-1"><div class="flex justify-between gap-2"><p class="font-bold"><span class="inline-block px-1.5 py-0.5 mr-1 rounded text-[10px] ${c[2]}"><i class="fa-solid ${c[1]}"></i> ${c[0]}</span>${esc(x.title)}</p><span class="text-[10px] text-gray-400 whitespace-nowrap">${timeOf(x.at)}</span></div>
+          ${x.detail ? `<p class="text-gray-600">${esc(x.detail)}</p>` : ''}${lines}${x.ref ? `<p class="text-[10px] text-gray-400">রেফারেন্স: ${esc(String(x.ref).slice(0, 40))}</p>` : ''}</div>`;
       }
       flush();
-      const warn = act.warn && act.warn.length ? `<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">কিছু অংশ লোড হয়নি: ${act.warn.map(esc).join(', ')}</p>` : '';
-      $('list').innerHTML = warn + html + `<p class="text-[10px] text-gray-400 text-center">টাকার লেনদেন সর্বশেষ ৩০০টি পর্যন্ত দেখানো হয়েছে। পুরনো লেনদেন ক্যাশ/বকেয়া/পাওনা ট্যাবে পাবেন।</p>`;
+      $('actList').innerHTML = (act.warn.length ? `<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">কিছু অংশ লোড হয়নি: ${act.warn.map(esc).join(', ')}</p>` : '') + html;
     }
 
-    function render() {
-      document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
-      document.querySelectorAll('.chip').forEach(b => b.className = 'chip px-3 py-1.5 rounded-full ' + (b.dataset.f === filter ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
-      if (tab === 'all') { renderAll(); return; }
-      $('cats').classList.add('hidden');
-      if (tab === 'close') { $('filters').classList.add('hidden'); $('sum').classList.add('hidden'); $('tabNote').classList.add('hidden'); $('moreBtn').classList.add('hidden'); return; }
-      $('filters').classList.remove('hidden');
-      const a = ACCTS[tab], st = state[tab];
-      $('tabNote').textContent = a.note; $('tabNote').classList.remove('hidden');
-      const lines = st.lines.filter(l => inFilter(l.createdAt));
-      let plus = 0, minus = 0;
-      lines.forEach(l => { const v = Number(l.amount || 0) * a.sign; if (v > 0) plus += v; else minus += -v; });
-      $('sum').classList.remove('hidden');
-      $('sum').innerHTML = `<div class="bg-white border rounded-xl p-3"><p class="text-[11px] text-gray-500">${a.plus} (মোট)</p><p class="font-extrabold ${a.plusCls}">+ ${money(plus)}</p></div>
-        <div class="bg-white border rounded-xl p-3"><p class="text-[11px] text-gray-500">${a.minus} (মোট)</p><p class="font-extrabold ${a.minusCls}">− ${money(minus)}</p></div>`;
-      if (!lines.length) { $('list').innerHTML = `<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">${st.lines.length || !st.done ? 'এই সময়ে কিছু নেই।' : 'এখনো কোনো লেনদেন নেই।'}</p>`; }
-      else {
-        let html = '', cur = '', dayP = 0, dayM = 0, rows = '';
-        const flush = () => { if (!cur) return; html += `<div class="bg-white border rounded-2xl overflow-hidden"><div class="flex justify-between items-center bg-gray-50 px-3 py-2 text-xs font-bold"><span>${cur}</span><span><span class="${a.plusCls}">+${num(dayP)}</span> <span class="text-gray-300">|</span> <span class="${a.minusCls}">−${num(dayM)}</span></span></div><div class="divide-y">${rows}</div></div>`; rows = ''; dayP = 0; dayM = 0; };
-        for (const l of lines) {
-          const d = dayOf(l.createdAt);
-          if (d !== cur) { flush(); cur = d; }
-          const v = Number(l.amount || 0) * a.sign;
-          if (v > 0) dayP += v; else dayM += -v;
-          const refShort = l.refId && String(l.refId).length > 22 ? String(l.refId).slice(0, 22) + '…' : (l.refId || '');
-          rows += `<div class="flex justify-between gap-3 px-3 py-2.5 text-xs">
-            <div class="min-w-0"><p class="font-bold">${esc(TYPE_LBL[l.type] || l.type)}</p><p class="text-[10px] text-gray-400">${timeOf(l.createdAt)}${refShort ? ' · ' + esc(refShort) : ''}</p></div>
-            <div class="text-right whitespace-nowrap"><p class="font-extrabold text-sm ${v > 0 ? a.plusCls : a.minusCls}">${v > 0 ? '+' : '−'} ${num(Math.abs(v))}</p><p class="text-[10px] text-gray-400">ব্যালেন্স ${num(l.after * a.sign)}</p></div></div>`;
-        }
-        flush();
-        $('list').innerHTML = html;
-      }
-      $('moreBtn').classList.toggle('hidden', st.done);
-    }
-
-    async function renderClose() {
-      $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
+    // ================= দিন শেষের মিল =================
+    async function drawClose() {
+      $('closeList').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
       try {
-        const snap = await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)));
-        const rows = snap.docs.map(d => d.data()).sort((x, y) => String(y.dayKey).localeCompare(String(x.dayKey)));
+        const rows = (await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)))).docs.map(d => d.data()).sort((x, y) => String(y.dayKey).localeCompare(String(x.dayKey)));
         const ST = { closed: ['মিলেছে/বন্ধ', 'bg-emerald-100 text-emerald-700'], not_counted: ['গণনা দেওয়া হয়নি', 'bg-amber-100 text-amber-700'] };
-        $('list').innerHTML = rows.map(r => {
-          const diff = Number(r.diff || 0), st = ST[r.status] || [r.status || 'গণনা জমা', 'bg-gray-100 text-gray-600'];
-          return `<div class="bg-white border rounded-2xl p-3 text-xs space-y-1">
-            <div class="flex justify-between"><b>${esc(r.dayKey)}</b><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${st[1]}">${st[0]}</span></div>
+        $('closeList').innerHTML = rows.map(r => { const diff = Number(r.diff || 0), st = ST[r.status] || [r.status || 'গণনা জমা', 'bg-gray-100 text-gray-600'];
+          return `<div class="bg-white border rounded-2xl p-3 text-xs space-y-1"><div class="flex justify-between"><b>${esc(r.dayKey)}</b><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${st[1]}">${st[0]}</span></div>
             <div class="flex justify-between text-gray-600"><span>সিস্টেমে থাকার কথা: <b>${r.expected != null ? money(r.expected) : '—'}</b></span><span>আমি গুনেছি: <b>${r.counted != null ? money(r.counted) : '—'}</b></span></div>
-            ${r.status === 'closed' ? `<p class="font-bold ${diff < 0 ? 'text-rose-600' : diff > 0 ? 'text-emerald-700' : 'text-gray-500'}">${diff < 0 ? 'ঘাটতি (বকেয়া হয়েছে): ' + money(-diff) : diff > 0 ? 'বাড়তি (পাওনা হয়েছে): ' + money(diff) : 'কোনো পার্থক্য নেই'}</p>` : ''}</div>`;
-        }).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
-      } catch (e) { $('list').innerHTML = `<p class="text-sm text-rose-700 p-4">লোড ব্যর্থ: ${esc(e.message)}</p>`; }
+            ${r.status === 'closed' ? `<p class="font-bold ${diff < 0 ? 'text-rose-600' : diff > 0 ? 'text-emerald-700' : 'text-gray-500'}">${diff < 0 ? 'ঘাটতি (বকেয়া হয়েছে): ' + money(-diff) : diff > 0 ? 'বাড়তি (পাওনা হয়েছে): ' + money(diff) : 'কোনো পার্থক্য নেই'}</p>` : ''}</div>`; }).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
+      } catch (e) { $('closeList').innerHTML = `<p class="text-sm text-rose-700 p-4">লোড ব্যর্থ: ${esc(e.message)}</p>`; }
     }
 
+    // ================= navigation =================
     async function show() {
-      render();
-      if (tab === 'close') { await renderClose(); return; }
-      if (tab === 'all') { if (!act.items) { $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadActivity(); } render(); return; }
-      if (!state[tab].lines.length && !state[tab].done) { $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadMore(); }
-      render();
+      document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      $('moneyBox').classList.toggle('hidden', tab !== 'money'); $('actBox').classList.toggle('hidden', tab !== 'activity'); $('closeList').classList.toggle('hidden', tab !== 'close');
+      drawCards();
+      if (tab === 'money') await loadMonth();
+      else if (tab === 'activity') { if (!act) { $('actList').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadActivity(); } drawActivity(); }
+      else await drawClose();
     }
-    async function fullReload() {
-      resetState(); $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
-      await loadBalances(); await show();
-    }
+    async function fullReload() { act = null; closesByDay = null; await loadBalances(); await show(); }
 
     $('tabs').onclick = (e) => { const b = e.target.closest('.tab'); if (b) { tab = b.dataset.t; show(); } };
-    $('cards').onclick = (e) => { const b = e.target.closest('[data-card]'); if (b) { tab = b.dataset.card; show(); } };
-    $('filters').onclick = (e) => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; render(); } };
-    $('cats').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; render(); } };
+    $('cards').onclick = (e) => { const b = e.target.closest('[data-card]'); if (b) { accKey = b.dataset.card; tab = 'money'; show(); } };
+    $('mSel').onchange = () => { month = $('mSel').value; loadMonth(); };
+    $('mPrev').onclick = () => { const i = $('mSel').selectedIndex; if (i < $('mSel').options.length - 1) { $('mSel').selectedIndex = i + 1; $('mSel').onchange(); } };
+    $('mNext').onclick = () => { const i = $('mSel').selectedIndex; if (i > 0) { $('mSel').selectedIndex = i - 1; $('mSel').onchange(); } };
+    $('csvBtn').onclick = exportCsv;
     $('refBtn').onclick = fullReload;
-    $('moreBtn').onclick = async () => { await loadMore(); render(); };
+    $('cats').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; drawActivity(); } };
+    $('actBox').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; drawActivity(); } });
     $('mgrSel').onchange = () => { viewUid = $('mgrSel').value; fullReload(); };
-    $('csvBtn').onclick = () => {
-      if (tab === 'all') {
-        const head = ['Date', 'Time', 'Category', 'What happened', 'Details', 'Effect', 'Reference'];
-        const out = actFiltered().map(x => [dayOf(x.at), timeOf(x.at), CATS[x.cat][0], x.title, x.detail || '', (x.effects || []).map(e => ACC_SHORT[e.k] + ' ' + (e.v > 0 ? '+' : '-') + Math.abs(e.v)).join(' | '), x.ref || '']
-          .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','));
-        const blob = new Blob(['\ufeff' + [head.join(','), ...out].join('\n')], { type: 'text/csv;charset=utf-8' });
-        const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `my-activity-${dayOf(new Date().toISOString())}.csv`; el.click(); return;
-      }
-      const a = ACCTS[tab], lines = state[tab].lines.filter(l => inFilter(l.createdAt));
-      const head = ['Date', 'Time', 'Description', 'Ref', 'Plus', 'Minus', 'Balance'];
-      const out = lines.map(l => { const v = Number(l.amount || 0) * a.sign; return [dayOf(l.createdAt), timeOf(l.createdAt), TYPE_LBL[l.type] || l.type, l.refId || '', v > 0 ? v : '', v < 0 ? -v : '', l.after * a.sign]
-        .map(x => '"' + String(x ?? '').replace(/"/g, '""') + '"').join(','); });
-      const blob = new Blob(['\ufeff' + [head.join(','), ...out].join('\n')], { type: 'text/csv;charset=utf-8' });
-      const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `my-account-${tab}-${dayOf(new Date().toISOString())}.csv`; el.click();
+    $('mClose').onclick = async () => {
+      if (!confirm(`${monthName(month)} মাসের হিসাব ক্লোজ করবেন? সব স্টোর ম্যানেজারের জন্য ক্লোজ রেকর্ড তৈরি হবে।`)) return;
+      $('mClose').disabled = true;
+      try { const r = await httpsCallable(fns, 'closeManagerMonth')({ month }); alert(`ক্লোজ হয়েছে: ${r.data.closed}, আগে থেকেই ছিল: ${r.data.skipped}, ব্যর্থ: ${r.data.failed}`); await loadMonth(); }
+      catch (e) { alert('ব্যর্থ: ' + (e.message || e)); }
+      $('mClose').disabled = false;
     };
 
     onAuthStateChanged(auth, async (u) => {
@@ -340,8 +382,7 @@
           $('who').classList.remove('hidden');
         } catch (e) { console.warn(e.message); }
       }
-      ['cards', 'tabs'].forEach(id => $(id).classList.remove('hidden'));
-      $('msg').classList.add('hidden');
+      fillMonths(); ['cards', 'tabs'].forEach(id => $(id).classList.remove('hidden')); $('msg').classList.add('hidden');
       await fullReload();
     });
   </script>
