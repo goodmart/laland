@@ -232,9 +232,6 @@
           <button id="detailEditBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
             <i class="fa-solid fa-pen-to-square mr-1"></i> Edit Chalan
           </button>
-          <button id="detailDeleteBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow">
-            <i class="fa-solid fa-ban mr-1"></i> Void Chalan
-          </button>
 
           <div class="bg-white/10 p-3 rounded-xl border border-white/20 text-right ml-2">
             <p class="text-[11px] text-emerald-200">Total Chalan Amount</p>
@@ -643,7 +640,7 @@
       const key = keyOf(id);
       const rec = key && stockHistoryStore[key];
       if (!rec) return;
-      if (rec.poNo) { alert("This chalan was received from a Purchase Order (" + rec.poNo + ") and cannot be edited.\nVoid it and receive again."); return; }
+      if (rec.poNo) { alert("This chalan was received from a Purchase Order (" + rec.poNo + ") and cannot be edited.\nUse Return to Supplier for wrong or extra goods."); return; }
 
       backToStockDashboard();
 
@@ -684,32 +681,6 @@
       stockCart = [];
       generateNewInvoiceNo();
       renderStockCart();
-    };
-
-    // Void a chalan
-    window.deleteStockIn = async function(id) {
-      const key = keyOf(id);
-      const rec = key && stockHistoryStore[key];
-      if (!rec) return;
-      const reason = prompt(`Void chalan ${rec.invoiceNo}?\nStock added by this chalan will be taken back.\n\nWrite the reason (required):`);
-      if (reason === null) return;
-      if (reason.trim().length < 3) { alert("Please write a reason."); return; }
-      try {
-        try {
-          await window.callFn('voidStockIn', { docId: key, reason: reason.trim() });
-        } catch (e) {
-          if (window.adminRole === 'master' && /Cannot reverse/.test(e.message || '') &&
-              confirm((e.message || '') + '\n\nForce void anyway? (that product stock will be set to 0)')) {
-            await window.callFn('voidStockIn', { docId: key, reason: reason.trim(), force: true });
-          } else { throw e; }
-        }
-        alert("Chalan voided and stock adjusted.");
-        backToStockDashboard();
-        loadStockInHistory();
-        loadProductsForSearch();
-      } catch (err) {
-        alert("Could not void: " + (err.message || err));
-      }
     };
 
     // Load Stock-In History
@@ -841,11 +812,9 @@
       
       const docKey = key;
       document.getElementById('detailEditBtn').setAttribute('onclick', `window.editStockIn('${docKey}')`);
-      document.getElementById('detailDeleteBtn').setAttribute('onclick', `window.deleteStockIn('${docKey}')`);
-      // only master may edit / void a chalan after the store manager has received it
+      // only master may edit a chalan after the store manager has received it (voiding was removed: use Return to Supplier)
       const isMasterRole = window.adminRole === 'master';
       document.getElementById('detailEditBtn').classList.toggle('hidden', !isMasterRole);
-      document.getElementById('detailDeleteBtn').classList.toggle('hidden', !isMasterRole);
 
       const memoBtn = document.getElementById('detailMemoBtn');
       if(rec.chalanImage) {

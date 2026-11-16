@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Return to Supplier - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-rotate-left text-xl"></i><h1 class="font-bold text-base">Return to Supplier (সাপ্লায়ারকে ফেরত)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+    <div id="tabs" class="hidden flex flex-wrap gap-2 text-sm font-bold">
+      <button data-t="new" id="tabNew" class="tab px-4 py-2 rounded-xl"><i class="fa-solid fa-plus mr-1"></i>নতুন রিটার্ন</button>
+      <button data-t="pending" class="tab px-4 py-2 rounded-xl">অপেক্ষমাণ <span id="cPending" class="ml-1 bg-red-500 text-white rounded-full px-1.5 text-[11px]">0</span></button>
+      <button data-t="confirmed" class="tab px-4 py-2 rounded-xl">সম্পন্ন</button>
+      <button data-t="cancelled" class="tab px-4 py-2 rounded-xl">বাতিল</button>
+    </div>
+
+    <!-- NEW RETURN FORM (store manager / master) -->
+    <section id="newBox" class="hidden bg-white rounded-2xl border p-4 shadow-sm space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার</label>
+          <select id="fVendor" class="w-full px-3 py-2.5 border rounded-xl text-sm bg-white"></select></div>
+        <div><label class="text-xs text-gray-600 block mb-1">রিটার্নের ধরন</label>
+          <select id="fType" class="w-full px-3 py-2.5 border rounded-xl text-sm bg-white">
+            <option value="fresh">Fresh Product Return (ভালো পণ্য ফেরত)</option>
+            <option value="damage">Damage Product Return (নষ্ট/ড্যামেজ পণ্য ফেরত)</option>
+          </select></div>
+      </div>
+      <div><label class="text-xs text-gray-600 block mb-1">কারণ (বাধ্যতামূলক)</label>
+        <input id="fReason" maxlength="300" placeholder="যেমন: মেয়াদ শেষের কাছাকাছি, প্যাকেট ছেঁড়া, ভুল পণ্য" class="w-full px-3 py-2.5 border rounded-xl text-sm"></div>
+      <div><label class="text-xs text-gray-600 block mb-1">সংশ্লিষ্ট চালান নম্বর (ঐচ্ছিক)</label>
+        <input id="fInvoice" maxlength="40" placeholder="STK-..." class="w-full px-3 py-2.5 border rounded-xl text-sm"></div>
+      <div>
+        <label class="text-xs text-gray-600 block mb-1">পণ্য যোগ করুন (শুধু স্টকে আছে এমন)</label>
+        <input id="fSearch" placeholder="পণ্যের নাম লিখে খুঁজুন..." class="w-full px-3 py-2.5 border rounded-xl text-sm">
+        <div id="fResults" class="mt-1 max-h-48 overflow-y-auto border rounded-xl divide-y hidden"></div>
+      </div>
+      <div id="fLines" class="space-y-2"></div>
+      <div class="flex justify-between items-center pt-2 border-t">
+        <p class="text-xs text-gray-600">মোট: <b id="fTotal">0</b> পিস</p>
+        <button id="fSubmit" class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700">রিটার্ন জমা দিন</button>
+      </div>
+      <p class="text-[11px] text-gray-400">জমা দিলে ভেন্ডর ম্যানেজার কনফার্ম না করা পর্যন্ত স্টক কমবে না।</p>
+    </section>
+
+    <div id="list" class="space-y-3"></div>
+  </main>
+
+  <!-- CONFIRM MODAL (vendor manager / master) -->
+  <div id="cModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl w-full max-w-md p-4 space-y-3 shadow-2xl">
+      <h3 id="cTitle" class="font-bold text-sm text-emerald-700"></h3>
+      <p id="cInfo" class="text-xs text-gray-600"></p>
+      <div><label class="text-xs text-gray-600 block mb-1">সাপ্লায়ার কীভাবে মেটাবে?</label>
+        <select id="cSettle" class="w-full px-3 py-2.5 border rounded-xl text-sm bg-white">
+          <option value="credit">Credit Note (বকেয়া থেকে বাদ)</option>
+          <option value="replacement">Replacement (পরে নতুন পণ্য পাঠাবে)</option>
+          <option value="none">কোনো ক্রেডিট নেই (সাপ্লায়ার নেয়নি / লস)</option>
+        </select></div>
+      <div id="cAmtBox"><label class="text-xs text-gray-600 block mb-1">সাপ্লায়ারের দেওয়া ক্রেডিট (৳)</label>
+        <input id="cAmt" type="number" min="0" step="0.01" class="w-full px-3 py-2.5 border rounded-xl text-sm"></div>
+      <div><label class="text-xs text-gray-600 block mb-1">নোট (ঐচ্ছিক)</label>
+        <input id="cNote" maxlength="300" class="w-full px-3 py-2.5 border rounded-xl text-sm"></div>
+      <p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">কনফার্ম করলে স্টক কমবে এবং ক্রেডিট সাপ্লায়ারের পাওনা থেকে বাদ যাবে। এটা পরে ফেরানো যাবে না।</p>
+      <div class="flex gap-2">
+        <button id="cOk" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-sm">কনফার্ম করুন</button>
+        <button id="cClose" class="px-4 border rounded-xl text-sm text-gray-600">বন্ধ</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, query, orderBy, limit, onSnapshot, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+    const call = (n, d) => httpsCallable(fns, n)(d).then(r => r.data);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtDate = (iso) => iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }) : '';
+    const money = (n) => '৳ ' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const newId = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : String(Date.now()) + Math.random().toString(36).slice(2, 12));
+    const TYPE_LBL = { fresh: 'Fresh', damage: 'Damage' };
+    const SET_LBL = { credit: 'Credit Note', replacement: 'Replacement', none: 'কোনো ক্রেডিট নেই' };
+
+    let role = '', uid = '', rows = [], priv = {}, products = [], tab = 'pending', lines = [], reqId = newId(), confirming = null;
+    const canCreate = () => role === 'store' || role === 'master';
+    const canConfirm = () => role === 'vendor' || role === 'master';
+    const seesMoney = () => role === 'vendor' || role === 'master';
+
+    // ---------------- new return form
+    function vendors() { return [...new Set(products.filter(p => Number(p.stock || 0) > 0).map(p => String(p.vendor || p.supplier || '')).filter(Boolean))].sort(); }
+    function fillVendors() {
+      $('fVendor').innerHTML = '<option value="">-- সাপ্লায়ার বাছাই করুন --</option>' + vendors().map(v => `<option>${esc(v)}</option>`).join('');
+    }
+    function renderResults() {
+      const v = $('fVendor').value, q = $('fSearch').value.trim().toLowerCase(), box = $('fResults');
+      if (!v || !q) { box.classList.add('hidden'); return; }
+      const hit = products.filter(p => String(p.vendor || p.supplier || '') === v && Number(p.stock || 0) > 0
+        && !lines.some(l => l.id === p.id) && (String(p.name || '') + ' ' + String(p.sku || '')).toLowerCase().includes(q)).slice(0, 20);
+      box.innerHTML = hit.map(p => `<button type="button" data-add="${esc(p.id)}" class="w-full text-left px-3 py-2 text-xs hover:bg-emerald-50 flex justify-between"><span>${esc(p.name)}</span><b class="text-gray-500">স্টক ${Number(p.stock)}</b></button>`).join('') || '<p class="p-3 text-xs text-gray-400">কিছু পাওয়া যায়নি</p>';
+      box.classList.remove('hidden');
+    }
+    function renderLines() {
+      $('fLines').innerHTML = lines.map((l, i) => `<div class="flex items-center gap-2 border rounded-xl p-2">
+        <div class="flex-1 text-xs"><b>${esc(l.name)}</b><span class="block text-[10px] text-gray-400">স্টক ${l.stock}</span></div>
+        <input type="number" min="1" max="${l.stock}" value="${l.qty}" data-q="${i}" class="w-20 px-2 py-1.5 border rounded-lg text-sm text-right">
+        <button type="button" data-rm="${i}" class="text-rose-600 px-2"><i class="fa-solid fa-trash"></i></button></div>`).join('');
+      $('fTotal').textContent = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
+    }
+    $('fVendor').onchange = () => { lines = []; renderLines(); renderResults(); };
+    $('fSearch').oninput = renderResults;
+    $('fResults').onclick = (e) => {
+      const b = e.target.closest('[data-add]'); if (!b) return;
+      const p = products.find(x => x.id === b.dataset.add); if (!p) return;
+      lines.push({ id: p.id, name: p.name || p.id, stock: Number(p.stock || 0), qty: 1 });
+      $('fSearch').value = ''; renderResults(); renderLines();
+    };
+    $('fLines').oninput = (e) => { const i = e.target.dataset.q; if (i === undefined) return; lines[i].qty = Number(e.target.value); $('fTotal').textContent = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0); };
+    $('fLines').onclick = (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; lines.splice(Number(b.dataset.rm), 1); renderLines(); };
+    $('fSubmit').onclick = async () => {
+      const vendor = $('fVendor').value, reason = $('fReason').value.trim();
+      if (!vendor) return alert('সাপ্লায়ার বাছাই করুন।');
+      if (!reason) return alert('কারণ লিখুন।');
+      if (!lines.length) return alert('অন্তত একটি পণ্য যোগ করুন।');
+      for (const l of lines) if (!Number.isInteger(l.qty) || l.qty < 1 || l.qty > l.stock) return alert(`${l.name}: পরিমাণ ১ থেকে ${l.stock} এর মধ্যে পূর্ণসংখ্যা হতে হবে।`);
+      const type = $('fType').value;
+      if (!confirm(`${TYPE_LBL[type]} রিটার্ন জমা দেবেন?\n${vendor} · ${lines.length}টি পণ্য · ${lines.reduce((s, l) => s + l.qty, 0)} পিস\n\nভেন্ডর ম্যানেজার কনফার্ম করলে স্টক কমবে।`)) return;
+      $('fSubmit').disabled = true;
+      try {
+        const r = await call('createSupplierReturn', { requestId: reqId, vendor, type, reason, invoiceRef: $('fInvoice').value.trim(), items: lines.map(l => ({ id: l.id, qty: l.qty })) });
+        alert('রিটার্ন জমা হয়েছে: ' + r.returnNo);
+        lines = []; reqId = newId(); $('fReason').value = ''; $('fInvoice').value = ''; renderLines(); tab = 'pending'; render();
+      } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      $('fSubmit').disabled = false;
+    };
+
+    // ---------------- list
+    function render() {
+      const pending = rows.filter(r => r.status === 'pending');
+      $('cPending').textContent = pending.length;
+      document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      $('newBox').classList.toggle('hidden', tab !== 'new' || !canCreate());
+      if (tab === 'new') { $('list').innerHTML = ''; return; }
+      const list = rows.filter(r => r.status === tab);
+      $('list').innerHTML = list.map(card).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
+    }
+    function card(r) {
+      const p = priv[r.returnNo] || {};
+      const items = (r.items || []).map(i => `<tr><td class="py-1">${esc(i.name)}</td><td class="py-1 text-right font-bold">${Number(i.qty)} পিস</td></tr>`).join('');
+      const typeBadge = `<span class="text-[11px] font-bold ${r.type === 'damage' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'} px-2 py-0.5 rounded-full">${TYPE_LBL[r.type] || ''}</span>`;
+      let foot = '', money1 = '';
+      if (r.status === 'pending') {
+        if (seesMoney() && p.estCostValue != null) money1 = `<p class="text-xs text-gray-500">আনুমানিক খরচ মূল্য (গড় TP): <b>${money(p.estCostValue)}</b></p>`;
+        if (canConfirm()) foot += `<button data-act="confirm" data-id="${esc(r.returnNo)}" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-700"><i class="fa-solid fa-check mr-1"></i> সাপ্লায়ার নিয়েছে, কনফার্ম</button>`;
+        if (role === 'master' || role === 'vendor' || (role === 'store' && r.createdBy === uid)) foot += `<button data-act="cancel" data-id="${esc(r.returnNo)}" class="px-4 border rounded-xl text-sm text-gray-600 hover:bg-gray-50">বাতিল</button>`;
+      } else if (r.status === 'confirmed') {
+        foot = `<p class="text-xs text-gray-500">কনফার্ম করেছেন: <b>${esc(r.confirmedByName)}</b> · ${fmtDate(r.confirmedAt)} · ${esc(SET_LBL[r.settlement] || '')}</p>`;
+        if (seesMoney() && p.costValue != null) money1 = `<p class="text-xs">খরচ মূল্য: <b>${money(p.costValue)}</b> · সাপ্লায়ারের ক্রেডিট: <b class="text-emerald-700">${money(p.creditAmount)}</b> · লস: <b class="${Number(p.lossValue) > 0 ? 'text-rose-600' : 'text-gray-600'}">${money(p.lossValue)}</b></p>`;
+      } else {
+        foot = `<p class="text-xs text-gray-500">বাতিল করেছেন: <b>${esc(r.cancelledByName)}</b> · ${fmtDate(r.cancelledAt)}${r.cancelReason ? '<br>কারণ: ' + esc(r.cancelReason) : ''}</p>`;
+      }
+      return `<div class="bg-white rounded-2xl border p-4 shadow-sm space-y-3">
+        <div class="flex justify-between items-start gap-2">
+          <div><p class="font-extrabold text-sm">${esc(r.returnNo)} ${typeBadge}</p>
+            <p class="text-xs text-gray-500">${esc(r.vendor)}${r.invoiceRef ? ' · চালান ' + esc(r.invoiceRef) : ''}</p>
+            <p class="text-[11px] text-gray-400">তৈরি করেছেন: ${esc(r.createdByName)} · ${fmtDate(r.createdAt)}</p>
+            <p class="text-xs text-gray-600 mt-1">কারণ: ${esc(r.reason)}</p></div>
+          <p class="text-sm font-bold text-emerald-700 whitespace-nowrap">${Number(r.totalQty)} পিস</p>
+        </div>
+        <table class="w-full text-xs"><tbody class="divide-y">${items}</tbody></table>
+        ${money1}${foot ? `<div class="flex gap-2 items-center">${foot}</div>` : ''}
+      </div>`;
+    }
+
+    // ---------------- actions
+    $('list').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const r = rows.find(x => x.returnNo === b.dataset.id); if (!r) return;
+      if (b.dataset.act === 'confirm') { openConfirm(r); return; }
+      if (b.dataset.act === 'cancel') {
+        const reason = prompt('বাতিলের কারণ (ঐচ্ছিক):'); if (reason === null) return;
+        try { b.disabled = true; await call('cancelSupplierReturn', { returnNo: r.returnNo, reason }); } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); b.disabled = false; }
+      }
+    });
+    function openConfirm(r) {
+      confirming = r; const p = priv[r.returnNo] || {};
+      $('cTitle').textContent = `${r.returnNo} · ${r.vendor}`;
+      $('cInfo').textContent = `${r.totalQty} পিস · ${TYPE_LBL[r.type]}${p.estCostValue != null ? ' · আনুমানিক খরচ মূল্য ' + money(p.estCostValue) : ''}`;
+      $('cSettle').value = 'credit'; $('cAmt').value = p.estCostValue != null ? p.estCostValue : ''; $('cNote').value = ''; $('cAmtBox').classList.remove('hidden');
+      $('cModal').classList.remove('hidden');
+    }
+    $('cSettle').onchange = () => $('cAmtBox').classList.toggle('hidden', $('cSettle').value === 'none');
+    $('cClose').onclick = () => { $('cModal').classList.add('hidden'); confirming = null; };
+    $('cOk').onclick = async () => {
+      if (!confirming) return;
+      const settlement = $('cSettle').value, amt = Number($('cAmt').value);
+      if (settlement !== 'none' && (!Number.isFinite(amt) || amt < 0)) return alert('ক্রেডিটের পরিমাণ লিখুন (০ বা তার বেশি)।');
+      $('cOk').disabled = true;
+      try {
+        const r = await call('confirmSupplierReturn', { returnNo: confirming.returnNo, settlement, creditAmount: amt, note: $('cNote').value.trim() });
+        alert(`কনফার্ম হয়েছে। স্টক কমেছে।\nখরচ মূল্য: ${money(r.costValue)} · ক্রেডিট: ${money(r.creditAmount)}`);
+        $('cModal').classList.add('hidden'); confirming = null;
+      } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      $('cOk').disabled = false;
+    };
+    document.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.t; render(); });
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master'; uid = u.uid;
+      if (!['master', 'store', 'vendor'].includes(role)) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      $('msg').classList.add('hidden'); $('tabs').classList.remove('hidden');
+      if (!canCreate()) $('tabNew').classList.add('hidden');
+      onSnapshot(query(collection(db, 'supplier_returns'), orderBy('createdAt', 'desc'), limit(150)),
+        (snap) => { rows = snap.docs.map(d => d.data()); render(); },
+        (err) => { $('msg').classList.remove('hidden'); $('msg').textContent = 'লোড ব্যর্থ: ' + err.message; });
+      if (seesMoney()) onSnapshot(collection(db, 'supplier_returns_private'),
+        (snap) => { priv = {}; snap.docs.forEach(d => priv[d.id] = d.data()); render(); }, (err) => console.warn('private:', err.message));
+      if (canCreate()) {
+        try { products = (await getDocs(collection(db, 'products'))).docs.map(d => ({ id: d.id, ...d.data() })); fillVendors(); } catch (e) { console.warn(e.message); }
+      }
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

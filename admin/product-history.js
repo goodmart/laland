@@ -45,15 +45,16 @@ async function stockInFor(productId, scope, companyName) {
 // Stock movements written by the Cloud Function (products/{id}/movements)
 async function movementsFor(productId) {
   const snap = await getDocs(collection(db, 'products', String(productId), 'movements'));
-  const outs = [], rets = [];
+  const outs = [], rets = [], srets = [];
   snap.forEach(d => {
     const m = d.data();
     const row = { date: m.createdAt || '', ref: m.refId || d.id, qty: Number(m.qty || 0), balanceAfter: m.balanceAfter };
     if (m.type === 'out') outs.push(row);
     else if (m.type === 'return') rets.push(row);
     else if (m.type === 'return_undo') rets.push({ ...row, qty: -row.qty });
+    else if (m.type === 'supplier_return') srets.push({ ...row, sub: m.subtype === 'damage' ? 'Damage' : 'Fresh' });
   });
-  return { outs: outs.sort(byDateDesc), rets: rets.sort(byDateDesc) };
+  return { outs: outs.sort(byDateDesc), rets: rets.sort(byDateDesc), srets: srets.sort(byDateDesc) };
 }
 
 const card = (label, value, cls = 'text-gray-800') => `<div class="bg-gray-50 border rounded-xl p-2.5 text-center"><p class="text-[10px] text-gray-500">${label}</p><p class="font-extrabold text-sm ${cls}">${value}</p></div>`;
@@ -91,10 +92,11 @@ window.openProductHistory = async function (productId, productName, scope = 'adm
   }
 
   // Full view (master / store manager)
-  const { outs, rets } = movs;
+  const { outs, rets, srets } = movs;
   const totalOut = outs.reduce((s, r) => s + r.qty, 0);
   const totalRet = rets.reduce((s, r) => s + r.qty, 0);
-  const expected = totalIn - totalOut + totalRet;
+  const totalSr = srets.reduce((s, r) => s + r.qty, 0);
+  const expected = totalIn - totalOut + totalRet - totalSr;
   const diff = Number(cur) - expected;
   const outTable = outs.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
       <thead><tr class="bg-rose-50 text-rose-800"><th class="p-1.5">Delivered On</th><th class="p-1.5">Order</th><th class="p-1.5 text-center">Qty Out</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
@@ -105,17 +107,24 @@ window.openProductHistory = async function (productId, productName, scope = 'adm
       <tbody>${rets.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5 text-center font-bold text-orange-700">${r.qty > 0 ? '+' : ''}${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
     : empty('কোনো ফেরত নেই।');
 
+  const srTable = srets.length ? `<div class="overflow-x-auto"><table class="w-full text-left">
+      <thead><tr class="bg-purple-50 text-purple-800"><th class="p-1.5">Date</th><th class="p-1.5">Return No</th><th class="p-1.5">Type</th><th class="p-1.5 text-center">Qty</th><th class="p-1.5 text-right">Stock After</th></tr></thead>
+      <tbody>${srets.map(r => `<tr class="border-b"><td class="p-1.5">${fmt(r.date)}</td><td class="p-1.5"><b>${esc(r.ref)}</b></td><td class="p-1.5">${esc(r.sub)}</td><td class="p-1.5 text-center font-bold text-purple-700">-${r.qty}</td><td class="p-1.5 text-right">${r.balanceAfter ?? '-'}</td></tr>`).join('')}</tbody></table></div>`
+    : empty('সাপ্লায়ারকে কোনো ফেরত নেই।');
+
   body.innerHTML = `
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
       ${card('Current Stock', cur + ' pcs', 'text-blue-600')}
       ${card('Total In', '+' + totalIn, 'text-emerald-700')}
       ${card('Total Out (Delivered)', '-' + totalOut, 'text-rose-700')}
       ${card('Total Returned', '+' + totalRet, 'text-orange-700')}
+      ${card('Returned to Supplier', '-' + totalSr, 'text-purple-700')}
     </div>
     <p class="text-[11px] ${diff ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-gray-500 bg-gray-50 border'} rounded-lg p-2">
-      হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} + ফেরত ${totalRet} = ${expected}, বর্তমান স্টক ${cur}.
+      হিসাব: এসেছে ${totalIn} − ডেলিভারি ${totalOut} + ফেরত ${totalRet} − সাপ্লায়ারকে ফেরত ${totalSr} = ${expected}, বর্তমান স্টক ${cur}.
       ${diff ? `পার্থক্য ${diff > 0 ? '+' : ''}${diff} pcs। ম্যানুয়াল স্টক পরিবর্তন বা পুরনো stock-in edit এর কারণে হতে পারে।` : 'হিসাব মিলছে।'}</p>
     <p class="font-bold text-emerald-700">Stock-In</p>${inTable}
     <p class="font-bold text-rose-700">Stock-Out (Delivered)</p>${outTable}
-    <p class="font-bold text-orange-700">Returns (Back to Stock)</p>${retTable}`;
+    <p class="font-bold text-orange-700">Returns (Back to Stock)</p>${retTable}
+    <p class="font-bold text-purple-700">Returned to Supplier</p>${srTable}`;
 };

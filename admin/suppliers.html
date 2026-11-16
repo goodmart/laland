@@ -399,6 +399,7 @@
     let suppliersData = [];
     let invoicesData = [];
     let paymentsData = [];
+    let creditsData = [];   // supplier_credits: what suppliers credited us for returned goods (reduces what we owe)
     let productsData = [];
     let currentSelectedSupplier = null;
 
@@ -671,11 +672,12 @@
       if(!db) return;
 
       try {
-        const [supSnap, stockSnap, paySnap, prodSnap] = await Promise.all([
+        const [supSnap, stockSnap, paySnap, prodSnap, credSnap] = await Promise.all([
           getDocs(collection(db, "suppliers")),
           getDocs(collection(db, "stock_in_history")),
           getDocs(collection(db, "supplier_payments")),
-          getDocs(collection(db, "products"))
+          getDocs(collection(db, "products")),
+          getDocs(collection(db, "supplier_credits"))
         ]);
 
         suppliersData = [];
@@ -686,6 +688,9 @@
 
         paymentsData = [];
         paySnap.forEach(d => paymentsData.push({ id: d.id, ...d.data() }));
+
+        creditsData = [];
+        credSnap.forEach(d => creditsData.push({ id: d.id, ...d.data() }));
 
         productsData = [];
         prodSnap.forEach(d => productsData.push({ id: d.id, ...d.data() }));
@@ -728,7 +733,7 @@
 
       let supplierStats = {};
       suppliersData.forEach(s => {
-        supplierStats[s.companyName] = { totalBill: 0, totalPaid: 0, count: 0 };
+        supplierStats[s.companyName] = { totalBill: 0, totalPaid: 0, totalCredit: 0, count: 0 };
       });
 
       invoicesData.forEach(inv => {
@@ -744,10 +749,16 @@
         }
       });
 
+      creditsData.forEach(c => {
+        if(supplierStats[c.supplier]) {
+          supplierStats[c.supplier].totalCredit += Number(c.amount || 0);
+        }
+      });
+
       let html = '';
       list.forEach(sup => {
-        const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, count: 0 };
-        const due = stats.totalBill - stats.totalPaid;
+        const stats = supplierStats[sup.companyName] || { totalBill: 0, totalPaid: 0, totalCredit: 0, count: 0 };
+        const due = stats.totalBill - stats.totalPaid - stats.totalCredit;   // bill - payments - return credits
         const supCode = sup.uniqueId || 'SUP-000';
         
         let subDetails = sup.supplierCategory;
@@ -865,7 +876,10 @@
         invoicePaidMap[p.invoiceNo] = (invoicePaidMap[p.invoiceNo] || 0) + Number(p.amount || 0);
       });
 
-      const supInvoices = invoicesData.filter(i => i.supplier === sup.companyName);
+      const supInvoices = invoicesData.filter(i => i.supplier === sup.companyName)
+        .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));   // oldest first
+      // return credits (supplier_credits) are applied to the oldest unpaid invoices first
+      let creditLeft = creditsData.filter(c => c.supplier === sup.companyName).reduce((t, c) => t + Number(c.amount || 0), 0);
       let totalDueSum = 0;
 
       let unpaidHtml = '';
@@ -874,7 +888,10 @@
       supInvoices.forEach(inv => {
         const totalBill = Number(inv.totalCost || 0);
         const paid = invoicePaidMap[inv.invoiceNo] || 0;
-        const due = totalBill - paid;
+        const rawDue = totalBill - paid;
+        const credUsed = rawDue > 0 ? Math.min(rawDue, creditLeft) : 0;
+        creditLeft -= credUsed;
+        const due = rawDue - credUsed;
         const dateStr = inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'N/A';
 
         if(due > 0) {
@@ -885,7 +902,7 @@
               <td class="p-2.5 font-bold text-emerald-700">${inv.invoiceNo}</td>
               <td class="p-2.5 text-gray-500">${dateStr}</td>
               <td class="p-2.5 text-right font-bold">৳ ${totalBill}</td>
-              <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}</td>
+              <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}${credUsed ? `<span class="block text-[10px] text-purple-600">+ ৳ ${credUsed} return credit</span>` : ''}</td>
               <td class="p-2.5 text-right text-red-600 font-bold">৳ ${due}</td>
               <td class="p-2.5 text-center">
                 <button onclick="openPaymentModal('${inv.invoiceNo}', '${sup.companyName}', ${due})" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 shadow">
@@ -901,7 +918,7 @@
         unpaidHtml = `<tr><td colspan="6" class="text-center py-4 text-emerald-600 font-bold">No unpaid invoices (All cleared).</td></tr>`;
       }
       document.getElementById('profileUnpaidTableBody').innerHTML = unpaidHtml;
-      document.getElementById('profileTotalDueAmount').innerText = `৳ ${totalDueSum}`;
+      document.getElementById('profileTotalDueAmount').innerText = `৳ ${totalDueSum}` + (creditLeft > 0 ? `  (Credit balance ৳ ${creditLeft})` : '');
 
       // Last 6 Months Paid Invoices (Payment Vouchers)
       const sixMonthsAgo = new Date();
