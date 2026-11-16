@@ -84,6 +84,12 @@
       try {
         const b = await getDoc(doc(db, 'account_balances', `mgr:${me.uid}:cash`));
         expected = b.exists() ? Number(b.data().balance || 0) : 0;
+        // cash already handed to master (request still pending) is no longer in my hand
+        try {
+          const ph = await getDocs(query(collection(db, 'cash_handovers'), where('uid', '==', me.uid), where('status', '==', 'pending')));
+          ph.forEach(d => { expected -= Number(d.data().amount || 0); });
+        } catch (e2) { /* no pending requests / not readable */ }
+        expected = Math.round(expected * 100) / 100;
       } catch (e) { expected = 0; }
       $('expected').textContent = money(expected);
     }

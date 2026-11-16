@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Logs - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-xl"></i><h1 class="font-bold text-base">Stock Logs (স্টকের সব হিসাব)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 space-y-3">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+
+    <div id="ui" class="hidden space-y-3">
+      <div class="bg-white border rounded-2xl p-3 space-y-2">
+        <div class="flex flex-wrap gap-2 text-xs" id="cats"></div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <div><label class="text-gray-500 block mb-0.5">থেকে</label><input id="dFrom" type="date" class="w-full px-2 py-1.5 border rounded-lg"></div>
+          <div><label class="text-gray-500 block mb-0.5">পর্যন্ত</label><input id="dTo" type="date" class="w-full px-2 py-1.5 border rounded-lg"></div>
+          <div class="col-span-2"><label class="text-gray-500 block mb-0.5">খুঁজুন (পণ্য / চালান / অর্ডার / সাপ্লায়ার)</label><input id="q" class="w-full px-2 py-1.5 border rounded-lg" placeholder="লিখুন..."></div>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <button data-r="today" class="rng px-3 py-1.5 rounded-full border bg-white">আজ</button>
+          <button data-r="7" class="rng px-3 py-1.5 rounded-full border bg-white">৭ দিন</button>
+          <button data-r="30" class="rng px-3 py-1.5 rounded-full border bg-white">৩০ দিন</button>
+          <button data-r="month" class="rng px-3 py-1.5 rounded-full border bg-white">এই মাস</button>
+          <button data-r="all" class="rng px-3 py-1.5 rounded-full border bg-white">সব</button>
+          <span class="flex-1"></span>
+          <button id="csvBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-file-csv mr-1"></i>Excel/CSV</button>
+          <button id="refBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-rotate mr-1"></i>রিফ্রেশ</button>
+        </div>
+      </div>
+
+      <div id="sum" class="grid grid-cols-2 sm:grid-cols-5 gap-2"></div>
+      <div id="tbl" class="hidden sm:block bg-white border rounded-2xl overflow-x-auto"></div>
+      <div id="cards" class="sm:hidden bg-white border rounded-2xl divide-y overflow-hidden"></div>
+      <p id="note" class="text-[11px] text-gray-400 text-center"></p>
+      <button id="moreBtn" class="hidden w-full bg-white border rounded-xl py-2.5 text-sm font-bold text-emerald-700">আরও পুরনো লোড করুন</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, collectionGroup, query, where, orderBy, limit, startAfter, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const dayOf = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit', hour12: false });
+    const todayStr = () => dayOf(new Date().toISOString());
+    const addDays = (d, n) => new Date(new Date(d + 'T00:00:00Z').getTime() + n * 86400000).toISOString().slice(0, 10);
+    const PAGE = 500;
+
+    const CATS = {
+      in:    ['প্রাপ্তি (ভেন্ডর থেকে)', 'bg-emerald-100 text-emerald-700', 'fa-truck-ramp-box'],
+      out:   ['ডেলিভারি (স্টক আউট)',   'bg-rose-100 text-rose-700',       'fa-truck-fast'],
+      cret:  ['কাস্টমার রিটার্ন',       'bg-orange-100 text-orange-700',   'fa-rotate-left'],
+      vret:  ['ভেন্ডরকে ফেরত পাঠানো',  'bg-purple-100 text-purple-700',   'fa-share-from-square'],
+      wait:  ['অপেক্ষমাণ (স্টক বদলায়নি)', 'bg-amber-100 text-amber-700',  'fa-hourglass-half']
+    };
+    let role = '', products = {}, events = [], moveCursor = null, moveDone = false, loadingMore = false;
+    let cat = 'all', fromD = '', toD = '', search = '', rangeKey = '30';
+
+    const pname = (id) => (products[id] && products[id].name) || id;
+
+    // ---------------- loaders ----------------
+    async function loadStatic() {
+      events = events.filter(e => e.src === 'move');      // keep already-loaded movements, rebuild the rest
+      const warn = [];
+      const safe = async (n, fn) => { try { await fn(); } catch (e) { console.warn(n, e.message); warn.push(n); } };
+      // supplier returns: enrich movement lines + show the waiting ones
+      const sr = {};
+      await safe('supplier_returns', async () => {
+        (await getDocs(query(collection(db, 'supplier_returns'), orderBy('createdAt', 'desc'), limit(400)))).docs.forEach(d => { const r = d.data(); sr[r.returnNo] = r;
+          if (r.status === 'pending') (r.items || []).forEach(i => events.push({ src: 'sr', at: r.createdAt, cat: 'wait', pid: i.id, name: i.name, qty: -Number(i.qty), after: null, ref: r.returnNo, party: r.vendor, by: r.createdByName, note: `ভেন্ডর কনফার্মের অপেক্ষায় (${r.type === 'damage' ? 'Damage' : 'Fresh'}) · ${r.reason || ''}` })); });
+      });
+      window.__sr = sr;
+      // received chalans: history (master/vendor, includes later edits) + store-visible pending-flow records
+      const seen = new Set();
+      if (role !== 'store') await safe('stock_in_history', async () => {
+        (await getDocs(query(collection(db, 'stock_in_history'), orderBy('createdAt', 'desc'), limit(600)))).docs.forEach(d => { const r = d.data(); const inv = r.invoiceNo || d.id; seen.add(inv);
+          (r.items || []).forEach(i => events.push({ src: 'in', at: r.receivedAt || r.createdAt, cat: 'in', pid: i.id, name: i.name || pname(i.id), qty: Number(i.qty), after: null, ref: inv, party: r.supplier || r.vendor, by: r.receivedByName || r.createdByName || '', note: r.poNo ? 'PO ' + r.poNo : '' })); });
+      });
+      await safe('stock_in_pending', async () => {
+        (await getDocs(query(collection(db, 'stock_in_pending'), where('status', '==', 'received'))))
+          .docs.forEach(d => { const r = d.data(); if (seen.has(r.invoiceNo || d.id)) return;
+            (r.items || []).forEach(i => events.push({ src: 'in', at: r.receivedAt || r.createdAt, cat: 'in', pid: i.id, name: i.name || pname(i.id), qty: Number(i.qty), after: null, ref: r.invoiceNo || d.id, party: r.vendor, by: r.receivedByName || '', note: r.poNo ? 'PO ' + r.poNo : '' })); });
+        (await getDocs(query(collection(db, 'stock_in_pending'), where('status', '==', 'pending'))))
+          .docs.forEach(d => { const r = d.data(); (r.items || []).forEach(i => events.push({ src: 'inw', at: r.createdAt, cat: 'wait', pid: i.id, name: i.name || pname(i.id), qty: Number(i.qty), after: null, ref: r.invoiceNo || d.id, party: r.vendor, by: r.createdByName || '', note: 'স্টোর ম্যানেজারের রিসিভের অপেক্ষায়' })); });
+      });
+      return warn;
+    }
+
+    function moveToEvent(d) {
+      const m = d.data(), pid = d.ref.parent.parent.id;
+      let c = 'out', note = '';
+      if (m.type === 'out') c = 'out';
+      else if (m.type === 'return') { c = 'cret'; note = 'ডেলিভারির পর ফেরত, স্টকে যুক্ত'; }
+      else if (m.type === 'return_undo') { c = 'cret'; note = 'রিটার্ন বাতিল, আবার স্টক থেকে কমেছে'; }
+      else if (m.type === 'supplier_return') { c = 'vret'; const r = (window.__sr || {})[m.refId]; note = (m.subtype === 'damage' ? 'Damage' : 'Fresh') + (r && r.reason ? ' · ' + r.reason : ''); }
+      return { src: 'move', at: m.createdAt, cat: c, pid, name: pname(pid), qty: Number(m.delta != null ? m.delta : (c === 'out' ? -m.qty : m.qty)), after: m.balanceAfter != null ? Number(m.balanceAfter) : null, ref: m.refId || '', party: m.supplier || '', by: (m.type === 'supplier_return' && window.__sr && window.__sr[m.refId]) ? (window.__sr[m.refId].confirmedByName || '') : '', note };
+    }
+    async function loadMoves() {
+      if (moveDone || loadingMore) return; loadingMore = true;
+      try {
+        const parts = [orderBy('createdAt', 'desc'), limit(PAGE)]; if (moveCursor) parts.push(startAfter(moveCursor));
+        const snap = await getDocs(query(collectionGroup(db, 'movements'), ...parts));
+        snap.docs.forEach(d => events.push(moveToEvent(d)));
+        if (snap.docs.length < PAGE) moveDone = true; else moveCursor = snap.docs[snap.docs.length - 1];
+      } catch (e) {
+        const idx = /index/i.test(e.message || '');
+        $('note').textContent = idx ? 'ডেটাবেস ইনডেক্স এখনো চালু হয়নি (firebase deploy --only firestore)। কয়েক মিনিট পরে আবার চেষ্টা করুন।' : 'স্টক মুভমেন্ট লোড ব্যর্থ: ' + e.message;
+        moveDone = true;
+      }
+      loadingMore = false;
+    }
+    const oldestMove = () => events.filter(e => e.src === 'move').reduce((m, e) => (!m || e.at < m ? e.at : m), null);
+    async function coverRange() {
+      if (!fromD) return;
+      const fromISO = new Date(fromD + 'T00:00:00+06:00').toISOString();
+      for (let i = 0; i < 20 && !moveDone; i++) { const o = oldestMove(); if (o && o <= fromISO) break; await loadMoves(); }
+    }
+
+    // ---------------- render ----------------
+    const filtered = () => {
+      const q = search.trim().toLowerCase();
+      return events.filter(e => e.at && (cat === 'all' || e.cat === cat)
+        && (!fromD || dayOf(e.at) >= fromD) && (!toD || dayOf(e.at) <= toD)
+        && (!q || (String(e.name) + ' ' + e.ref + ' ' + e.party + ' ' + e.by).toLowerCase().includes(q)))
+        .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    };
+    function render() {
+      $('cats').innerHTML = [['all', 'সব', 'bg-gray-800 text-white']].concat(Object.entries(CATS).map(([k, v]) => [k, v[0], v[1]]))
+        .map(([k, l, c]) => `<button data-cat="${k}" class="px-3 py-1.5 rounded-full ${k === cat ? (k === 'all' ? 'bg-gray-800 text-white' : c + ' ring-2 ring-gray-400') : 'bg-white border text-gray-600'}">${l}</button>`).join('');
+      document.querySelectorAll('.rng').forEach(b => b.className = 'rng px-3 py-1.5 rounded-full border ' + (b.dataset.r === rangeKey ? 'bg-emerald-600 text-white' : 'bg-white'));
+      const rows = filtered(), real = rows.filter(r => r.cat !== 'wait');
+      const sumBy = (c, sign) => real.filter(r => r.cat === c).reduce((t, r) => t + Math.abs(r.qty), 0) * sign;
+      const inQ = sumBy('in', 1), outQ = sumBy('out', -1), cretQ = real.filter(r => r.cat === 'cret').reduce((t, r) => t + r.qty, 0), vretQ = sumBy('vret', -1);
+      const net = real.reduce((t, r) => t + r.qty, 0);
+      $('sum').innerHTML = [['প্রাপ্তি', '+' + num(inQ), 'text-emerald-700'], ['ডেলিভারি', num(outQ), 'text-rose-600'], ['কাস্টমার রিটার্ন (নিট)', (cretQ >= 0 ? '+' : '') + num(cretQ), 'text-orange-600'],
+        ['ভেন্ডরকে ফেরত', num(vretQ), 'text-purple-700'], ['নিট স্টক পরিবর্তন', (net >= 0 ? '+' : '') + num(net), net >= 0 ? 'text-emerald-800' : 'text-rose-700']]
+        .map(([l, v, c]) => `<div class="bg-white border rounded-2xl p-3"><p class="text-[10px] text-gray-500">${l} (পিস)</p><p class="text-lg font-extrabold ${c}">${v}</p></div>`).join('');
+      const MAX = 1500, shown = rows.slice(0, MAX);
+      const qcls = (r) => r.cat === 'wait' ? 'text-amber-600' : (r.qty > 0 ? 'text-emerald-700' : 'text-rose-600');
+      const badge = (r) => { const c = CATS[r.cat]; return `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${c[1]}"><i class="fa-solid ${c[2]}"></i> ${c[0]}</span>`; };
+      $('tbl').innerHTML = `<table class="w-full text-xs"><thead class="bg-emerald-700 text-white"><tr><th class="p-2 text-left">তারিখ</th><th class="p-2 text-left">সময়</th><th class="p-2 text-left">ধরন</th><th class="p-2 text-left">পণ্য</th><th class="p-2 text-right">পরিমাণ</th><th class="p-2 text-right">স্টক পরে</th><th class="p-2 text-left">রেফারেন্স</th><th class="p-2 text-left">সাপ্লায়ার / কে</th><th class="p-2 text-left">নোট</th></tr></thead><tbody>
+        ${shown.map(r => `<tr class="border-t hover:bg-gray-50"><td class="p-2 whitespace-nowrap">${dayOf(r.at)}</td><td class="p-2">${timeOf(r.at)}</td><td class="p-2 whitespace-nowrap">${badge(r)}</td><td class="p-2 font-bold">${esc(r.name)}</td>
+          <td class="p-2 text-right font-extrabold ${qcls(r)}">${r.qty > 0 ? '+' : ''}${num(r.qty)}</td><td class="p-2 text-right text-gray-500">${r.after != null ? num(r.after) : '—'}</td><td class="p-2 text-[11px] text-gray-500 max-w-[150px] truncate" title="${esc(r.ref)}">${esc(r.ref)}</td>
+          <td class="p-2">${esc(r.party)}${r.by ? '<span class="block text-[10px] text-gray-400">' + esc(r.by) + '</span>' : ''}</td><td class="p-2 text-[11px] text-gray-500 min-w-[160px]">${esc(r.note)}</td></tr>`).join('') || '<tr><td colspan="9" class="p-8 text-center text-gray-400">এই ফিল্টারে কিছু নেই।</td></tr>'}</tbody></table>`;
+      $('cards').innerHTML = shown.map(r => `<div class="px-3 py-2.5 space-y-1"><div class="flex justify-between gap-3"><p class="text-xs font-bold">${esc(r.name)}</p><p class="font-extrabold text-sm whitespace-nowrap ${qcls(r)}">${r.qty > 0 ? '+' : ''}${num(r.qty)}</p></div>
+        <p>${badge(r)}</p><div class="flex justify-between gap-3 text-[10px] text-gray-400"><span>${dayOf(r.at)} · ${timeOf(r.at)}${r.party ? ' · ' + esc(r.party) : ''}</span><span class="whitespace-nowrap">${r.after != null ? 'স্টক পরে ' + num(r.after) : ''}</span></div>
+        <p class="text-[10px] text-gray-400 break-all">${esc(r.ref)}${r.by ? ' · ' + esc(r.by) : ''}</p>${r.note ? `<p class="text-[11px] text-gray-500">${esc(r.note)}</p>` : ''}</div>`).join('') || '<p class="p-8 text-center text-sm text-gray-400">এই ফিল্টারে কিছু নেই।</p>';
+      $('note').textContent = rows.length > MAX ? `মোট ${rows.length}টি লাইনের প্রথম ${MAX}টি দেখানো হয়েছে। তারিখ বা খোঁজ দিয়ে ছোট করুন।` : (moveDone ? '' : 'ডেলিভারি/রিটার্নের লগ সর্বশেষ থেকে ধাপে ধাপে লোড হয়।');
+      $('moreBtn').classList.toggle('hidden', moveDone);
+    }
+
+    function setRange(k) {
+      rangeKey = k; const t = todayStr();
+      if (k === 'today') { fromD = t; toD = t; } else if (k === '7') { fromD = addDays(t, -6); toD = t; } else if (k === '30') { fromD = addDays(t, -29); toD = t; }
+      else if (k === 'month') { fromD = t.slice(0, 8) + '01'; toD = t; } else { fromD = ''; toD = ''; }
+      $('dFrom').value = fromD; $('dTo').value = toD;
+    }
+    async function apply() { await coverRange(); render(); }
+
+    $('cats').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; render(); } };
+    document.querySelectorAll('.rng').forEach(b => b.onclick = () => { setRange(b.dataset.r); apply(); });
+    $('dFrom').onchange = () => { fromD = $('dFrom').value; rangeKey = ''; apply(); };
+    $('dTo').onchange = () => { toD = $('dTo').value; rangeKey = ''; render(); };
+    $('q').oninput = () => { search = $('q').value; render(); };
+    $('moreBtn').onclick = async () => { $('moreBtn').disabled = true; await loadMoves(); render(); $('moreBtn').disabled = false; };
+    $('refBtn').onclick = async () => { events = []; moveCursor = null; moveDone = false; $('msg').classList.remove('hidden'); $('msg').textContent = 'লোড হচ্ছে...'; await boot(); };
+    $('csvBtn').onclick = () => {
+      const head = ['Date', 'Time (24h)', 'Type', 'Product', 'Quantity', 'Stock After', 'Reference', 'Supplier', 'By', 'Note'];
+      const out = filtered().map(r => [dayOf(r.at), timeOf(r.at), CATS[r.cat][0], r.name, r.qty, r.after ?? '', r.ref, r.party, r.by, r.note].map(x => '"' + String(x ?? '').replace(/"/g, '""') + '"').join(','));
+      const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob(['\ufeff' + [head.join(','), ...out].join('\n')], { type: 'text/csv;charset=utf-8' }));
+      el.download = `stock-logs-${todayStr()}.csv`; el.click();
+    };
+
+    async function boot() {
+      try { (await getDocs(collection(db, 'products'))).docs.forEach(d => products[d.id] = d.data()); } catch (e) { console.warn(e.message); }
+      const warn = await loadStatic();
+      await loadMoves();
+      // movements carry only a product id; rebuild event names now that products are loaded
+      events.forEach(e => { if (e.src === 'move') e.name = pname(e.pid); });
+      setRange(rangeKey || '30'); await coverRange();
+      $('msg').classList.add('hidden'); $('ui').classList.remove('hidden'); render();
+      if (warn.length) $('note').textContent = 'কিছু অংশ লোড হয়নি: ' + warn.join(', ');
+    }
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master';
+      if (!['master', 'store', 'vendor'].includes(role)) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      await boot();
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

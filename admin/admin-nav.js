@@ -13,16 +13,16 @@ const db = getFirestore(app);
 
 const GROUPS = [
   { title: 'Dashboard', items: [['index.html', 'Dashboard', 'fa-gauge'], ['finance.html', 'Finance', 'fa-landmark']] },
-  { title: 'Operations', items: [['orders.html', 'Orders', 'fa-cart-shopping'], ['rider.html', 'Rider Finance', 'fa-wallet'], ['day-close.html', 'Day Close', 'fa-cash-register'], ['my-account.html', 'আমার হিসাব', 'fa-book']] },
-  { title: 'Products & Suppliers', items: [['products.html', 'Products', 'fa-box'], ['stock-in.html', 'Stock-In', 'fa-truck-ramp-box'], ['suppliers.html', 'Suppliers', 'fa-truck-field'], ['purchase-orders.html', 'Purchase Orders', 'fa-file-invoice'], ['stock-receive.html', 'Stock Receive', 'fa-clipboard-check'], ['supplier-returns.html', 'Return to Supplier', 'fa-rotate-left'], ['stock-value.html', 'Stock Value', 'fa-scale-balanced'], ['store-handover.html', 'Store Handover', 'fa-handshake']] },
+  { title: 'Operations', items: [['orders.html', 'Orders', 'fa-cart-shopping'], ['rider.html', 'Rider Finance', 'fa-wallet'], ['day-close.html', 'Day Close', 'fa-cash-register'], ['my-account.html', 'আমার হিসাব', 'fa-book'], ['cash-handover.html', 'মাস্টারকে ক্যাশ জমা', 'fa-hand-holding-dollar']] },
+  { title: 'Products & Suppliers', items: [['products.html', 'Products', 'fa-box'], ['stock-in.html', 'Stock-In', 'fa-truck-ramp-box'], ['suppliers.html', 'Suppliers', 'fa-truck-field'], ['purchase-orders.html', 'Purchase Orders', 'fa-file-invoice'], ['stock-receive.html', 'Stock Receive', 'fa-clipboard-check'], ['supplier-returns.html', 'Return to Supplier', 'fa-rotate-left'], ['stock-value.html', 'Stock Value', 'fa-scale-balanced'], ['stock-logs.html', 'Stock Logs', 'fa-clock-rotate-left'], ['store-handover.html', 'Store Handover', 'fa-handshake']] },
   { title: 'Admin', items: [['customers.html', 'Customers', 'fa-users'], ['delivery-riders.html', 'Delivery Riders', 'fa-motorcycle'], ['locations.html', 'Locations', 'fa-location-dot'], ['data-tools.html', 'Data Tools', 'fa-screwdriver-wrench']] }
 ];
 
 // Same rule as firestore.rules. null = every page.
 const ROLE_PAGES = {
   master: null,
-  store: ['orders.html', 'rider.html', 'day-close.html', 'my-account.html', 'stock-receive.html', 'supplier-returns.html', 'stock-value.html', 'store-handover.html'],
-  vendor: ['suppliers.html', 'products.html', 'stock-in.html', 'purchase-orders.html', 'stock-receive.html', 'supplier-returns.html']
+  store: ['orders.html', 'rider.html', 'day-close.html', 'my-account.html', 'cash-handover.html', 'stock-receive.html', 'supplier-returns.html', 'stock-value.html', 'stock-logs.html', 'store-handover.html'],
+  vendor: ['suppliers.html', 'products.html', 'stock-in.html', 'purchase-orders.html', 'stock-receive.html', 'supplier-returns.html', 'stock-logs.html']
 };
 const ROLE_LABEL = { master: 'মাস্টার', store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager' };
 
@@ -161,6 +161,8 @@ function startBadges(role) {
     onSnapshot(query(collection(db, 'cash_settlements'), where('status', '==', 'Pending')), s => setBadge('rider.html', s.size), fail);
   if (can('stock-receive.html'))
     onSnapshot(query(collection(db, 'stock_in_pending'), where('status', '==', 'pending')), s => setBadge('stock-receive.html', s.size), fail);
+  if (can('cash-handover.html'))
+    onSnapshot(query(collection(db, 'cash_handovers'), where('status', '==', 'pending')), s => setBadge('cash-handover.html', s.size), fail);
   if (can('supplier-returns.html'))
     onSnapshot(query(collection(db, 'supplier_returns'), where('status', '==', 'pending')), s => setBadge('supplier-returns.html', s.size), fail);
   if (can('purchase-orders.html'))

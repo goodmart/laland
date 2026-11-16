@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>মাস্টারকে ক্যাশ জমা - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-hand-holding-dollar text-xl"></i><h1 class="font-bold text-base">মাস্টারকে ক্যাশ জমা (Cash Handover)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+
+    <!-- store manager -->
+    <section id="storeBox" class="hidden space-y-3">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-white border rounded-2xl p-3"><p class="text-[11px] text-gray-500">আমার হাতে থাকা ক্যাশ (সিস্টেম)</p><p id="cashNow" class="text-xl font-extrabold">৳ 0</p></div>
+        <div class="bg-white border rounded-2xl p-3"><p class="text-[11px] text-gray-500">জমা দেওয়া যাবে (অপেক্ষমাণ বাদে)</p><p id="cashFree" class="text-xl font-extrabold text-emerald-700">৳ 0</p></div>
+      </div>
+      <div class="bg-white border rounded-2xl p-4 space-y-3 shadow-sm">
+        <h2 class="font-bold text-sm text-emerald-700">নতুন জমা: টাকা মাস্টারের হাতে দিচ্ছি</h2>
+        <div><label class="text-xs text-gray-600 block mb-1">পরিমাণ (৳)</label>
+          <input id="hAmt" type="number" min="1" step="0.01" class="w-full px-3 py-2.5 border rounded-xl text-sm" placeholder="যেমন 5000"></div>
+        <div><label class="text-xs text-gray-600 block mb-1">নোট (ঐচ্ছিক)</label>
+          <input id="hNote" maxlength="200" class="w-full px-3 py-2.5 border rounded-xl text-sm" placeholder="যেমন: আজকের কালেকশন"></div>
+        <button id="hSubmit" class="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-sm hover:bg-emerald-700">জমার অনুরোধ পাঠান</button>
+        <p class="text-[11px] text-gray-400">মাস্টার টাকা হাতে পেয়ে কনফার্ম করলে আপনার ক্যাশ থেকে এই টাকা বাদ যাবে। কনফার্মের আগে অনুরোধ বাতিল করা যায়। রাত ১২টার দিন-শেষের হিসাবে অপেক্ষমাণ জমা আগে থেকেই বাদ ধরা হয়।</p>
+      </div>
+    </section>
+
+    <!-- master -->
+    <div id="masterTabs" class="hidden flex gap-2 text-sm font-bold">
+      <button data-t="pending" class="mtab px-4 py-2 rounded-xl">অপেক্ষমাণ <span id="cPend" class="ml-1 bg-red-500 text-white rounded-full px-1.5 text-[11px]">0</span></button>
+      <button data-t="done" class="mtab px-4 py-2 rounded-xl">সম্পন্ন / বাতিল</button>
+    </div>
+
+    <div id="list" class="space-y-2"></div>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, orderBy, limit, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+    const call = (n, d) => httpsCallable(fns, n)(d).then(r => r.data);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    const money = (n) => '৳ ' + num(n);
+    const fmt = (iso) => iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', hour12: false }) : '';
+    const newId = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : String(Date.now()) + Math.random().toString(36).slice(2, 12));
+    const ST = { pending: ['অপেক্ষমাণ', 'bg-amber-100 text-amber-700'], confirmed: ['মাস্টার নিশ্চিত করেছেন', 'bg-emerald-100 text-emerald-700'], rejected: ['মাস্টার অস্বীকার করেছেন', 'bg-rose-100 text-rose-700'], cancelled: ['বাতিল', 'bg-gray-100 text-gray-600'] };
+
+    let role = '', uid = '', rows = [], mtab = 'pending', cash = 0, reqId = newId();
+
+    function card(r) {
+      const st = ST[r.status] || [r.status, 'bg-gray-100 text-gray-600'];
+      let foot = '';
+      if (r.status === 'pending' && role === 'master') foot = `<div class="flex gap-2"><button data-act="ok" data-id="${esc(r.handoverNo)}" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-sm"><i class="fa-solid fa-check mr-1"></i> টাকা পেয়েছি, কনফার্ম</button><button data-act="no" data-id="${esc(r.handoverNo)}" class="px-4 border rounded-xl text-sm text-rose-600">অস্বীকার</button></div>`;
+      if (r.status === 'pending' && role === 'store') foot = `<button data-act="cancel" data-id="${esc(r.handoverNo)}" class="px-4 py-2 border rounded-xl text-sm text-gray-600">অনুরোধ বাতিল করুন</button>`;
+      const info = r.status === 'confirmed' ? `নিশ্চিত: ${esc(r.confirmedByName)} · ${fmt(r.confirmedAt)}${r.trxRef ? ' · রেফ ' + esc(r.trxRef) : ''}`
+        : r.status === 'rejected' ? `অস্বীকার: ${esc(r.rejectedByName)} · ${fmt(r.rejectedAt)} · কারণ: ${esc(r.rejectReason)}` : r.status === 'cancelled' ? `বাতিল: ${fmt(r.cancelledAt)}` : '';
+      return `<div class="bg-white border rounded-2xl p-4 shadow-sm space-y-2">
+        <div class="flex justify-between items-start gap-2"><div><p class="font-extrabold text-sm">${esc(r.handoverNo)}${role === 'master' ? ' · ' + esc(r.name) : ''}</p><p class="text-[11px] text-gray-400">অনুরোধ: ${fmt(r.createdAt)}</p></div>
+          <div class="text-right"><p class="font-extrabold text-lg text-emerald-700">${money(r.amount)}</p><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${st[1]}">${st[0]}</span></div></div>
+        ${r.note ? `<p class="text-xs text-gray-600">নোট: ${esc(r.note)}</p>` : ''}${info ? `<p class="text-[11px] text-gray-500">${info}</p>` : ''}${foot}</div>`;
+    }
+    function render() {
+      const pend = rows.filter(r => r.status === 'pending');
+      $('cPend').textContent = pend.length;
+      document.querySelectorAll('.mtab').forEach(b => b.className = 'mtab px-4 py-2 rounded-xl ' + (b.dataset.t === mtab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      const list = role === 'master' ? rows.filter(r => mtab === 'pending' ? r.status === 'pending' : r.status !== 'pending') : rows;
+      $('list').innerHTML = list.map(card).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
+      if (role === 'store') { const free = Math.max(0, cash - pend.reduce((t, r) => t + Number(r.amount), 0)); $('cashNow').textContent = money(cash); $('cashFree').textContent = money(free); }
+    }
+
+    $('list').addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const id = b.dataset.id, r = rows.find(x => x.handoverNo === id); if (!r) return;
+      try {
+        if (b.dataset.act === 'ok') {
+          if (!confirm(`${r.name} এর ${money(r.amount)} আপনার হাতে পেয়েছেন? কনফার্ম করলে তার ক্যাশ থেকে বাদ যাবে, ফেরানো যাবে না।`)) return;
+          const trxRef = prompt('রেফারেন্স / নোট (ঐচ্ছিক):') || '';
+          b.disabled = true; await call('confirmCashHandover', { handoverNo: id, trxRef });
+        } else if (b.dataset.act === 'no') {
+          const reason = prompt('অস্বীকারের কারণ (বাধ্যতামূলক):'); if (!reason) return;
+          b.disabled = true; await call('rejectCashHandover', { handoverNo: id, reason });
+        } else if (b.dataset.act === 'cancel') {
+          if (!confirm('অনুরোধ বাতিল করবেন?')) return;
+          b.disabled = true; await call('cancelCashHandover', { handoverNo: id });
+        }
+      } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); b.disabled = false; }
+    });
+    document.querySelector('#masterTabs').onclick = (e) => { const b = e.target.closest('.mtab'); if (b) { mtab = b.dataset.t; render(); } };
+    $('hSubmit').onclick = async () => {
+      const amount = Number($('hAmt').value);
+      if (!Number.isFinite(amount) || amount <= 0) return alert('পরিমাণ লিখুন।');
+      if (!confirm(`${money(amount)} মাস্টারকে জমা দেওয়ার অনুরোধ পাঠাবেন?`)) return;
+      $('hSubmit').disabled = true;
+      try { const r = await call('requestCashHandover', { requestId: reqId, amount, note: $('hNote').value.trim() }); alert('অনুরোধ পাঠানো হয়েছে: ' + r.handoverNo + '\nএখন টাকা মাস্টারের হাতে দিন, মাস্টার কনফার্ম করবেন।'); reqId = newId(); $('hAmt').value = ''; $('hNote').value = ''; }
+      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+      $('hSubmit').disabled = false;
+    };
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master'; uid = u.uid;
+      if (!['store', 'master'].includes(role)) { $('msg').textContent = 'এই পেজ শুধু স্টোর ম্যানেজার ও মাস্টারের জন্য।'; return; }
+      $('msg').classList.add('hidden');
+      const err = (e) => { $('list').innerHTML = `<p class="text-sm text-rose-700 p-4">লোড ব্যর্থ: ${esc(e.message)}</p>`; };
+      if (role === 'master') {
+        $('masterTabs').classList.remove('hidden');
+        onSnapshot(query(collection(db, 'cash_handovers'), orderBy('createdAt', 'desc'), limit(200)), (snap) => { rows = snap.docs.map(d => d.data()); render(); }, err);
+      } else {
+        $('storeBox').classList.remove('hidden');
+        onSnapshot(doc(db, 'account_balances', `mgr:${uid}:cash`), (d) => { cash = d.exists() ? Number(d.data().balance || 0) : 0; render(); });
+        onSnapshot(query(collection(db, 'cash_handovers'), where('uid', '==', uid)), (snap) => { rows = snap.docs.map(d => d.data()).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))); render(); }, err);
+      }
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

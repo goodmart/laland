@@ -105,7 +105,7 @@
     const TYPE_LBL = {
       rider_settlement: 'রাইডারের ক্যাশ জমা', manager_surplus: 'দিন শেষে বাড়তি', manager_shortage: 'দিন শেষে ঘাটতি', manager_repay: 'বকেয়া পরিশোধ',
       wallet_transfer: 'রিফান্ড ক্যাশ মাস্টারকে', menu_refund_cash: 'কাস্টমার রিফান্ড', menu_refund_cash_reversed: 'রিফান্ড ফেরত',
-      manager_salary: 'মাসিক বেতন', manager_salary_deduction: 'বেতন থেকে কাটা', manager_salary_cashout: 'পাওনা উত্তোলন'
+      manager_salary: 'মাসিক বেতন', manager_salary_deduction: 'বেতন থেকে কাটা', manager_salary_cashout: 'পাওনা উত্তোলন', cash_handover: 'মাস্টারকে ক্যাশ জমা'
     };
     const OVERRIDE = {
       receivable: { manager_shortage: 'ঘাটতির টাকা আমার বকেয়ায় যোগ হয়েছে', manager_repay: 'বকেয়া পরিশোধ করেছি', manager_salary_deduction: 'বেতন থেকে বকেয়া কাটা হয়েছে' },
@@ -178,6 +178,9 @@
       const ids = [...new Set(inM.filter(l => l.type === 'rider_settlement' && l.refId).map(l => l.refId))];
       const settle = {};
       await Promise.all(ids.map(async id => { try { const s = await getDoc(doc(db, 'cash_settlements', id)); if (s.exists()) settle[id] = s.data(); } catch (e) { /* name stays generic */ } }));
+      const hIds = [...new Set(inM.filter(l => l.type === 'cash_handover' && l.refId).map(l => l.refId))];
+      const hand = {};
+      await Promise.all(hIds.map(async id => { try { const s = await getDoc(doc(db, 'cash_handovers', id)); if (s.exists()) hand[id] = s.data(); } catch (e) { /* ignore */ } }));
 
       // rows (oldest first, like the Excel sheet) with running balance
       let run = openingRaw, lossTotal = 0, surplusTotal = 0;
@@ -196,6 +199,9 @@
           const amt = Math.abs(Number(l.amount || 0));
           flag = { kind: l.type === 'manager_shortage' ? 'loss' : 'surplus', amt };
           if (accKey === 'cash') { if (flag.kind === 'loss') lossTotal += amt; else surplusTotal += amt; }
+        } else if (l.type === 'cash_handover') {
+          const h = hand[l.refId]; by = h && h.confirmedByName ? 'মাস্টার ' + h.confirmedByName : 'মাস্টার';
+          part = 'মাস্টারকে ক্যাশ জমা দিলাম' + (h && h.note ? ' · ' + h.note : '');
         } else if (['manager_salary', 'manager_salary_deduction'].includes(l.type)) by = 'সিস্টেম';
         return { at: l.createdAt, part, by, typeLbl: TYPE_LBL[l.type] || l.type, ref: l.refId || '', v, flag, bal: r2(run * a.sign) };
       });
@@ -274,7 +280,7 @@
 
     // ================= স্টক ও অন্যান্য কার্যকলাপ =================
     const CATS = { stockin: ['স্টক রিসিভ', 'fa-truck-ramp-box', 'bg-indigo-100 text-indigo-700'], return: ['সাপ্লায়ার রিটার্ন', 'fa-rotate-left', 'bg-purple-100 text-purple-700'],
-      handover: ['হ্যান্ডওভার', 'fa-handshake', 'bg-amber-100 text-amber-700'], close: ['দিন শেষ', 'fa-calendar-check', 'bg-sky-100 text-sky-700'] };
+      handover: ['হ্যান্ডওভার', 'fa-handshake', 'bg-amber-100 text-amber-700'], cash: ['ক্যাশ জমা', 'fa-hand-holding-dollar', 'bg-emerald-100 text-emerald-700'], close: ['দিন শেষ', 'fa-calendar-check', 'bg-sky-100 text-sky-700'] };
     const pcs = (arr) => (arr || []).reduce((t, i) => t + Number(i.qty || 0), 0);
     async function loadActivity() {
       const items = [], warn = [];
@@ -296,6 +302,13 @@
           items.push({ cat: 'return', at: r.createdAt, title: 'সাপ্লায়ার রিটার্ন জমা দিলাম (অপেক্ষমাণ)', ref: r.returnNo, detail: base + ` · কারণ: ${r.reason || ''}`, lines: r.items });
           if (r.confirmedAt) items.push({ cat: 'return', at: r.confirmedAt, title: 'ভেন্ডর কনফার্ম করেছে (স্টক কমেছে)', ref: r.returnNo, detail: base });
           if (r.cancelledAt) items.push({ cat: 'return', at: r.cancelledAt, title: 'রিটার্ন বাতিল হয়েছে (স্টক বদলায়নি)', ref: r.returnNo, detail: base }); });
+      });
+      await safe('cash_handovers', async () => {
+        (await getDocs(query(collection(db, 'cash_handovers'), where('uid', '==', viewUid)))).docs.forEach(d => { const r = d.data(), m = money(r.amount);
+          items.push({ cat: 'cash', at: r.createdAt, title: 'মাস্টারকে ক্যাশ জমার অনুরোধ পাঠালাম', ref: r.handoverNo, detail: `${m}${r.note ? ' · ' + r.note : ''}` });
+          if (r.confirmedAt) items.push({ cat: 'cash', at: r.confirmedAt, title: 'মাস্টার ক্যাশ গ্রহণ নিশ্চিত করেছেন', ref: r.handoverNo, detail: `${m} · ${r.confirmedByName || ''}` });
+          if (r.rejectedAt) items.push({ cat: 'cash', at: r.rejectedAt, title: 'মাস্টার অস্বীকার করেছেন', ref: r.handoverNo, detail: `${m} · কারণ: ${r.rejectReason || ''}` });
+          if (r.cancelledAt) items.push({ cat: 'cash', at: r.cancelledAt, title: 'জমার অনুরোধ বাতিল করেছি', ref: r.handoverNo, detail: m }); });
       });
       await safe('store_handovers', async () => {
         const seen = new Set();
