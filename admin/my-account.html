@@ -26,6 +26,7 @@
     <div id="cards" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
 
     <div id="tabs" class="hidden flex flex-wrap gap-2 text-sm font-bold">
+      <button data-t="all" class="tab px-4 py-2 rounded-xl">সব কার্যকলাপ</button>
       <button data-t="cash" class="tab px-4 py-2 rounded-xl">ক্যাশ</button>
       <button data-t="receivable" class="tab px-4 py-2 rounded-xl">বকেয়া (দায়)</button>
       <button data-t="salary" class="tab px-4 py-2 rounded-xl">বেতন / পাওনা</button>
@@ -44,6 +45,7 @@
       <button id="refBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-rotate mr-1"></i>রিফ্রেশ</button>
     </div>
 
+    <div id="cats" class="hidden flex flex-wrap gap-2 text-xs"></div>
     <div id="sum" class="hidden grid grid-cols-2 gap-2"></div>
     <div id="list" class="space-y-2"></div>
     <button id="moreBtn" class="hidden w-full bg-white border rounded-xl py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50">আরও পুরনো দেখুন</button>
@@ -90,11 +92,11 @@
       manager_salary_cashout: 'পাওনা উত্তোলন (পরিশোধ)'
     };
 
-    let role = '', myUid = '', viewUid = '', tab = 'cash', filter = 'all';
+    let role = '', myUid = '', viewUid = '', tab = 'all', filter = 'all', cat = 'all', act = { items: null };
     const state = {};   // per account: { lines:[], cursor, curBal (raw balance before the oldest loaded line), done }
     let raw = {};       // current raw balances
 
-    const resetState = () => { ['cash', 'receivable', 'salary'].forEach(k => state[k] = { lines: [], cursor: null, curBal: null, done: false }); };
+    const resetState = () => { act = { items: null }; ['cash', 'receivable', 'salary'].forEach(k => state[k] = { lines: [], cursor: null, curBal: null, done: false }); };
     const accId = (k) => `mgr:${viewUid}:${ACCTS[k].suffix}`;
 
     async function loadBalances() {
@@ -144,9 +146,106 @@
       return (Date.now() - new Date(iso).getTime()) <= days * 86400000;
     };
 
+
+    // ================= সব কার্যকলাপ: one timeline of everything this manager is responsible for =================
+    const CATS = { money: ['টাকা', 'fa-coins', 'bg-emerald-100 text-emerald-700'], close: ['দিন শেষ', 'fa-calendar-check', 'bg-sky-100 text-sky-700'],
+      stockin: ['স্টক রিসিভ', 'fa-truck-ramp-box', 'bg-indigo-100 text-indigo-700'], return: ['সাপ্লায়ার রিটার্ন', 'fa-rotate-left', 'bg-purple-100 text-purple-700'],
+      handover: ['হ্যান্ডওভার', 'fa-handshake', 'bg-amber-100 text-amber-700'] };
+    const ACC_SHORT = { cash: 'ক্যাশ', receivable: 'বকেয়া', salary: 'পাওনা' };
+    const pcs = (arr) => (arr || []).reduce((t, i) => t + Number(i.qty || 0), 0);
+
+    async function loadActivity() {
+      const items = [], warn = [];
+      const safe = async (name, fn) => { try { await fn(); } catch (e) { console.warn(name, e.message); warn.push(name); } };
+
+      // 1) money: ledger lines of my 3 accounts, grouped by transaction (one row shows its effect on each account)
+      await safe('ledger', async () => {
+        const per = {};
+        for (const k of Object.keys(ACCTS)) {
+          const snap = await getDocs(query(collection(db, 'ledger'), where('accountId', '==', accId(k)), orderBy('createdAt', 'desc'), limit(300)));
+          snap.docs.forEach(d => { const x = d.data(); const g = per[x.txId] || (per[x.txId] = { type: x.type, refId: x.refId, at: x.createdAt, effects: [] }); g.effects.push({ k, v: Number(x.amount || 0) * ACCTS[k].sign }); });
+        }
+        Object.values(per).forEach(g => items.push({ cat: 'money', at: g.at, title: TYPE_LBL[g.type] || g.type, ref: g.refId || '', effects: g.effects }));
+      });
+      // 2) day close: the count I submitted (the shortage / surplus result shows up above as a money row at 00:00)
+      await safe('day_closes', async () => {
+        (await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)))).docs.forEach(d => {
+          const r = d.data();
+          if (typeof r.counted === 'number') items.push({ cat: 'close', at: r.countedAt || r.closedAt, title: 'দিন শেষের ক্যাশ গণনা জমা দিলাম', ref: r.dayKey, detail: `আমি গুনেছি ${money(r.counted)}` + (r.status === 'closed' ? ` · সিস্টেমে ছিল ${money(r.expected)} · ` + (Number(r.diff) < 0 ? `ঘাটতি ${money(-r.diff)}` : Number(r.diff) > 0 ? `বাড়তি ${money(r.diff)}` : 'পার্থক্য নেই') : ' · ফলাফল দিন শেষে আসবে') });
+          else if (r.status === 'not_counted') items.push({ cat: 'close', at: r.createdAt, title: 'গণনা জমা দেওয়া হয়নি', ref: r.dayKey, detail: `সিস্টেমে ক্যাশ ছিল ${money(r.expected)}` });
+        });
+      });
+      // 3) stock received / refused (quantities only: prices are never shown to the store manager)
+      await safe('stock_in_pending', async () => {
+        (await getDocs(query(collection(db, 'stock_in_pending'), where('receivedBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
+          items.push({ cat: 'stockin', at: r.receivedAt, title: 'চালান রিসিভ করলাম (স্টকে যুক্ত)', ref: r.invoiceNo || d.id, detail: `${r.vendor} · ${(r.items || []).length}টি পণ্য · ${pcs(r.items)} পিস`, lines: r.items }); });
+        (await getDocs(query(collection(db, 'stock_in_pending'), where('rejectedBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
+          items.push({ cat: 'stockin', at: r.rejectedAt, title: 'চালান ফেরত দিলাম (রিসিভ করিনি)', ref: r.invoiceNo || d.id, detail: `${r.vendor} · ${pcs(r.items)} পিস · কারণ: ${r.rejectReason || ''}`, lines: r.items }); });
+      });
+      // 4) returns to supplier I created
+      await safe('supplier_returns', async () => {
+        (await getDocs(query(collection(db, 'supplier_returns'), where('createdBy', '==', viewUid)))).docs.forEach(d => { const r = d.data();
+          const tl = r.type === 'damage' ? 'Damage' : 'Fresh', base = `${r.vendor} · ${tl} · ${(r.items || []).length}টি পণ্য · ${r.totalQty} পিস`;
+          items.push({ cat: 'return', at: r.createdAt, title: 'সাপ্লায়ার রিটার্ন জমা দিলাম (অপেক্ষমাণ)', ref: r.returnNo, detail: base + ` · কারণ: ${r.reason || ''}`, lines: r.items });
+          if (r.confirmedAt) items.push({ cat: 'return', at: r.confirmedAt, title: 'ভেন্ডর কনফার্ম করেছে (স্টক কমেছে)', ref: r.returnNo, detail: base });
+          if (r.cancelledAt) items.push({ cat: 'return', at: r.cancelledAt, title: 'রিটার্ন বাতিল হয়েছে (স্টক বদলায়নি)', ref: r.returnNo, detail: base });
+        });
+      });
+      // 5) store (stock) handovers I gave or received
+      await safe('store_handovers', async () => {
+        const seen = new Set();
+        for (const side of ['toUid', 'fromUid']) {
+          (await getDocs(query(collection(db, 'store_handovers'), where(side, '==', viewUid)))).docs.forEach(d => {
+            if (seen.has(d.id)) return; seen.add(d.id); const r = d.data(), toMe = r.toUid === viewUid;
+            const base = `${toMe ? 'দিয়েছেন ' + (r.fromName || '') : 'পেয়েছেন ' + (r.toName || '')} · ${r.productCount || 0}টি পণ্য · ${r.totalQty || 0} পিস`;
+            items.push({ cat: 'handover', at: r.createdAt, title: toMe ? 'আমাকে স্টক হ্যান্ডওভার পাঠানো হয়েছে' : 'আমি স্টক হ্যান্ডওভার দিলাম', ref: r.id, detail: base });
+            if (r.acceptedAt) items.push({ cat: 'handover', at: r.acceptedAt, title: 'হ্যান্ডওভার গৃহীত' + (r.differenceCount ? ` (${r.differenceCount}টি পণ্যে পার্থক্য)` : ''), ref: r.id, detail: base });
+            if (r.cancelledAt) items.push({ cat: 'handover', at: r.cancelledAt, title: 'হ্যান্ডওভার বাতিল', ref: r.id, detail: base });
+          });
+        }
+      });
+      // 6) refund cash handed to master
+      await safe('wallet_transfers', async () => {
+        (await getDocs(query(collection(db, 'wallet_transfers'), where('uid', '==', viewUid)))).docs.forEach(d => { const r = d.data();
+          items.push({ cat: 'money', at: r.createdAt, title: 'মাস্টারকে ক্যাশ হস্তান্তরের অনুরোধ', ref: d.id, detail: `${money(r.amount)} · ${r.status === 'confirmed' ? 'মাস্টার নিশ্চিত করেছেন' : 'অপেক্ষমাণ'}` }); });
+      });
+
+      act = { items: items.filter(x => x.at).sort((a, b) => String(b.at).localeCompare(String(a.at))), warn };
+    }
+
+    function actFiltered() { return (act.items || []).filter(x => (cat === 'all' || x.cat === cat) && inFilter(x.at)); }
+
+    function renderAll() {
+      $('filters').classList.remove('hidden'); $('sum').classList.add('hidden'); $('moreBtn').classList.add('hidden');
+      $('tabNote').textContent = 'আপনার দায়িত্বের সব ঘটনা একসাথে, সময় ও তারিখসহ: টাকা, দিন শেষের গণনা, স্টক রিসিভ, সাপ্লায়ার রিটার্ন ও হ্যান্ডওভার। স্টকের ক্ষেত্রে শুধু পণ্য ও পিস দেখানো হয়।';
+      $('tabNote').classList.remove('hidden');
+      $('cats').classList.remove('hidden');
+      $('cats').innerHTML = [['all', 'সব'], ...Object.entries(CATS).map(([k, v]) => [k, v[0]])]
+        .map(([k, l]) => `<button data-cat="${k}" class="px-3 py-1.5 rounded-full ${k === cat ? 'bg-gray-800 text-white' : 'bg-white border text-gray-600'}">${l}</button>`).join('');
+      const list = actFiltered();
+      if (!list.length) { $('list').innerHTML = `<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">এই সময়ে কিছু নেই।</p>`; return; }
+      let html = '', cur = '', rows = '';
+      const flush = () => { if (cur) html += `<div class="bg-white border rounded-2xl overflow-hidden"><div class="bg-gray-50 px-3 py-2 text-xs font-bold">${cur}</div><div class="divide-y">${rows}</div></div>`; rows = ''; };
+      for (const x of list) {
+        const d = dayOf(x.at); if (d !== cur) { flush(); cur = d; }
+        const c = CATS[x.cat];
+        const eff = (x.effects || []).map(e => { const a = ACCTS[e.k]; return `<span class="inline-block px-2 py-0.5 rounded-full bg-gray-50 border font-bold ${e.v > 0 ? a.plusCls : a.minusCls}">${ACC_SHORT[e.k]} ${e.v > 0 ? '+' : '−'}${num(Math.abs(e.v))}</span>`; }).join(' ');
+        const lines = x.lines && x.lines.length ? `<details class="mt-1"><summary class="text-[10px] text-gray-500 cursor-pointer">পণ্যের তালিকা</summary><div class="text-[11px] text-gray-600 pl-2">${x.lines.map(i => `${esc(i.name)} × ${Number(i.qty)}`).join('<br>')}</div></details>` : '';
+        rows += `<div class="px-3 py-2.5 text-xs space-y-1">
+          <div class="flex justify-between gap-2"><p class="font-bold"><span class="inline-block px-1.5 py-0.5 mr-1 rounded text-[10px] ${c[2]}"><i class="fa-solid ${c[1]}"></i> ${c[0]}</span>${esc(x.title)}</p><span class="text-[10px] text-gray-400 whitespace-nowrap">${timeOf(x.at)}</span></div>
+          ${x.detail ? `<p class="text-gray-600">${esc(x.detail)}</p>` : ''}${eff ? `<p class="flex flex-wrap gap-1">${eff}</p>` : ''}${lines}
+          ${x.ref ? `<p class="text-[10px] text-gray-400">রেফারেন্স: ${esc(String(x.ref).length > 40 ? String(x.ref).slice(0, 40) + '…' : x.ref)}</p>` : ''}</div>`;
+      }
+      flush();
+      const warn = act.warn && act.warn.length ? `<p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2">কিছু অংশ লোড হয়নি: ${act.warn.map(esc).join(', ')}</p>` : '';
+      $('list').innerHTML = warn + html + `<p class="text-[10px] text-gray-400 text-center">টাকার লেনদেন সর্বশেষ ৩০০টি পর্যন্ত দেখানো হয়েছে। পুরনো লেনদেন ক্যাশ/বকেয়া/পাওনা ট্যাবে পাবেন।</p>`;
+    }
+
     function render() {
       document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
       document.querySelectorAll('.chip').forEach(b => b.className = 'chip px-3 py-1.5 rounded-full ' + (b.dataset.f === filter ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      if (tab === 'all') { renderAll(); return; }
+      $('cats').classList.add('hidden');
       if (tab === 'close') { $('filters').classList.add('hidden'); $('sum').classList.add('hidden'); $('tabNote').classList.add('hidden'); $('moreBtn').classList.add('hidden'); return; }
       $('filters').classList.remove('hidden');
       const a = ACCTS[tab], st = state[tab];
@@ -196,6 +295,7 @@
     async function show() {
       render();
       if (tab === 'close') { await renderClose(); return; }
+      if (tab === 'all') { if (!act.items) { $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadActivity(); } render(); return; }
       if (!state[tab].lines.length && !state[tab].done) { $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadMore(); }
       render();
     }
@@ -207,10 +307,18 @@
     $('tabs').onclick = (e) => { const b = e.target.closest('.tab'); if (b) { tab = b.dataset.t; show(); } };
     $('cards').onclick = (e) => { const b = e.target.closest('[data-card]'); if (b) { tab = b.dataset.card; show(); } };
     $('filters').onclick = (e) => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; render(); } };
+    $('cats').onclick = (e) => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; render(); } };
     $('refBtn').onclick = fullReload;
     $('moreBtn').onclick = async () => { await loadMore(); render(); };
     $('mgrSel').onchange = () => { viewUid = $('mgrSel').value; fullReload(); };
     $('csvBtn').onclick = () => {
+      if (tab === 'all') {
+        const head = ['Date', 'Time', 'Category', 'What happened', 'Details', 'Effect', 'Reference'];
+        const out = actFiltered().map(x => [dayOf(x.at), timeOf(x.at), CATS[x.cat][0], x.title, x.detail || '', (x.effects || []).map(e => ACC_SHORT[e.k] + ' ' + (e.v > 0 ? '+' : '-') + Math.abs(e.v)).join(' | '), x.ref || '']
+          .map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','));
+        const blob = new Blob(['\ufeff' + [head.join(','), ...out].join('\n')], { type: 'text/csv;charset=utf-8' });
+        const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `my-activity-${dayOf(new Date().toISOString())}.csv`; el.click(); return;
+      }
       const a = ACCTS[tab], lines = state[tab].lines.filter(l => inFilter(l.createdAt));
       const head = ['Date', 'Time', 'Description', 'Ref', 'Plus', 'Minus', 'Balance'];
       const out = lines.map(l => { const v = Number(l.amount || 0) * a.sign; return [dayOf(l.createdAt), timeOf(l.createdAt), TYPE_LBL[l.type] || l.type, l.refId || '', v > 0 ? v : '', v < 0 ? -v : '', l.after * a.sign]
