@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>আমার হিসাব - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-book text-xl"></i><h1 class="font-bold text-base">আমার হিসাব (My Account Statement)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে...</p>
+
+    <div id="who" class="hidden bg-white border rounded-2xl p-3 flex items-center gap-2 text-xs">
+      <i class="fa-solid fa-user-tie text-emerald-700"></i><span class="text-gray-500">কার হিসাব:</span>
+      <select id="mgrSel" class="flex-1 px-2 py-1.5 border rounded-lg text-sm bg-white"></select>
+    </div>
+
+    <div id="cards" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+
+    <div id="tabs" class="hidden flex flex-wrap gap-2 text-sm font-bold">
+      <button data-t="cash" class="tab px-4 py-2 rounded-xl">ক্যাশ</button>
+      <button data-t="receivable" class="tab px-4 py-2 rounded-xl">বকেয়া (দায়)</button>
+      <button data-t="salary" class="tab px-4 py-2 rounded-xl">বেতন / পাওনা</button>
+      <button data-t="close" class="tab px-4 py-2 rounded-xl">দিন শেষের মিল</button>
+    </div>
+
+    <p id="tabNote" class="hidden text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2"></p>
+
+    <div id="filters" class="hidden flex flex-wrap items-center gap-2 text-xs">
+      <button data-f="all" class="chip px-3 py-1.5 rounded-full">সব</button>
+      <button data-f="today" class="chip px-3 py-1.5 rounded-full">আজ</button>
+      <button data-f="7" class="chip px-3 py-1.5 rounded-full">৭ দিন</button>
+      <button data-f="30" class="chip px-3 py-1.5 rounded-full">৩০ দিন</button>
+      <span class="flex-1"></span>
+      <button id="csvBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-file-csv mr-1"></i>CSV</button>
+      <button id="refBtn" class="px-3 py-1.5 rounded-full border bg-white text-gray-600"><i class="fa-solid fa-rotate mr-1"></i>রিফ্রেশ</button>
+    </div>
+
+    <div id="sum" class="hidden grid grid-cols-2 gap-2"></div>
+    <div id="list" class="space-y-2"></div>
+    <button id="moreBtn" class="hidden w-full bg-white border rounded-xl py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50">আরও পুরনো দেখুন</button>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const money = (n) => '৳ ' + num(n);
+    const dayOf = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+    const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-GB', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' });
+    const PAGE = 100;
+
+    // Ledger convention (server): amount > 0 = debit, amount < 0 = credit.
+    //  cash       : + cash came to my hand, - cash left my hand
+    //  receivable : + I owe the company more (shortage), - my dues went down
+    //  salary     : stored as a credit (negative). `sign` -1 flips it so that + = money owed TO me
+    const ACCTS = {
+      cash:       { suffix: 'cash',       sign: 1,  title: 'হাতে থাকা ক্যাশ', plus: 'যোগ হয়েছে', minus: 'কমেছে', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
+                    note: 'আপনার কাছে সিস্টেম অনুযায়ী যত ক্যাশ থাকার কথা। রাইডার ক্যাশ জমা দিলে বাড়ে, রিফান্ড বা মাস্টারকে হস্তান্তর করলে কমে। দিন শেষে গণনার সাথে মিলিয়ে ঘাটতি/বাড়তি ধরা হয়।' },
+      receivable: { suffix: 'receivable', sign: 1,  title: 'আমার বকেয়া (দায়)', plus: 'দায় বেড়েছে', minus: 'দায় কমেছে', plusCls: 'text-rose-600', minusCls: 'text-emerald-700',
+                    note: 'দিন শেষে ক্যাশ কম পাওয়া গেলে এখানে বকেয়া হিসেবে জমা হয়। টাকা পরিশোধ করলে বা বেতন থেকে কাটা গেলে কমে।' },
+      salary:     { suffix: 'salary',     sign: -1, title: 'আমার পাওনা (বেতন/বাড়তি ক্যাশ)', plus: 'পাওনা বেড়েছে', minus: 'পাওনা কমেছে', plusCls: 'text-emerald-700', minusCls: 'text-rose-600',
+                    note: 'মাসের বেতন ও দিন শেষে পাওয়া বাড়তি ক্যাশ এখানে জমা হয়। বকেয়া কাটা গেলে বা উত্তোলন করলে কমে।' }
+    };
+    const TYPE_LBL = {
+      rider_settlement: 'রাইডারের ক্যাশ জমা নিলাম',
+      manager_surplus: 'দিন শেষে ক্যাশ বেশি পাওয়া গেছে',
+      manager_shortage: 'দিন শেষে ক্যাশ কম পাওয়া গেছে',
+      manager_repay: 'বকেয়া পরিশোধ',
+      wallet_transfer: 'রিফান্ডের ক্যাশ মাস্টারকে হস্তান্তর',
+      menu_refund_cash: 'কাস্টমারকে রিফান্ডের ক্যাশ দিয়েছি',
+      menu_refund_cash_reversed: 'রিফান্ড কমানো হয়েছে (ক্যাশ ফেরত)',
+      manager_salary: 'মাসিক বেতন জমা',
+      manager_salary_deduction: 'বেতন থেকে বকেয়া কাটা হয়েছে',
+      manager_salary_cashout: 'পাওনা উত্তোলন (পরিশোধ)'
+    };
+
+    let role = '', myUid = '', viewUid = '', tab = 'cash', filter = 'all';
+    const state = {};   // per account: { lines:[], cursor, curBal (raw balance before the oldest loaded line), done }
+    let raw = {};       // current raw balances
+
+    const resetState = () => { ['cash', 'receivable', 'salary'].forEach(k => state[k] = { lines: [], cursor: null, curBal: null, done: false }); };
+    const accId = (k) => `mgr:${viewUid}:${ACCTS[k].suffix}`;
+
+    async function loadBalances() {
+      raw = {};
+      for (const k of Object.keys(ACCTS)) {
+        try { const s = await getDoc(doc(db, 'account_balances', accId(k))); raw[k] = s.exists() ? Number(s.data().balance || 0) : 0; }
+        catch (e) { raw[k] = 0; }
+      }
+      $('cards').innerHTML = Object.keys(ACCTS).map(k => {
+        const v = raw[k] * ACCTS[k].sign;
+        const cls = k === 'receivable' ? (v > 0 ? 'text-rose-600' : 'text-gray-800') : (v < 0 ? 'text-rose-600' : 'text-gray-800');
+        return `<button data-card="${k}" class="bg-white border rounded-2xl p-3 text-left shadow-sm hover:bg-emerald-50"><p class="text-[11px] text-gray-500">${ACCTS[k].title}</p><p class="text-xl font-extrabold ${cls}">${money(v)}</p></button>`;
+      }).join('');
+    }
+
+    async function loadMore() {
+      if (tab === 'close') return;
+      const st = state[tab];
+      if (st.done) return;
+      if (st.curBal === null) st.curBal = raw[tab];   // newest line ends at the current balance
+      $('moreBtn').disabled = true;
+      try {
+        const parts = [where('accountId', '==', accId(tab)), orderBy('createdAt', 'desc'), limit(PAGE)];
+        if (st.cursor) parts.push(startAfter(st.cursor));
+        const snap = await getDocs(query(collection(db, 'ledger'), ...parts));
+        snap.docs.forEach(d => {
+          const x = d.data();
+          const after = st.curBal;                       // balance right after this line (raw)
+          st.curBal = Math.round((st.curBal - Number(x.amount || 0)) * 100) / 100;
+          st.lines.push({ id: d.id, ...x, after });
+        });
+        st.cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : st.cursor;
+        if (snap.docs.length < PAGE) st.done = true;
+      } catch (e) {
+        const needIdx = /index/i.test(e.message || '');
+        $('list').innerHTML = `<p class="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-2xl p-4">${needIdx ? 'ডেটাবেস ইনডেক্স এখনো চালু হয়নি। অ্যাডমিনকে বলুন: firebase deploy --only firestore:indexes' : 'লোড ব্যর্থ: ' + esc(e.message)}</p>`;
+        st.done = true;
+      }
+      $('moreBtn').disabled = false;
+    }
+
+    const inFilter = (iso) => {
+      if (filter === 'all') return true;
+      const today = dayOf(new Date().toISOString());
+      if (filter === 'today') return dayOf(iso) === today;
+      const days = Number(filter);
+      return (Date.now() - new Date(iso).getTime()) <= days * 86400000;
+    };
+
+    function render() {
+      document.querySelectorAll('.tab').forEach(b => b.className = 'tab px-4 py-2 rounded-xl ' + (b.dataset.t === tab ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      document.querySelectorAll('.chip').forEach(b => b.className = 'chip px-3 py-1.5 rounded-full ' + (b.dataset.f === filter ? 'bg-emerald-600 text-white' : 'bg-white border text-gray-600'));
+      if (tab === 'close') { $('filters').classList.add('hidden'); $('sum').classList.add('hidden'); $('tabNote').classList.add('hidden'); $('moreBtn').classList.add('hidden'); return; }
+      $('filters').classList.remove('hidden');
+      const a = ACCTS[tab], st = state[tab];
+      $('tabNote').textContent = a.note; $('tabNote').classList.remove('hidden');
+      const lines = st.lines.filter(l => inFilter(l.createdAt));
+      let plus = 0, minus = 0;
+      lines.forEach(l => { const v = Number(l.amount || 0) * a.sign; if (v > 0) plus += v; else minus += -v; });
+      $('sum').classList.remove('hidden');
+      $('sum').innerHTML = `<div class="bg-white border rounded-xl p-3"><p class="text-[11px] text-gray-500">${a.plus} (মোট)</p><p class="font-extrabold ${a.plusCls}">+ ${money(plus)}</p></div>
+        <div class="bg-white border rounded-xl p-3"><p class="text-[11px] text-gray-500">${a.minus} (মোট)</p><p class="font-extrabold ${a.minusCls}">− ${money(minus)}</p></div>`;
+      if (!lines.length) { $('list').innerHTML = `<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">${st.lines.length || !st.done ? 'এই সময়ে কিছু নেই।' : 'এখনো কোনো লেনদেন নেই।'}</p>`; }
+      else {
+        let html = '', cur = '', dayP = 0, dayM = 0, rows = '';
+        const flush = () => { if (!cur) return; html += `<div class="bg-white border rounded-2xl overflow-hidden"><div class="flex justify-between items-center bg-gray-50 px-3 py-2 text-xs font-bold"><span>${cur}</span><span><span class="${a.plusCls}">+${num(dayP)}</span> <span class="text-gray-300">|</span> <span class="${a.minusCls}">−${num(dayM)}</span></span></div><div class="divide-y">${rows}</div></div>`; rows = ''; dayP = 0; dayM = 0; };
+        for (const l of lines) {
+          const d = dayOf(l.createdAt);
+          if (d !== cur) { flush(); cur = d; }
+          const v = Number(l.amount || 0) * a.sign;
+          if (v > 0) dayP += v; else dayM += -v;
+          const refShort = l.refId && String(l.refId).length > 22 ? String(l.refId).slice(0, 22) + '…' : (l.refId || '');
+          rows += `<div class="flex justify-between gap-3 px-3 py-2.5 text-xs">
+            <div class="min-w-0"><p class="font-bold">${esc(TYPE_LBL[l.type] || l.type)}</p><p class="text-[10px] text-gray-400">${timeOf(l.createdAt)}${refShort ? ' · ' + esc(refShort) : ''}</p></div>
+            <div class="text-right whitespace-nowrap"><p class="font-extrabold text-sm ${v > 0 ? a.plusCls : a.minusCls}">${v > 0 ? '+' : '−'} ${num(Math.abs(v))}</p><p class="text-[10px] text-gray-400">ব্যালেন্স ${num(l.after * a.sign)}</p></div></div>`;
+        }
+        flush();
+        $('list').innerHTML = html;
+      }
+      $('moreBtn').classList.toggle('hidden', st.done);
+    }
+
+    async function renderClose() {
+      $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
+      try {
+        const snap = await getDocs(query(collection(db, 'day_closes'), where('uid', '==', viewUid)));
+        const rows = snap.docs.map(d => d.data()).sort((x, y) => String(y.dayKey).localeCompare(String(x.dayKey)));
+        const ST = { closed: ['মিলেছে/বন্ধ', 'bg-emerald-100 text-emerald-700'], not_counted: ['গণনা দেওয়া হয়নি', 'bg-amber-100 text-amber-700'] };
+        $('list').innerHTML = rows.map(r => {
+          const diff = Number(r.diff || 0), st = ST[r.status] || [r.status || 'গণনা জমা', 'bg-gray-100 text-gray-600'];
+          return `<div class="bg-white border rounded-2xl p-3 text-xs space-y-1">
+            <div class="flex justify-between"><b>${esc(r.dayKey)}</b><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${st[1]}">${st[0]}</span></div>
+            <div class="flex justify-between text-gray-600"><span>সিস্টেমে থাকার কথা: <b>${r.expected != null ? money(r.expected) : '—'}</b></span><span>আমি গুনেছি: <b>${r.counted != null ? money(r.counted) : '—'}</b></span></div>
+            ${r.status === 'closed' ? `<p class="font-bold ${diff < 0 ? 'text-rose-600' : diff > 0 ? 'text-emerald-700' : 'text-gray-500'}">${diff < 0 ? 'ঘাটতি (বকেয়া হয়েছে): ' + money(-diff) : diff > 0 ? 'বাড়তি (পাওনা হয়েছে): ' + money(diff) : 'কোনো পার্থক্য নেই'}</p>` : ''}</div>`;
+        }).join('') || '<p class="text-sm text-gray-400 bg-white border rounded-2xl p-6 text-center">কিছু নেই।</p>';
+      } catch (e) { $('list').innerHTML = `<p class="text-sm text-rose-700 p-4">লোড ব্যর্থ: ${esc(e.message)}</p>`; }
+    }
+
+    async function show() {
+      render();
+      if (tab === 'close') { await renderClose(); return; }
+      if (!state[tab].lines.length && !state[tab].done) { $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>'; await loadMore(); }
+      render();
+    }
+    async function fullReload() {
+      resetState(); $('list').innerHTML = '<p class="text-xs text-gray-400 text-center py-6">লোড হচ্ছে...</p>';
+      await loadBalances(); await show();
+    }
+
+    $('tabs').onclick = (e) => { const b = e.target.closest('.tab'); if (b) { tab = b.dataset.t; show(); } };
+    $('cards').onclick = (e) => { const b = e.target.closest('[data-card]'); if (b) { tab = b.dataset.card; show(); } };
+    $('filters').onclick = (e) => { const b = e.target.closest('.chip'); if (b) { filter = b.dataset.f; render(); } };
+    $('refBtn').onclick = fullReload;
+    $('moreBtn').onclick = async () => { await loadMore(); render(); };
+    $('mgrSel').onchange = () => { viewUid = $('mgrSel').value; fullReload(); };
+    $('csvBtn').onclick = () => {
+      const a = ACCTS[tab], lines = state[tab].lines.filter(l => inFilter(l.createdAt));
+      const head = ['Date', 'Time', 'Description', 'Ref', 'Plus', 'Minus', 'Balance'];
+      const out = lines.map(l => { const v = Number(l.amount || 0) * a.sign; return [dayOf(l.createdAt), timeOf(l.createdAt), TYPE_LBL[l.type] || l.type, l.refId || '', v > 0 ? v : '', v < 0 ? -v : '', l.after * a.sign]
+        .map(x => '"' + String(x ?? '').replace(/"/g, '""') + '"').join(','); });
+      const blob = new Blob(['\ufeff' + [head.join(','), ...out].join('\n')], { type: 'text/csv;charset=utf-8' });
+      const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `my-account-${tab}-${dayOf(new Date().toISOString())}.csv`; el.click();
+    };
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) { $('msg').textContent = 'প্রথমে অ্যাডমিন প্যানেলে লগইন করুন।'; return; }
+      const s = await getDoc(doc(db, 'admins', u.uid));
+      if (!s.exists() || s.data().active === false) { $('msg').textContent = 'অনুমতি নেই।'; return; }
+      role = s.data().role || 'master'; myUid = u.uid; viewUid = u.uid;
+      if (!['store', 'master'].includes(role)) { $('msg').textContent = 'এই পেজ শুধু স্টোর ম্যানেজার ও মাস্টারের জন্য।'; return; }
+      if (role === 'master') {
+        try {
+          const ms = await getDocs(query(collection(db, 'admins'), where('role', '==', 'store')));
+          $('mgrSel').innerHTML = `<option value="${myUid}">আমি (মাস্টার)</option>` + ms.docs.map(d => `<option value="${d.id}">${esc(d.data().name || d.data().email || d.id)}</option>`).join('');
+          $('who').classList.remove('hidden');
+        } catch (e) { console.warn(e.message); }
+      }
+      ['cards', 'tabs'].forEach(id => $(id).classList.remove('hidden'));
+      $('msg').classList.add('hidden');
+      await fullReload();
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
