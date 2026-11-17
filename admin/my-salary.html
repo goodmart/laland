@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>বেতন ও ক্যাশ আউট - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-money-bill-wave text-xl"></i><h1 class="font-bold text-base">বেতন ও ক্যাশ আউট</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto p-4 space-y-4">
+    <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে…</p>
+
+    <div id="box" class="hidden space-y-4">
+      <!-- summary -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">মাসিক বেসিক বেতন</p><p id="cBasic" class="text-xl font-extrabold mt-1">…</p></div>
+        <div class="bg-white rounded-2xl border p-4 border-emerald-300"><p class="text-[11px] text-gray-500">তোলার যোগ্য ব্যালেন্স</p><p id="cAvail" class="text-xl font-extrabold text-emerald-700 mt-1">…</p></div>
+        <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">মোট ক্যাশ আউট (পরিশোধিত)</p><p id="cPaid" class="text-xl font-extrabold text-blue-700 mt-1">…</p></div>
+      </div>
+      <p class="text-[11px] text-gray-500 bg-white border rounded-xl px-3 py-2">মাস্টার অ্যাডমিন বেতন রিলিজ করলে টাকাটা "তোলার যোগ্য ব্যালেন্সে" যোগ হয়। দিন শেষে বাড়তি ক্যাশ পাওয়া গেলেও এখানে যোগ হয়, আর আগের ঘাটতি থাকলে বেতন রিলিজের সময় কেটে নেওয়া হয়।</p>
+
+      <!-- request form / pending notice -->
+      <section id="reqBox" class="bg-white rounded-2xl border p-5 shadow-sm space-y-3"></section>
+
+      <!-- history -->
+      <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-2">
+        <h2 class="font-bold text-sm">ক্যাশ আউট অনুরোধের ইতিহাস</h2>
+        <div id="hist" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+      </section>
+      <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-2">
+        <h2 class="font-bold text-sm">বেতন রিলিজ</h2>
+        <div id="sals" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- payment proof viewer -->
+  <div id="pfModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white rounded-2xl p-4 w-full max-w-md max-h-[92vh] overflow-auto space-y-2">
+      <div class="flex justify-between items-center"><b class="text-sm">🧾 পেমেন্ট প্রুফ</b><button onclick="document.getElementById('pfModal').classList.add('hidden')" class="text-gray-500 text-lg">✕</button></div>
+      <div id="pfBody"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = (n) => '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN');
+    const when = (iso) => iso ? new Date(iso).toLocaleString('en-GB') : '';
+    const ST = { Pending: ['⏳ অপেক্ষমাণ', 'bg-amber-100 text-amber-700'], paid: ['✅ পরিশোধিত', 'bg-emerald-100 text-emerald-700'], rejected: ['❌ বাতিল', 'bg-red-100 text-red-600'] };
+
+    let me = null, uid = '', avail = 0, reqs = [], busy = false;
+
+    function drawCards() {
+      $('cBasic').textContent = money(me.fixedSalary);
+      $('cAvail').textContent = money(avail);
+      // lifetime paid: the server keeps a counter; count the paid requests too in case it is not there yet
+      const paid = Math.max(Number(me.totalPaidOut || 0), reqs.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount || 0), 0));
+      $('cPaid').textContent = money(paid);
+    }
+    function drawRequest() {
+      const pend = reqs.find(r => r.status === 'Pending');
+      if (pend) {
+        $('reqBox').innerHTML = `<div class="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"><b>⏳ আপনার ${money(pend.amount)} এর অনুরোধ অপেক্ষমাণ</b>
+          <p class="text-[11px] text-gray-600 mt-1">মাস্টার অ্যাডমিন পরিশোধ করলে নিচের ইতিহাসে পেমেন্ট প্রুফসহ দেখাবে।</p></div>`;
+        return;
+      }
+      const keep = { a: ($('qA') || {}).value, c: ($('qC') || {}).value, n: ($('qN') || {}).value, t: ($('qT') || {}).value };
+      $('reqBox').innerHTML = `
+        <h2 class="font-bold text-sm">ক্যাশ আউট অনুরোধ</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <label class="text-[11px] text-gray-600">পরিমাণ (সর্বোচ্চ ${money(avail)})<input id="qA" type="number" min="1" step="1" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+          <label class="text-[11px] text-gray-600">কীভাবে নেবেন<select id="qC" class="w-full mt-1 px-3 py-2 border rounded-xl bg-white"><option>bKash</option><option>Nagad</option><option>Bank</option><option>Cash</option></select></label>
+          <label class="text-[11px] text-gray-600" id="qNl">নম্বর / অ্যাকাউন্ট<input id="qN" class="w-full mt-1 px-3 py-2 border rounded-xl" placeholder="bKash নম্বর"></label>
+          <label class="text-[11px] text-gray-600">নোট (ঐচ্ছিক)<input id="qT" maxlength="120" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+        </div>
+        <button id="qSend" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm ${avail > 0 ? '' : 'opacity-50'}" ${avail > 0 ? '' : 'disabled'}>অনুরোধ পাঠান</button>`;
+      $('qA').value = keep.a ?? (avail > 0 ? avail : '');
+      if (keep.c) $('qC').value = keep.c;
+      if (keep.n != null) $('qN').value = keep.n;
+      if (keep.t != null) $('qT').value = keep.t;
+      const acc = () => { const c = $('qC').value; $('qNl').classList.toggle('hidden', c === 'Cash'); $('qN').placeholder = c === 'Bank' ? 'ব্যাংকের নাম ও অ্যাকাউন্ট নম্বর' : c + ' নম্বর'; };
+      $('qC').onchange = acc; acc();
+      $('qSend').onclick = send;
+    }
+    async function send() {
+      const amount = Number($('qA').value), channel = $('qC').value, account = $('qN').value.trim();
+      if (!(amount > 0)) return alert('পরিমাণ লিখুন।');
+      if (amount > avail) return alert(`তোলার যোগ্য ব্যালেন্স ${money(avail)}, এর বেশি তোলা যাবে না।`);
+      if (channel !== 'Cash' && !account) return alert(`${channel} নম্বর / অ্যাকাউন্ট লিখুন।`);
+      if (!confirm(`${money(amount)} ক্যাশ আউটের অনুরোধ পাঠাবেন? (${channel}${channel !== 'Cash' ? ' ' + account : ''})`)) return;
+      if (busy) return; busy = true; $('qSend').disabled = true;
+      try { await httpsCallable(fns, 'requestPayout')({ amount, channel, account: channel === 'Cash' ? '' : account, note: $('qT').value.trim() }); alert('অনুরোধ পাঠানো হয়েছে। মাস্টার অ্যাডমিন পরিশোধ করবেন।'); }
+      catch (e) { alert(e.message || e); if ($('qSend')) $('qSend').disabled = false; }
+      busy = false;
+    }
+    function drawHistory() {
+      $('hist').innerHTML = reqs.map(r => {
+        const [t, cls] = ST[r.status] || [r.status, 'bg-gray-100'];
+        return `<div class="border rounded-xl p-3 text-xs space-y-1">
+          <div class="flex justify-between items-center"><b class="text-sm">${money(r.amount)}</b><span class="px-2 py-0.5 rounded-full font-bold text-[10px] ${cls}">${t}</span></div>
+          <p class="text-gray-500">অনুরোধ: ${when(r.createdAt)} · ${esc(r.channel)} ${esc(r.account || '')}${r.note ? ' · 📝 ' + esc(r.note) : ''}</p>
+          ${r.status === 'paid' ? `<p class="text-gray-500">পরিশোধ: ${when(r.paidAt)} · ${esc(r.paidChannel || '')} · Trx: ${esc(r.trxRef || '')}</p>
+            ${r.hasProof ? `<button data-proof="${esc(r.id)}" class="w-full bg-gray-100 rounded-lg py-2 font-bold">🧾 পেমেন্ট প্রুফ দেখুন</button>` : ''}` : ''}
+          ${r.status === 'rejected' ? `<p class="text-red-600">কারণ: ${esc(r.rejectReason || '')}</p>` : ''}
+        </div>`;
+      }).join('') || '<p class="text-xs text-gray-400">এখনো কোনো অনুরোধ নেই</p>';
+    }
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('button[data-proof]'); if (!b) return;
+      try {
+        const s = await getDoc(doc(db, 'payout_proofs', b.dataset.proof));
+        if (!s.exists()) return alert('প্রুফ পাওয়া যায়নি।');
+        const p = s.data();
+        $('pfBody').innerHTML = `<img src="${esc(p.image)}" class="w-full rounded-lg border">
+          <p class="text-[11px] text-gray-500">আপলোড: ${esc(p.uploadedByName || '')} · ${when(p.uploadedAt)}</p>
+          <a href="${esc(p.image)}" download="payment-proof-${esc(b.dataset.proof)}.jpg" class="block text-center bg-gray-100 rounded-lg py-2 text-xs font-bold">⬇ ডাউনলোড</a>`;
+        $('pfModal').classList.remove('hidden');
+      } catch (err) { alert(err.message || err); }
+    });
+
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      uid = u.uid;
+      const s = await getDoc(doc(db, 'admins', uid)).catch(() => null);
+      if (!s || !s.exists()) { $('msg').textContent = 'অ্যাডমিন অ্যাকাউন্ট পাওয়া যায়নি।'; return; }
+      me = s.data();
+      if ((me.role || 'master') === 'master') { $('msg').innerHTML = 'এই পেজ ম্যানেজারদের জন্য। স্টাফদের বেতন রিলিজ ও ক্যাশ আউট দেখতে <a class="text-emerald-700 font-bold underline" href="finance.html">Finance</a> খুলুন।'; return; }
+      $('msg').classList.add('hidden'); $('box').classList.remove('hidden');
+      onSnapshot(doc(db, 'admins', uid), (d) => { me = d.data() || me; drawCards(); });
+      onSnapshot(doc(db, 'account_balances', `mgr:${uid}:salary`), (d) => {
+        avail = Math.round(-(d.exists() ? Number(d.data().balance || 0) : 0) * 100) / 100;   // salary is stored as a credit
+        drawCards(); drawRequest();
+      }, (e) => console.error('balance', e));
+      onSnapshot(query(collection(db, 'payout_requests'), where('uid', '==', uid)), (snap) => {
+        reqs = []; snap.forEach(d => reqs.push({ id: d.id, ...d.data() }));
+        reqs.sort((a, b) => (b.createdAt || '') < (a.createdAt || '') ? -1 : 1);
+        drawCards(); drawRequest(); drawHistory();
+      }, (e) => console.error('requests', e));
+      onSnapshot(query(collection(db, 'salary_releases'), where('uid', '==', uid)), (snap) => {
+        const list = []; snap.forEach(d => list.push(d.data()));
+        list.sort((a, b) => (b.month || '') < (a.month || '') ? -1 : 1);
+        $('sals').innerHTML = list.map(x => `<div class="border rounded-xl p-3 text-xs flex justify-between items-center">
+          <div><b class="text-sm">${esc(x.month)}</b><p class="text-gray-500">${when(x.releasedAt)}${x.note ? ' · ' + esc(x.note) : ''}</p></div>
+          <div class="text-right"><b class="text-emerald-700">${money(x.amount)}</b>${x.deducted ? `<p class="text-rose-600">ঘাটতি কাটা ${money(x.deducted)}</p>` : ''}</div></div>`).join('')
+          || '<p class="text-xs text-gray-400">এখনো কোনো বেতন রিলিজ হয়নি</p>';
+      }, (e) => console.error('salaries', e));
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

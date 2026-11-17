@@ -28,7 +28,7 @@ addEventListener('error',function(e){__eb((e.message||'error')+' @'+String(e.fil
 <input id="p" type="password" placeholder="পাসওয়ার্ড" required><button>লগইন</button></form></section>
 
 <section id="rider" hidden>
-<div class="row"><div class="c">ক্যাশ জমা বাকি<h3 id="cash">৳0</h3></div><div class="c">আয় (কমিশন)<h3 id="earn">৳0</h3></div></div>
+<div class="row"><div class="c">ক্যাশ জমা বাকি<h3 id="cash">৳0</h3></div><div class="c">আয় (কমিশন + বেতন)<h3 id="earn">৳0</h3></div></div>
 <button class="g" onclick="openStl()">ক্যাশ জমা দিন</button>
 <div class="t" style="margin-top:10px"><button id="rt-act" class="on" onclick="rTab('act')">চলমান</button><button id="rt-done" onclick="rTab('done')">সম্পন্ন</button><button id="rt-h" onclick="rTab('h')">জমার ইতিহাস</button><button id="rt-co" onclick="rTab('co')">ক্যাশ আউট</button><button id="rt-p" onclick="rTab('p')">প্রোফাইল</button></div>
 <div id="dF" class="c" hidden><div class="row"><input id="dm" type="month" onchange="dmC()"><input id="dd" type="date" onchange="ddC()"></div><select id="ds" onchange="renderR()"></select><button class="g" onclick="expD()">📥 এক্সেল এক্সপোর্ট</button></div>
@@ -49,6 +49,7 @@ addEventListener('error',function(e){__eb((e.message||'error')+' @'+String(e.fil
 <button class="g" style="font-size:18px;padding:14px" onclick="respond(true)">✅ রিসিভ করুন</button><button class="r" onclick="respond(false)">❌ বাতিল</button></div></div>
 <div id="pay" class="m" hidden><div><h3>ডেলিভারি সম্পন্ন</h3><p id="payAmt"></p><select id="pm"><option>Cash</option><option>bKash</option><option>Nagad</option></select><input id="trx" placeholder="Trx ID (অনলাইন হলে)"><button class="g" onclick="donePay()">নিশ্চিত করুন</button><button class="s" onclick="pay.hidden=true">বন্ধ</button></div></div>
 <div id="stl" class="m" hidden><div><h3>ক্যাশ জমা (ইনভয়েস অনুযায়ী)</h3><small id="sCb"></small><div id="sl"></div><div class="sp" style="margin-top:6px"><b>মোট জমা</b><b id="sT">৳0</b></div><select id="sm"><option>Cash</option><option>bKash</option><option>Nagad</option></select><input id="sr" placeholder="Trx ID/নোট"><button class="g" onclick="sendStl()">জমা পাঠান</button><button class="s" onclick="stl.hidden=true">বন্ধ</button></div></div>
+<div id="fileM" class="m" hidden style="z-index:40" onclick="if(event.target===this)this.hidden=true"><div style="max-width:520px"><div id="fileB"></div><button class="s" onclick="fileM.hidden=true">বন্ধ</button></div></div>
 <div id="rpm" class="m" hidden><div style="max-width:460px"><div id="rpB"></div><button class="s" onclick="rpm.hidden=true">বন্ধ</button></div></div>
 
 <script type="module">
@@ -60,7 +61,7 @@ const cfg={apiKey:"AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",authDomain:"laland-e
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FIN=['Delivered','Completed','Cancelled','Returned'];
-let pouts=[],me,orders=[],riders=[],stls=[],allS=[],busyF=0,unsub=[],rt='act',offerId,cdT,ringT,ctx,payId,isAd=false;
+let sals=[],pouts=[],me,orders=[],riders=[],stls=[],allS=[],busyF=0,unsub=[],rt='act',offerId,cdT,ringT,ctx,payId,isAd=false;
 const iso=()=>new Date().toISOString();
 
 // ---- shared helpers
@@ -104,7 +105,8 @@ function startRider(){isAd=false;$('rider').hidden=false;$('who').textContent='�
 snap(doc(db,'riders',me.id),s=>{me={id:s.id,...s.data()};$('cash').textContent='৳'+(me.cashBalance||0);$('earn').textContent='৳'+(me.earningsBalance||0);renderR()});
 snap(query(collection(db,'orders'),where('riderPhone','==',me.phone)),s=>{orders=list(s);renderR();checkOffer()});
 snap(query(collection(db,'cash_settlements'),where('riderPhone','==',me.phone)),s=>{stls=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()});
-snap(query(collection(db,'payout_requests'),where('riderId','==',me.id)),s=>{pouts=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()})}
+snap(query(collection(db,'payout_requests'),where('riderId','==',me.id)),s=>{pouts=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()});
+snap(query(collection(db,'salary_releases'),where('uid','==',me.id)),s=>{sals=list(s).sort((a,b)=>(b.month||'')<(a.month||'')?-1:1);renderR()})}
 window.rTab=t=>{rt=t;['act','done','h','co','p'].forEach(x=>$('rt-'+x).className=x==t?'on':'');renderR()};
 window.dmC=()=>{$('dd').value='';renderR()};window.ddC=()=>{$('dm').value='';renderR()};
 const dBase=()=>{const m=$('dm').value,d=$('dd').value;return orders.filter(o=>['Delivered','Completed','Returned','Cancelled'].includes(o.status)&&(!m||ld(od(o)).startsWith(m))&&(!d||ld(od(o))==d)).sort((a,b)=>od(b)>od(a)?1:-1)};
@@ -177,7 +179,8 @@ const form=pend?`<div class="c" style="border-color:#f59e0b;background:#fffbeb">
 <input id="coN" placeholder="bKash নম্বর" value="${E(me.phone||'')}"><input id="coNote" placeholder="নোট (ঐচ্ছিক)" maxlength="120">
 <button class="g" onclick="sendPayout()" ${earn>0?'':'disabled style="opacity:.5"'}>অনুরোধ পাঠান</button></div>`;
 return `<div class="c"><div class="sp"><span>আয় (কমিশন) ব্যালেন্স</span><h3 style="margin:0">${tk(earn)}</h3></div></div>${form}
-<b>অনুরোধের ইতিহাস</b>${pouts.map(poCard).join('')||'<div class="c"><small>এখনো কোনো অনুরোধ নেই</small></div>'}`}
+<b>অনুরোধের ইতিহাস</b>${pouts.map(poCard).join('')||'<div class="c"><small>এখনো কোনো অনুরোধ নেই</small></div>'}
+<b>বেতন রিলিজ</b>${sals.map(x=>`<div class="c"><div class="sp"><b>${tk(x.amount)}</b><span class="b">${E(x.month)}</span></div><small>রিলিজ: ${E(fdt(x.releasedAt))}${x.note?' · '+E(x.note):''}</small></div>`).join('')||'<div class="c"><small>এখনো কোনো বেতন রিলিজ হয়নি</small></div>'}`}
 window.coAcc=()=>{const c=$('coC').value,n=$('coN');n.hidden=c=='Cash';n.placeholder=c=='Bank'?'ব্যাংক অ্যাকাউন্ট নম্বর ও ব্যাংকের নাম':c+' নম্বর'};
 window.sendPayout=async()=>{const a=Number($('coA').value),ch=$('coC').value,acc=$('coN').value.trim(),earn=N(me.earningsBalance);
 if(!(a>0))return alert('পরিমাণ লিখুন');if(a>earn)return alert('আয় ব্যালেন্স '+tk(earn)+', এর বেশি তোলা যাবে না');if(ch!='Cash'&&!acc)return alert(ch+' নম্বর/অ্যাকাউন্ট লিখুন');
@@ -212,8 +215,8 @@ $('olist').innerHTML=l.map(o=>`<div class="c"><div class="sp"><b>${E(o.orderId||
 ${detailsHtml(o)}
 ${actH(o)}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
 Object.entries(keep).forEach(([k,v])=>{const e=$(k);if(e)e.value=v});
-$('rlistA').innerHTML=riders.map(r=>`<div class="c"><div class="sp"><b>${E(r.name)}</b><span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':busy(r)?'ব্যস্ত ('+busy(r)+')':'ফ্রি'}</span></div>
-<small>${E(r.phone)} · ${E(r.area)} · ${E(r.vehicle)}</small><div>ক্যাশ বাকি ৳${r.cashBalance||0} · আয় ৳${r.earningsBalance||0}</div><small>বেতন ৳${r.fixedSalary||0} · কমিশন ৳${r.deliveryCommission||0}</small>
+$('rlistA').innerHTML=riders.map(r=>`<div class="c"><div class="sp"><span style="display:flex;align-items:center;gap:8px">${avatar(r,36)}<b>${E(r.name)}</b></span><span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':busy(r)?'ব্যস্ত ('+busy(r)+')':'ফ্রি'}</span></div>
+<small>${E(r.phone)} · ${E(r.area)} · ${E(r.vehicle)}</small><div>ক্যাশ বাকি ৳${r.cashBalance||0} · তোলার যোগ্য ৳${r.earningsBalance||0} · মোট ক্যাশ আউট ৳${r.totalPaidOut||0}</div><small>বেতন ৳${r.fixedSalary||0} · কমিশন ৳${r.deliveryCommission||0}</small>
 <div class="row"><button onclick="viewR('${r.id}')">প্রোফাইল</button><button class="s" onclick="editR('${r.id}')">এডিট</button><button class="${r.status=='Inactive'?'g':'r'}" onclick="toggleR('${r.id}')">${r.status=='Inactive'?'সক্রিয়':'নিষ্ক্রিয়'}</button></div></div>`).join('')};
 window.assign=async id=>{const r=riders.find(x=>x.id==$('s_'+id).value);if(!r)return;
 try{await updateDoc(doc(db,'orders',id),{status:'On the Way',riderId:r.id,riderPhone:r.phone,riderName:r.name,assignedRiderId:r.id,assignedRiderName:r.name,offerState:'Offered',offeredAt:iso(),onTheWayAt:iso()})}catch(e){alert(e.message)}};
@@ -224,23 +227,48 @@ const sa=getAuth(initializeApp(cfg,'sec'+Date.now())),em=p+'@lalandrider.com';
 try{const u=await createUserWithEmailAndPassword(sa,em,w);
 await setDoc(doc(db,'riders',u.user.uid),{uid:u.user.uid,name:n,phone:p,email:em,area:$('ra').value.trim(),vehicle:$('rv').value.trim(),fixedSalary:Number($('rs').value)||0,deliveryCommission:Number($('rc').value)||30,cashBalance:0,earningsBalance:0,status:'Active',createdAt:iso()});
 await signOut(sa);['rn','rp','rw','ra','rv','rs'].forEach(i=>$(i).value='');alert('রাইডার তৈরি হয়েছে')}catch(e){alert(e.message)}};
+// ---- photos & ID images (staff_files/{riderId}; a small thumbnail lives on the rider doc for lists)
+const avatar=(r,sz)=>r.photoThumb?`<img src="${E(r.photoThumb)}" onclick="viewFile('${E(r.id)}','photo')" style="width:${sz}px;height:${sz}px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #ede9fe;flex:none">`
+:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:${sz/2}px;flex:none">🏍</div>`;
+function shrink(file,max,limit){return new Promise((ok,no)=>{if(!file||!/^image\//.test(file.type))return no(new Error('শুধু ছবি (JPG/PNG) দিন'));
+const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{URL.revokeObjectURL(u);let m=max;for(let i=0;i<6;i++){const k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');
+c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);
+const d=c.toDataURL('image/jpeg',.75);if(d.length<limit)return ok(d);m=Math.round(m*.75)}no(new Error('ছবিটা অনেক বড়'))};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error('ছবি পড়া যায়নি'))};im.src=u})}
+window.viewFile=async(id,kind)=>{try{const s=await getDoc(doc(db,'staff_files',id));const f=s.exists()?s.data():{};
+const imgs=kind=='photo'?[['প্রোফাইল ছবি',f.photo]]:[['NID / জন্মনিবন্ধন — সামনে',f.nidFront],['পেছনে',f.nidBack]];
+const h=imgs.filter(x=>x[1]).map(([t,src])=>`<p><b>${t}</b></p><img src="${E(src)}" style="width:100%;border-radius:8px;border:1px solid #e5e7eb"><a href="${E(src)}" download="${E(id)}-${kind}.jpg"><button class="s">⬇ ডাউনলোড</button></a>`).join('');
+$('fileB').innerHTML=h||'<p>কোনো ছবি আপলোড করা হয়নি</p>';$('fileM').hidden=false}catch(e){alert(e.message)}};
+let pendFiles={};
+window.pickFile=async(inp,key)=>{const f=inp.files[0];if(!f)return;try{const big=key=='photo'?[700,200000]:[1400,330000];pendFiles[key]=await shrink(f,big[0],big[1]);
+if(key=='photo')pendFiles.thumb=await shrink(f,160,30000);const pv=$('pv_'+key);pv.src=pendFiles[key];pv.hidden=false}catch(e){alert(e.message);inp.value=''}};
+
 // ---- রাইডার প্রোফাইল ও এডিট
 const RF=[['name','নাম'],['altPhone','বিকল্প মোবাইল'],['nid','NID / জন্মনিবন্ধন নম্বর'],['address','বর্তমান ঠিকানা'],['area','কর্ম এলাকা'],['vehicle','বাহন (বাইক/সাইকেল)'],['vehicleNo','বাহনের নম্বর'],['license','ড্রাইভিং লাইসেন্স নম্বর'],['bloodGroup','রক্তের গ্রুপ'],['emergencyName','জরুরি যোগাযোগের নাম'],['emergencyPhone','জরুরি যোগাযোগের নম্বর'],['joinDate','যোগদানের তারিখ','date'],['fixedSalary','মাসিক বেতন','number'],['deliveryCommission','কমিশন/ডেলিভারি','number'],['note','অ্যাডমিন নোট']];
 function profHtml(r,adm){const my=orders.filter(o=>o.riderPhone==r.phone),dep=(adm?allS:stls).filter(s=>s.riderPhone==r.phone&&s.status=='Approved').reduce((a,s)=>a+N(s.amount),0),
 K=(t,n)=>`<div class="c" style="margin:0;text-align:center;padding:6px"><small>${t}</small><h3 style="margin:2px 0">${n}</h3></div>`,
 Ln=(k,v)=>`<div class="sp" style="border-bottom:1px dashed #e5e7eb;padding:4px 0"><small>${k}</small><b style="text-align:right">${E(v)||'—'}</b></div>`;
-return `<h3 style="margin:0 0 6px">🏍 ${E(r.name)} <span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':'সক্রিয়'}</span></h3>
+const paid=Math.max(N(r.totalPaidOut),adm?0:pouts.filter(p=>p.status=='paid').reduce((a,p)=>a+N(p.amount),0));
+return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">${avatar(r,56)}<h3 style="margin:0">${E(r.name)} <span class="b">${r.status=='Inactive'?'নিষ্ক্রিয়':'সক্রিয়'}</span></h3></div>
 <div class="row" style="margin:6px 0">${K('Delivered',cg(my,'Delivered'))}${K('Returned',cg(my,'Returned'))}${K('Cancelled',cg(my,'Cancelled'))}${K('চলমান',my.filter(o=>o.offerState!='Offered'&&!FIN.includes(o.status)).length)}</div>`
-+Ln('মোবাইল (লগইন আইডি)',r.phone)+Ln('বিকল্প মোবাইল',r.altPhone)+Ln('NID / জন্মনিবন্ধন',r.nid)+Ln('ঠিকানা',r.address)+Ln('কর্ম এলাকা',r.area)+Ln('বাহন',r.vehicle)+Ln('বাহনের নম্বর',r.vehicleNo)+Ln('লাইসেন্স নম্বর',r.license)+Ln('রক্তের গ্রুপ',r.bloodGroup)
++Ln('মোবাইল (লগইন আইডি)',r.phone)+Ln('বিকল্প মোবাইল',r.altPhone)+Ln('NID / জন্মনিবন্ধন নম্বর',r.nid)
++`<div class="sp" style="border-bottom:1px dashed #e5e7eb;padding:4px 0"><small>NID / জন্মনিবন্ধনের ছবি</small>${r.hasNid?`<button class="s" style="width:auto;padding:4px 10px" onclick="viewFile('${E(r.id)}','nid')">🪪 ছবি দেখুন</button>`:'<b>—</b>'}</div>`+Ln('ঠিকানা',r.address)+Ln('কর্ম এলাকা',r.area)+Ln('বাহন',r.vehicle)+Ln('বাহনের নম্বর',r.vehicleNo)+Ln('লাইসেন্স নম্বর',r.license)+Ln('রক্তের গ্রুপ',r.bloodGroup)
 +Ln('জরুরি যোগাযোগ',[r.emergencyName,r.emergencyPhone].filter(Boolean).join(' · '))+Ln('যোগদানের তারিখ',r.joinDate||ld(r.createdAt))+Ln('মাসিক বেতন',tk(r.fixedSalary))+Ln('কমিশন/ডেলিভারি',tk(r.deliveryCommission))
-+Ln('ক্যাশ জমা বাকি',tk(r.cashBalance))+Ln('মোট আয় (কমিশন)',tk(r.earningsBalance))+Ln('মোট জমা (অনুমোদিত)',tk(dep))+(adm?Ln('অ্যাডমিন নোট',r.note):'')}
++Ln('ক্যাশ জমা বাকি',tk(r.cashBalance))+Ln('তোলার যোগ্য ব্যালেন্স (কমিশন + বেতন)',tk(r.earningsBalance))+Ln('মোট বেতন রিলিজ',tk(r.totalSalaryReleased))+Ln('মোট ক্যাশ আউট (পরিশোধিত)',tk(paid))+Ln('মোট জমা (অনুমোদিত)',tk(dep))+(adm?Ln('অ্যাডমিন নোট',r.note):'')}
 window.viewR=id=>{const r=riders.find(x=>x.id==id);if(!r)return;$('rpB').innerHTML=profHtml(r,true)+`<button onclick="editR('${r.id}')">✏️ এডিট করুন</button>`;$('rpm').hidden=false};
 window.editR=id=>{const r=riders.find(x=>x.id==id);if(!r)return;
+pendFiles={};
+const up=(k,l)=>`<label><small>${l}</small><input type="file" accept="image/*" onchange="pickFile(this,'${k}')"></label><img id="pv_${k}" hidden style="max-height:120px;border-radius:8px;border:1px solid #e5e7eb">`;
 $('rpB').innerHTML=`<h3 style="margin:0">✏️ ${E(r.name)}</h3><small>মোবাইল (লগইন আইডি): ${E(r.phone)} — অর্ডার ও লগইনের সাথে যুক্ত, তাই বদলানো যাবে না</small>`
++`<div class="c" style="margin:8px 0;background:#faf5ff"><b>📷 ছবি ও কাগজপত্র</b>${up('photo','প্রোফাইল ছবি')}${up('nidFront','NID / জন্মনিবন্ধন — সামনের ছবি')}${up('nidBack','NID — পেছনের ছবি (ঐচ্ছিক)')}<small>ছবি নিজে থেকে ছোট হয়ে সেভ হবে।</small></div>`
 +RF.map(([k,l,t])=>`<label><small>${l}</small><input id="e_${k}" type="${t||'text'}" value="${E(r[k]??'')}"></label>`).join('')
-+`<label><small>স্ট্যাটাস</small><select id="e_status"><option value="Active" ${r.status!='Inactive'?'selected':''}>সক্রিয়</option><option value="Inactive" ${r.status=='Inactive'?'selected':''}>নিষ্ক্রিয়</option></select></label><button class="g" onclick="saveR('${r.id}')">সেভ করুন</button>`;$('rpm').hidden=false};
++`<label><small>স্ট্যাটাস</small><select id="e_status"><option value="Active" ${r.status!='Inactive'?'selected':''}>সক্রিয়</option><option value="Inactive" ${r.status=='Inactive'?'selected':''}>নিষ্ক্রিয়</option></select></label><button class="g" onclick="saveR('${r.id}')">সেভ করুন</button>`;$('rpm').hidden=false;
+getDoc(doc(db,'staff_files',id)).then(s=>{const f=s.exists()?s.data():{};['photo','nidFront','nidBack'].forEach(k=>{if(f[k]&&!pendFiles[k]){const pv=$('pv_'+k);if(pv){pv.src=f[k];pv.hidden=false}}})}).catch(()=>{})};
 window.saveR=async id=>{const o={};for(const [k,,t] of RF){const v=$('e_'+k).value.trim();o[k]=t=='number'?(Number(v)||0):v}
-if(!o.name)return alert('নাম দিন');o.status=$('e_status').value;try{await updateDoc(doc(db,'riders',id),o);$('rpm').hidden=true;alert('সেভ হয়েছে')}catch(e){alert(e.message)}};
+if(!o.name)return alert('নাম দিন');o.status=$('e_status').value;
+try{const f={};['photo','nidFront','nidBack'].forEach(k=>{if(pendFiles[k])f[k]=pendFiles[k]});
+if(Object.keys(f).length){await setDoc(doc(db,'staff_files',id),{...f,updatedAt:iso(),updatedBy:auth.currentUser.uid},{merge:true});
+if(pendFiles.thumb)o.photoThumb=pendFiles.thumb;if(f.nidFront||f.nidBack)o.hasNid=true}
+await updateDoc(doc(db,'riders',id),o);pendFiles={};$('rpm').hidden=true;alert('সেভ হয়েছে')}catch(e){alert(e.message)}};
 window.toggleR=async id=>{const r=riders.find(x=>x.id==id),n=r.status=='Inactive'?'Active':'Inactive';if(confirm((n=='Inactive'?'নিষ্ক্রিয়':'সক্রিয়')+' করবেন? '+r.name))try{await updateDoc(doc(db,'riders',id),{status:n})}catch(e){alert(e.message)}};
 
 // ---- ক্যাশ জমা (অ্যাডমিন)

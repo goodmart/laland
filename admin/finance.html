@@ -20,7 +20,7 @@
     <!-- SUMMARY -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">কোম্পানির কাছে আপনার পাওনা</p><p id="sOwed" class="text-xl font-extrabold text-blue-700 mt-1">…</p></div>
-      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">রাইডার ক্যাশ-আউট অপেক্ষমাণ</p><p id="sReq" class="text-xl font-extrabold text-amber-600 mt-1">…</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ক্যাশ-আউট অপেক্ষমাণ</p><p id="sReq" class="text-xl font-extrabold text-amber-600 mt-1">…</p></div>
       <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ম্যানেজারের খোলা পাওনা</p><p id="sRec" class="text-xl font-extrabold text-rose-600 mt-1">…</p></div>
       <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ওয়ালেট রিজার্ভ</p><p id="sRes" class="text-xl font-extrabold text-emerald-700 mt-1">…</p></div>
     </div>
@@ -28,7 +28,7 @@
     <!-- RIDER PAYOUT REQUESTS -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="font-bold text-sm text-gray-800">১. রাইডার ক্যাশ-আউট অনুরোধ</h2>
+        <h2 class="font-bold text-sm text-gray-800">১. ক্যাশ-আউট অনুরোধ (রাইডার ও ম্যানেজার)</h2>
         <span class="text-[11px] text-gray-500">টাকা পাঠিয়ে Trx ID ও পেমেন্ট প্রুফের ছবি দিয়ে অনুমোদন করুন</span>
       </div>
       <div id="reqRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p></div>
@@ -46,21 +46,35 @@
       </div>
     </div>
 
+    <!-- SALARY RELEASE -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm text-gray-800">২. বেতন রিলিজ (রাইডার ও ম্যানেজার)</h2>
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-gray-500">মাস:</span>
+          <input id="salMonth" type="month" class="px-2 py-1.5 border rounded-lg text-xs bg-white">
+          <button id="salAll" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold">বাকি সবার রিলিজ</button>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-500">রিলিজ করামাত্র টাকাটা স্টাফের "তোলার যোগ্য ব্যালেন্সে" যোগ হয়, তারপর সে ক্যাশ আউট অনুরোধ পাঠাতে পারে। এক মাসে একজনের বেতন একবারই রিলিজ হয়। ম্যানেজারের আগের মাসের ঘাটতি থাকলে রিলিজের সময় কেটে নেওয়া হয়।</p>
+      <div id="salTable" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+    </section>
+
     <!-- COMPANY REIMBURSEMENT TO MASTER -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
-      <h2 class="font-bold text-sm text-gray-800">২. দৈনিক দাবি (কোম্পানি থেকে আপনার ফেরত)</h2>
+      <h2 class="font-bold text-sm text-gray-800">৩. দৈনিক দাবি (কোম্পানি থেকে আপনার ফেরত)</h2>
       <div id="claimRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো খোলা দাবি নেই</p></div>
     </section>
 
     <!-- MANAGER SALARY -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
-      <h2 class="font-bold text-sm text-gray-800">৩. ম্যানেজারের বেতন ক্যাশ-আউট</h2>
+      <h2 class="font-bold text-sm text-gray-800">৪. ম্যানেজারের পাওনা — সরাসরি ক্যাশ-আউট (অনুরোধ ছাড়া)</h2>
       <div id="salRows" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
     </section>
 
     <!-- OPEN RECEIVABLES -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
-      <h2 class="font-bold text-sm text-gray-800">৪. ম্যানেজারের খোলা পাওনা (ঘাটতি)</h2>
+      <h2 class="font-bold text-sm text-gray-800">৫. ম্যানেজারের খোলা পাওনা (ঘাটতি)</h2>
       <div id="recRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো খোলা পাওনা নেই</p></div>
     </section>
   </main>
@@ -85,6 +99,9 @@
 
     let names = {}, balances = {};
     const riderBal = {}, proofs = {};   // proofs[requestId] = { data: dataURL, name }
+    const riderInfo = {}, adminInfo = {};   // full docs, for salary release
+    const ROLE_BN = { rider: 'রাইডার', store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager', master: 'মাস্টার' };
+    const staffBal = (r) => (r.staffType === 'manager') ? -(balances[`mgr:${r.uid}:salary`] || 0) : riderBal[r.uid || r.riderId];
 
     // shrink a photo / screenshot to a JPEG small enough to store (max ~1400px, under ~650 KB)
     function compressImage(file) {
@@ -124,20 +141,21 @@
     // ---------- summary + balances (live)
     async function loadNames() {
       const a = await getDocs(collection(db, 'admins'));
-      names = {}; a.forEach(d => names[d.id] = d.data().name || d.data().email || d.id);
+      names = {}; a.forEach(d => { names[d.id] = d.data().name || d.data().email || d.id; adminInfo[d.id] = d.data(); });
       const r = await getDocs(collection(db, 'riders'));
       r.forEach(d => names[d.id] = d.data().name || d.id);
     }
 
     function startLive() {
+      let pendRows = [];   // declared first: snapshot callbacks below may redraw before the requests arrive
       onSnapshot(collection(db, 'account_balances'), (snap) => {
         balances = {};
         snap.forEach(d => balances[d.data().account] = Number(d.data().balance || 0));
         $('sOwed').textContent = money(-(balances['master:owed'] || 0));
         $('sRes').textContent = money(balances['master:reserve'] || 0);
         renderSalaries();
+        drawPending();
       });
-      let pendRows = [];
       onSnapshot(query(collection(db, 'payout_requests'), where('status', '==', 'Pending')), (snap) => {
         pendRows = []; snap.forEach(d => pendRows.push({ id: d.id, ...d.data() }));
         pendRows.sort((x, y) => (x.createdAt || '') < (y.createdAt || '') ? -1 : 1);
@@ -149,15 +167,17 @@
         // keep what the master already typed / picked when the list refreshes
         const keep = {}; rows.forEach(r => { keep[r.id] = { tx: ($(`tx_${r.id}`) || {}).value, ch: ($(`ch_${r.id}`) || {}).value }; });
         $('reqRows').innerHTML = rows.map(r => {
-          const bal = riderBal[r.riderId];
-          const low = bal != null && Number(r.amount) > bal;
+          const uid = r.uid || r.riderId, bal = staffBal(r);
+          const low = bal != null && Number(r.amount) > bal + 0.001;
           return `
           <div class="border rounded-xl p-3 space-y-2 ${low ? 'border-red-300 bg-red-50' : ''}">
             <div class="flex flex-wrap items-start justify-between gap-2">
-              <div><p class="font-bold text-sm">${esc(r.riderName || names[r.riderId] || r.riderId)} <span class="text-[11px] text-gray-500 font-normal">${esc(r.riderPhone || '')}</span></p>
+              <div><p class="font-bold text-sm">${esc(r.staffName || r.riderName || names[uid] || uid)}
+                <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.staffType === 'manager' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}">${ROLE_BN[r.staffRole || 'rider'] || r.staffRole}</span>
+                <span class="text-[11px] text-gray-500 font-normal">${esc(r.riderPhone || '')}</span></p>
                 <p class="text-[11px] text-gray-500">অনুরোধ: ${new Date(r.createdAt).toLocaleString('en-GB')}</p>
                 <p class="text-[11px]">চায়: <b>${esc(r.channel || '—')}</b> ${esc(r.account || '')}${r.note ? ` · 📝 ${esc(r.note)}` : ''}</p>
-                <p class="text-[11px] ${low ? 'text-red-600 font-bold' : 'text-gray-500'}">রাইডারের বর্তমান আয় ব্যালেন্স: ${bal == null ? '…' : money(bal)}${low ? ' — অনুরোধের চেয়ে কম!' : ''}</p></div>
+                <p class="text-[11px] ${low ? 'text-red-600 font-bold' : 'text-gray-500'}">বর্তমান তোলার যোগ্য ব্যালেন্স: ${bal == null ? '…' : money(bal)}${low ? ' — অনুরোধের চেয়ে কম!' : ''}</p></div>
               <span class="font-extrabold text-lg text-emerald-700">${money(r.amount)}</span>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -170,7 +190,7 @@
             </div>
             <img id="pfp_${r.id}" class="hidden max-h-32 rounded-lg border">
             <div class="flex gap-2">
-              <button data-pay="${r.id}" data-rider="${esc(r.riderId)}" data-amt="${Number(r.amount)}" class="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold">✅ অনুমোদন ও পরিশোধ</button>
+              <button data-pay="${r.id}" data-rider="${esc(uid)}" data-amt="${Number(r.amount)}" class="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold">✅ অনুমোদন ও পরিশোধ</button>
               <button data-rej="${r.id}" class="bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-xs font-bold">বাতিল</button>
             </div>
           </div>`;
@@ -188,7 +208,7 @@
         const rows = [...hist.paid, ...hist.rejected].sort((x, y) => ((y.paidAt || y.rejectedAt || '') < (x.paidAt || x.rejectedAt || '') ? -1 : 1)).slice(0, 50);
         $('reqHist').innerHTML = rows.map(r => `
           <div class="border rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div><b>${esc(r.riderName || names[r.riderId] || r.riderId)}</b> · ${money(r.amount)}
+            <div><b>${esc(r.staffName || r.riderName || names[r.uid || r.riderId] || '')}</b> <span class="text-[10px] text-gray-500">${ROLE_BN[r.staffRole || 'rider'] || ''}</span> · ${money(r.amount)}
               <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}">${r.status === 'paid' ? 'পরিশোধিত' : 'বাতিল'}</span>
               <p class="text-[11px] text-gray-500">${r.status === 'paid'
                 ? `${new Date(r.paidAt).toLocaleString('en-GB')} · ${esc(r.trxRef || '')} · ${esc(r.paidByName || '')}`
@@ -201,8 +221,9 @@
       }, (e) => console.error('payout history', e)));
       // live rider earnings, so the master sees if a request is still covered
       onSnapshot(collection(db, 'riders'), (snap) => {
-        snap.forEach(d => { riderBal[d.id] = Number(d.data().earningsBalance || 0); names[d.id] = d.data().name || d.id; });
+        snap.forEach(d => { riderBal[d.id] = Number(d.data().earningsBalance || 0); names[d.id] = d.data().name || d.id; riderInfo[d.id] = d.data(); });
         drawPending();
+        drawSalary();
       });
       onSnapshot(query(collection(db, 'master_claims'), where('status', '==', 'open')), (snap) => {
         const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
@@ -250,6 +271,64 @@
           </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো বেতন ব্যালেন্স নেই</p>';
     }
 
+    // ---------- salary release (riders + store / vendor managers)
+    const dhakaMonth = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }).slice(0, 7);
+    let salMonth = dhakaMonth(), released = {}, unsubRel = null;
+    function staffList() {
+      const r = Object.entries(riderInfo).filter(([, d]) => d.status !== 'Inactive')
+        .map(([uid, d]) => ({ uid, type: 'rider', role: 'rider', name: d.name || uid, basic: Number(d.fixedSalary || 0), extra: d.phone || '' }));
+      const m = Object.entries(adminInfo).filter(([, d]) => d.active !== false && (d.role || 'master') !== 'master')
+        .map(([uid, d]) => ({ uid, type: 'manager', role: d.role, name: d.name || d.email || uid, basic: Number(d.fixedSalary || 0), extra: d.email || '' }));
+      return [...m, ...r];
+    }
+    function watchReleases() {
+      if (unsubRel) unsubRel();
+      unsubRel = onSnapshot(query(collection(db, 'salary_releases'), where('month', '==', salMonth)), (snap) => {
+        released = {}; snap.forEach(d => { released[d.data().uid] = d.data(); }); drawSalary();
+      }, (e) => console.error('salary_releases', e));
+    }
+    function drawSalary() {
+      const el = $('salTable'); if (!el) return;
+      const keep = {}; el.querySelectorAll('input[data-sa],input[data-sn]').forEach(i => keep[i.id] = i.value);
+      const list = staffList();
+      el.innerHTML = list.map(p => {
+        const done = released[p.uid];
+        return `<div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between ${done ? 'bg-emerald-50 border-emerald-200' : ''}">
+          <div class="min-w-[160px]"><p class="font-bold text-sm">${esc(p.name)} <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.type === 'manager' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}">${ROLE_BN[p.role] || p.role}</span></p>
+            <p class="text-[11px] text-gray-500">বেসিক বেতন: <b>${money(p.basic)}</b>${!p.basic ? ` <span class="text-amber-600">(সেট করা নেই — ${p.type === 'manager' ? 'Dashboard → অ্যাডমিন অ্যাকাউন্ট' : 'Rider Finance → রাইডার → এডিট'} থেকে সেট করুন)</span>` : ''}</p></div>
+          ${done
+            ? `<div class="text-xs text-emerald-700 font-bold">✅ রিলিজ হয়েছে ${money(done.amount)}${done.deducted ? ` <span class="text-rose-600 font-normal">(ঘাটতি কাটা ${money(done.deducted)})</span>` : ''}<br><span class="font-normal text-gray-500">${new Date(done.releasedAt).toLocaleString('en-GB')}${done.note ? ' · ' + esc(done.note) : ''}</span></div>`
+            : `<div class="flex items-center gap-2">
+                <input id="sa_${p.uid}" data-sa="${p.uid}" type="number" min="1" step="1" value="${p.basic || ''}" class="px-2 py-1.5 border rounded-lg text-xs w-24" placeholder="পরিমাণ">
+                <input id="sn_${p.uid}" data-sn="${p.uid}" placeholder="নোট (বোনাস/কাটা…)" class="px-2 py-1.5 border rounded-lg text-xs w-36">
+                <button data-rel="${p.uid}" data-type="${p.type}" data-name="${esc(p.name)}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">রিলিজ</button>
+              </div>`}
+        </div>`;
+      }).join('') || '<p class="text-xs text-gray-400">কোনো রাইডার বা ম্যানেজার নেই</p>';
+      Object.entries(keep).forEach(([id, v]) => { const i = $(id); if (i) i.value = v; });
+    }
+    async function releaseOne(uid, type, name, ask) {
+      const amount = Number(($(`sa_${uid}`) || {}).value), note = (($(`sn_${uid}`) || {}).value || '').trim();
+      if (!(amount > 0)) { alert(`${name}: পরিমাণ লিখুন।`); return false; }
+      if (ask && !confirm(`${name}-এর ${salMonth} মাসের বেতন ${money(amount)} রিলিজ করবেন?`)) return false;
+      try {
+        const r = (await call('releaseSalary', { staffType: type, uid, month: salMonth, amount, note })).data;
+        if (ask) alert(r.deducted ? `রিলিজ হয়েছে। আগের ঘাটতি ${money(r.deducted)} কাটা হয়েছে, তোলার যোগ্য ${money(r.available)}।` : 'রিলিজ হয়েছে।');
+        return true;
+      } catch (err) { alert(`${name}: ` + (err.message || err)); return false; }
+    }
+    $('salMonth').value = salMonth;
+    $('salMonth').addEventListener('change', () => { salMonth = $('salMonth').value || dhakaMonth(); watchReleases(); });
+    $('salAll').addEventListener('click', async () => {
+      const todo = staffList().filter(p => !released[p.uid] && Number(($(`sa_${p.uid}`) || {}).value) > 0);
+      if (!todo.length) return alert('রিলিজ করার মতো কেউ বাকি নেই (পরিমাণ খালি থাকলে বাদ যাবে)।');
+      const total = todo.reduce((s, p) => s + Number($(`sa_${p.uid}`).value), 0);
+      if (!confirm(`${salMonth} মাসের বেতন ${todo.length} জনের জন্য মোট ${money(total)} রিলিজ করবেন?`)) return;
+      $('salAll').disabled = true; let n = 0;
+      for (const p of todo) if (await releaseOne(p.uid, p.type, p.name, false)) n++;
+      $('salAll').disabled = false; alert(`${n} জনের বেতন রিলিজ হয়েছে।`);
+    });
+
     // ---------- actions
     document.addEventListener('click', async (e) => {
       const pay = e.target.closest('button[data-pay]');
@@ -260,7 +339,7 @@
         if (!confirm(`${money(pay.dataset.amt)} ${channel}-এ পরিশোধ হয়েছে বলে নিশ্চিত করবেন?`)) return;
         pay.disabled = true; pay.textContent = 'সেভ হচ্ছে…';
         try {
-          await call('payoutFromMaster', { riderId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel, proof: proofs[id].data, proofName: proofs[id].name });
+          await call('payoutFromMaster', { staffId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel, proof: proofs[id].data, proofName: proofs[id].name });
           delete proofs[id]; alert('পরিশোধ হয়েছে, প্রুফ সেভ হয়েছে।');
         } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); pay.disabled = false; pay.textContent = '✅ অনুমোদন ও পরিশোধ'; }
         return;
@@ -275,6 +354,8 @@
         catch (err) { alert('ব্যর্থ: ' + (err.message || err)); rej.disabled = false; }
         return;
       }
+      const rel = e.target.closest('button[data-rel]');
+      if (rel) { rel.disabled = true; await releaseOne(rel.dataset.rel, rel.dataset.type, rel.dataset.name, true); rel.disabled = false; return; }
       const pf = e.target.closest('button[data-proof]');
       if (pf) {
         try {
@@ -310,7 +391,7 @@
       }
     });
 
-    loadNames().then(startLive);
+    loadNames().then(() => { startLive(); watchReleases(); drawSalary(); });
   </script>
   <script type="module" src="admin-nav.js"></script>
 </body>

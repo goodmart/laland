@@ -107,6 +107,8 @@
           <input id="naEmail" type="email" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
         <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">পাসওয়ার্ড * (কমপক্ষে ৬ অক্ষর)</label>
           <input id="naPass" type="password" minlength="6" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
+        <div><label class="text-[11px] font-semibold text-gray-600 block mb-1">মাসিক বেসিক বেতন (৳)</label>
+          <input id="naSalary" type="number" min="0" step="1" placeholder="যেমন: 12000" class="w-full px-3 py-2 border rounded-xl text-sm bg-white"></div>
         <div class="sm:col-span-2 flex items-center justify-between gap-3">
           <p class="text-[11px] text-gray-500">তৈরি হলে এই ইমেইল ও পাসওয়ার্ড দিয়ে সে লগইন করতে পারবে।</p>
           <button id="naSubmit" type="submit" class="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 whitespace-nowrap">অ্যাকাউন্ট তৈরি করুন</button>
@@ -115,9 +117,9 @@
       <div class="overflow-x-auto">
         <table class="w-full text-xs">
           <thead class="bg-gray-100 text-gray-600">
-            <tr><th class="p-2 text-left">নাম</th><th class="p-2 text-left">ইমেইল</th><th class="p-2 text-left">রোল</th><th class="p-2 text-center">অবস্থা</th><th class="p-2 text-center">কার্যক্রম</th></tr>
+            <tr><th class="p-2 text-left">নাম</th><th class="p-2 text-left">ইমেইল</th><th class="p-2 text-left">রোল</th><th class="p-2 text-left">মাসিক বেতন</th><th class="p-2 text-center">অবস্থা</th><th class="p-2 text-center">কার্যক্রম</th></tr>
           </thead>
-          <tbody id="adminRows"><tr><td colspan="5" class="p-4 text-center text-gray-400">লোড হচ্ছে...</td></tr></tbody>
+          <tbody id="adminRows"><tr><td colspan="6" class="p-4 text-center text-gray-400">লোড হচ্ছে...</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -266,17 +268,19 @@
               class="px-3 py-1 rounded-lg font-bold ${active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}">${active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}</button>`;
           return `<tr class="border-t">
             <td class="p-2">${esc(a.name)}</td><td class="p-2">${esc(a.email)}</td><td class="p-2">${roleCell}</td>
+            <td class="p-2">${role === 'master' ? '—' : `<div class="flex items-center gap-1"><input data-sal="${esc(a.id)}" type="number" min="0" step="1" value="${Number(a.fixedSalary || 0)}" class="w-24 px-2 py-1 border rounded-lg">
+              <button data-act="sal" data-uid="${esc(a.id)}" class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold">সেভ</button></div>`}</td>
             <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">${active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span></td>
             <td class="p-2 text-center">${actCell}</td></tr>`;
-        }).join('') || '<tr><td colspan="5" class="p-4 text-center text-gray-400">কোনো অ্যাডমিন নেই</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="p-4 text-center text-gray-400">কোনো অ্যাডমিন নেই</td></tr>';
       } catch (e) {
-        rows.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-600">লোড হয়নি: ${esc(e.message)}</td></tr>`;
+        rows.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-red-600">লোড হয়নি: ${esc(e.message)}</td></tr>`;
       }
     }
 
     $('newAdminForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = { name: $('naName').value.trim(), role: $('naRole').value, email: $('naEmail').value.trim(), password: $('naPass').value };
+      const data = { name: $('naName').value.trim(), role: $('naRole').value, email: $('naEmail').value.trim(), password: $('naPass').value, fixedSalary: Number($('naSalary').value) || 0 };
       if (data.password.length < 6) return alert('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে।');
       if (!confirm(`${ROLE_LABEL[data.role]} হিসেবে ${data.email} তৈরি করবেন?`)) return;
       $('naSubmit').disabled = true;
@@ -291,6 +295,15 @@
       loadAdmins();
     });
     $('adminRows').addEventListener('click', async (e) => {
+      const sb = e.target.closest('button[data-act="sal"]');
+      if (sb) {
+        const v = Number(document.querySelector(`input[data-sal="${sb.dataset.uid}"]`).value);
+        if (!(v >= 0)) return alert('সঠিক বেতন লিখুন।');
+        sb.disabled = true;
+        try { await call('setStaffSalary', { uid: sb.dataset.uid, fixedSalary: v }); alert('বেতন সেভ হয়েছে। Finance → বেতন রিলিজ থেকে রিলিজ করুন।'); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+        sb.disabled = false; return;
+      }
       const btn = e.target.closest('button[data-act="toggle"]'); if (!btn) return;
       const nowActive = btn.dataset.active === 'true';
       if (!confirm(nowActive ? 'নিষ্ক্রিয় করবেন? সে তখনই লগইন থেকে বাদ পড়বে।' : 'সক্রিয় করবেন?')) return;
