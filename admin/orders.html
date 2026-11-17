@@ -228,6 +228,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, collection, getDocs, updateDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -241,6 +242,8 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const fns = getFunctions(app);
+    const callFn = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
 
     let allOrdersList = [];
     let currentActiveStatus = 'All';
@@ -454,7 +457,8 @@
       let html = '';
       filtered.forEach(ord => {
         const orderStatus = (ord.status || 'Pending').toLowerCase();
-        const isDelivered = orderStatus === 'delivered';
+        // delivered (or returned after delivery) orders are locked: no status change, item edit or delete
+        const isDelivered = orderStatus === 'delivered' || orderStatus === 'completed' || !!ord.deliveredAt;
 
         const formattedItems = ord.items && ord.items.length > 0 ? ord.items.map((i, index) => `
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-dashed border-gray-200 last:border-none gap-2">
@@ -652,19 +656,11 @@
       if (!lines.length) { alert('কমপক্ষে একটি আইটেমের ফেরতের পরিমাণ দিন।'); return; }
       if (!reason) { alert('ফেরতের কারণ লিখুন।'); return; }
 
-      const at = new Date().toISOString();
-      const entry = { id: 'R' + Date.now().toString(36), at, by: 'admin', reason, lines };
-      const allReturned = items.every(it => Number(it.returnedQty || 0) >= Number(it.qty));
-      const payload = {
-        items,
-        returnHistory: [...(ord.returnHistory || []), entry],
-        returnedAmount: items.reduce((s, it) => s + Number(it.price || 0) * Number(it.returnedQty || 0), 0)
-      };
-      if (allReturned) { payload.status = 'Returned'; payload.returnedAt = at; payload.returnReason = reason; }
+      // delivered orders are locked for direct writes: the server applies the return (processOrderReturn)
       try {
-        await updateDoc(doc(db, 'orders', retOrderId), payload);
+        const r = await callFn('processOrderReturn', { orderId: retOrderId, channel: 'door', reason, lines: lines.map(l => ({ productId: l.productId, qty: l.qty })) });
         closeReturnModal();
-        alert(allReturned ? 'সব আইটেম ফেরত — অর্ডার Returned হয়েছে।' : 'আংশিক ফেরত সেভ হয়েছে। অর্ডার Delivered-ই থাকবে।');
+        alert(r.allReturned ? 'সব আইটেম ফেরত — অর্ডার Returned হয়েছে।' : 'আংশিক ফেরত সেভ হয়েছে। অর্ডার Delivered-ই থাকবে।');
       } catch (e) { alert('Error: ' + e.message); }
     };
 
@@ -733,12 +729,7 @@ window.rsPreview=()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);const el=d
 window.rsSave=async()=>{const o=allOrdersList.find(x=>x.id===rsOrderId);if(!o)return;
   const reason=(document.getElementById('rsReason')?.value||'').trim();if(!reason)return alert('ফেরতের কারণ লিখুন');
   const s=rsNewState(o);if(s.bad)return alert(s.bad);if(!s.units)return alert('কমপক্ষে একটি আইটেমের ফেরত দিন');
-  const delta=rsR2(rsParts(o,s.items,s.extra).refund-rsParts(o,o.items||[]).refund);
-  const at=new Date().toISOString(),all=s.items.every(it=>rsNum(it.returnedQty)>=rsNum(it.qty));
-  const entry={id:'R'+Date.now().toString(36),at,by:'admin',reason,lines:s.lines,refund:delta,channel:'menu'};
-  const payload={items:s.items,returnHistory:[...(o.returnHistory||[]),entry],returnedAmount:s.items.reduce((x,it)=>x+rsNum(it.price)*rsNum(it.returnedQty),0),lastRefundBy:window.__adminUid||''};
-  if(all){payload.status='Returned';payload.returnedAt=at;payload.returnReason=reason}
-  try{await updateDoc(doc(db,'orders',o.id),payload);alert('সেভ হয়েছে। কাস্টমারকে ৳'+delta+' নগদ ফেরত দিন। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
+  try{const r=await callFn('processOrderReturn',{orderId:o.id,channel:'menu',reason,lines:s.lines.map(l=>({productId:l.productId,qty:l.qty}))});const delta=r.refund;alert('সেভ হয়েছে। কাস্টমারকে ৳'+delta+' নগদ ফেরত দিন। রাইডারের ক্যাশ ও কমিশন অপরিবর্তিত।');rsOrderId=null;document.getElementById('rsQ').value='';document.getElementById('rsBody').innerHTML=''}
   catch(e){alert(e.message)}};
 window.updateOrderStatus = async function(orderId, newStatus) {
       try {
