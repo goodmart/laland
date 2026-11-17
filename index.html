@@ -754,12 +754,46 @@
     let resetConfirmation = null;
     let resetRecaptcha = null;
 
+    // A reCAPTCHA token can be used for ONE SMS request only. Re-using a verifier (after a send, a failure or
+    // a "resend") makes Firebase answer auth/invalid-app-credential. So every send gets a brand-new verifier
+    // in a brand-new container element.
+    // Only ONE reCAPTCHA lives on the page at a time: sign-up and Forgot Password share this slot,
+    // so trying one after the other never leaves two widgets fighting each other.
+    async function freshRecaptcha(prev, containerId) {
+      try { prev && prev.clear(); } catch (_) {}
+      try { window.__activeRecaptcha && window.__activeRecaptcha !== prev && window.__activeRecaptcha.clear(); } catch (_) {}
+      window.__activeRecaptcha = null;
+      const old = document.getElementById(containerId);
+      const box = document.createElement('div');
+      box.id = containerId;
+      old.replaceWith(box);
+      const { RecaptchaVerifier } = window.firebaseServices;
+      const v = new RecaptchaVerifier(window.firebaseAuth, containerId, { size: 'invisible' });
+      await v.render();
+      window.__activeRecaptcha = v;
+      return v;
+    }
+    window.freshRecaptcha = freshRecaptcha;
+
+    function otpErrorText(err) {
+      const c = (err && err.code) || '';
+      if (c === 'auth/too-many-requests') return "অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।";
+      if (c === 'auth/invalid-phone-number') return "মোবাইল নম্বর সঠিক নয়।";
+      if (c === 'auth/quota-exceeded') return "আজকের SMS কোটা শেষ। পরে চেষ্টা করুন।";
+      if (c === 'auth/invalid-app-credential' || c === 'auth/captcha-check-failed')
+        return "নিরাপত্তা যাচাই (reCAPTCHA) ব্যর্থ হয়েছে। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।\n(" + c + ")";
+      if (c === 'auth/unauthorized-domain') return "এই ওয়েবসাইটের ডোমেইন Firebase-এ অনুমোদিত নয়। (" + c + ")";
+      if (c === 'auth/operation-not-allowed') return "ফোন দিয়ে লগইন চালু নেই বা এই দেশে SMS বন্ধ। (" + c + ")";
+      return "OTP পাঠানো যায়নি: " + (c || (err && err.message) || '');
+    }
+    window.otpErrorText = otpErrorText;
+
     window.sendPasswordResetOTP = async function() {
       const phone = normPhone(document.getElementById('recoveryPhone').value);
       if (!phone) { alert("সঠিক মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।"); return; }
       try {
-        const { signInWithPhoneNumber, RecaptchaVerifier } = window.firebaseServices;
-        if (!resetRecaptcha) resetRecaptcha = new RecaptchaVerifier(window.firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+        const { signInWithPhoneNumber } = window.firebaseServices;
+        resetRecaptcha = await freshRecaptcha(resetRecaptcha, 'recaptcha-container');
         resetConfirmation = await signInWithPhoneNumber(window.firebaseAuth, '+88' + phone, resetRecaptcha);
         document.getElementById('otpStepMobile').classList.add('hidden');
         document.getElementById('otpStepVerify').classList.remove('hidden');
@@ -768,7 +802,7 @@
         console.error(e);
         try { resetRecaptcha && resetRecaptcha.clear(); } catch (_) {}
         resetRecaptcha = null;
-        alert("OTP পাঠানো যায়নি: " + (e.code || e.message));
+        alert(otpErrorText(e));
       }
     };
 
@@ -1819,7 +1853,7 @@
 
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const { signInWithPhoneNumber, RecaptchaVerifier, EmailAuthProvider, linkWithCredential, getAdditionalUserInfo } = window.firebaseServices;
+        const { signInWithPhoneNumber, EmailAuthProvider, linkWithCredential, getAdditionalUserInfo } = window.firebaseServices;
         const name = document.getElementById('signupName').value.trim();
         const phone = normPhone(document.getElementById('signupPhone').value);
         const password = document.getElementById('signupPassword').value;
@@ -1836,7 +1870,7 @@
         // ---- step 1: send OTP
         if (!signupConfirm || phone !== signupPhoneSent) {
           try {
-            if (!signupRecaptcha) signupRecaptcha = new RecaptchaVerifier(auth, 'signup-recaptcha', { size: 'invisible' });
+            signupRecaptcha = await freshRecaptcha(signupRecaptcha, 'signup-recaptcha');   // new token for every send
             signupConfirm = await signInWithPhoneNumber(auth, '+88' + phone, signupRecaptcha);
             signupPhoneSent = phone;
             document.getElementById('signupOtpInfo').textContent = `${phone} নম্বরে ৬ ডিজিটের OTP পাঠানো হয়েছে।`;
@@ -1848,9 +1882,7 @@
             console.error(err);
             try { signupRecaptcha && signupRecaptcha.clear(); } catch (_) {}
             signupRecaptcha = null; signupConfirm = null;
-            alert(err.code === 'auth/too-many-requests' ? "অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।"
-              : err.code === 'auth/invalid-phone-number' ? "মোবাইল নম্বর সঠিক নয়।"
-              : "OTP পাঠানো যায়নি: " + (err.code || err.message));
+            alert(otpErrorText(err));
           } finally { signupBtn.disabled = false; }
           return;
         }
@@ -1929,20 +1961,4 @@
             'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।',
             'auth/network-request-failed': 'ইন্টারনেট সংযোগ চেক করুন।',
             'auth/unauthorized-domain': 'এই ডোমেইন Firebase-এ authorize করা নেই।',
-            'auth/operation-not-allowed': 'Email/Password sign-in চালু নেই।',
-            'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'API Key সঠিক নয়।',
-            'auth/requests-from-referer-' : ''
-          };
-          alert(msgs[err.code] || ('Login failed: ' + (err.code || err.message)));
-        } finally { submitBtn.disabled = false; }
-      });
-
-      // LOGOUT HANDLER
-      document.getElementById('logoutBtn').addEventListener('click', async () => {
-        await signOut(auth);
-        alert("Signed out successfully.");
-      });
-    }
-  </script>
-</body>
-</html>
+            'auth
