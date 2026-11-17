@@ -113,8 +113,8 @@ const rCard=(o,act)=>`<div class="c"><div class="sp"><b>${E(o.orderId||o.id)}</b
 <div>👤 ${E(o.userName)} · <a href="tel:${E(o.userPhone)}">📞 ${E(o.userPhone)}</a></div>
 <div><a href="https://maps.google.com/?q=${encodeURIComponent(o.address||'')}" target="_blank">📍 ${E(o.address)}</a></div>
 ${detailsHtml(o)}
-<div class="sp"><b>৳${o.totalAmount||0}</b>${act?`<span style="display:flex;gap:6px"><button class="r" style="width:auto" onclick="retO('${o.id}')">ফেরত</button><button class="g" style="width:auto" onclick="openPay('${o.id}')">ডেলিভারি হয়েছে</button></span>`:`<span>${E(grp(o)=='Delivered'?o.paymentMethod:o.returnReason)}</span>`}</div>${act?'':`<small>${E(fdt(od(o)))}</small>`}</div>`;
-function renderR(){const c=$('rlist');$('dF').hidden=rt!='done';$('hF').hidden=rt!='h';
+<div class="sp"><b>${amtH(o)}</b>${act?`<span style="display:flex;gap:6px"><button class="r" style="width:auto" onclick="retO('${o.id}')">ফেরত</button><button class="g" style="width:auto" onclick="openPay('${o.id}')">ডেলিভারি হয়েছে</button></span>`:`<span>${E(grp(o)=='Delivered'?o.paymentMethod:o.returnReason)}</span>`}</div>${act?'':`<small>${E(fdt(od(o)))}</small>`}</div>`;
+function renderR(){if(!isAd&&$('stl')&&!$('stl').hidden)drawStl();const c=$('rlist');$('dF').hidden=rt!='done';$('hF').hidden=rt!='h';
 if(rt=='p'){c.innerHTML=`<div class="c">${profHtml(me,false)}</div>`;return}
 if(rt=='h'){const B=hBase();fill('hs2',[['ALL','সব',B.length],['Pending','অপেক্ষায়',cn(B,'Pending')],['Approved','অনুমোদিত',cn(B,'Approved')],['Rejected','বাতিল',cn(B,'Rejected')]]);
 c.innerHTML=hList().map(s=>`<div class="c"><div class="sp"><b>৳${N(s.amount)}</b><span class="b">${stT(s.status)}</span></div><small>${E(s.method)} · ${E(s.trxRef)||'—'} · ${E(fdt(s.createdAt))}</small><div>🧾 ${E(invNo(s))||'<small>পুরনো জমা (ইনভয়েস ছাড়া)</small>'}</div></div>`).join('')||'<small>কিছু নেই</small>';return}
@@ -146,14 +146,17 @@ try{await updateDoc(doc(db,'orders',id),{status:'Returned',returnReason:r.trim()
 const netOf=o=>Math.max(0,N(o.totalAmount)-N(o.reversedCash));
 const unpaid=()=>{const u=new Set();stls.forEach(x=>x.status!='Rejected'&&(x.invoices||[]).forEach(i=>u.add(i.id)));
 return orders.filter(o=>o.status=='Delivered'&&o.paymentMethod=='Cash'&&!o.cashSettled&&!u.has(o.id)&&netOf(o)>0&&(!INV_FROM||ld(o.deliveredAt)>=INV_FROM)).sort((a,b)=>(a.deliveredAt||'')<(b.deliveredAt||'')?-1:1)};
-window.openStl=()=>{const u=unpaid();$('sCb').textContent='ক্যাশ বাকি: ৳'+N(me.cashBalance);
-$('sl').innerHTML=u.map(o=>`<label class="sp" style="border-bottom:1px dashed #e5e7eb;padding:4px 0"><span><input type="checkbox" class="ck" value="${E(o.id)}" data-a="${netOf(o)}" onchange="sumS()" style="width:auto;margin-right:6px">${E(o.orderId||o.id)}<br><small>${E(fdt(o.deliveredAt))}</small></span><b>${tk(netOf(o))}</b></label>`).join('')||'<small>জমা দেওয়ার মতো কোনো Unpaid ইনভয়েস নেই</small>';sumS();$('stl').hidden=false};
+// the deposit list redraws itself whenever the orders or the rider balance change (e.g. a door return), keeping the ticks
+const drawStl=()=>{const keep=new Set([...document.querySelectorAll('#sl .ck:checked')].map(x=>x.value)),u=unpaid();$('sCb').textContent='ক্যাশ বাকি: ৳'+N(me.cashBalance);
+$('sl').innerHTML=u.map(o=>`<label class="sp" style="border-bottom:1px dashed #e5e7eb;padding:4px 0"><span><input type="checkbox" class="ck" value="${E(o.id)}" data-a="${netOf(o)}" onchange="sumS()" ${keep.has(o.id)?'checked':''} style="width:auto;margin-right:6px">${E(o.orderId||o.id)}<br><small>${E(fdt(o.deliveredAt))}</small></span><b>${tk(netOf(o))}</b></label>`).join('')||'<small>জমা দেওয়ার মতো কোনো Unpaid ইনভয়েস নেই</small>';sumS()};
+window.openStl=()=>{$('sl').innerHTML='';drawStl();$('stl').hidden=false};
 window.sumS=()=>{$('sT').textContent=tk([...document.querySelectorAll('#sl .ck:checked')].reduce((s,x)=>s+N(x.dataset.a),0))};
 window.sendStl=async()=>{const ck=[...document.querySelectorAll('#sl .ck:checked')];if(!ck.length)return alert('কমপক্ষে একটি Unpaid ইনভয়েস সিলেক্ট করুন');
-const u=unpaid(),inv=ck.map(x=>u.find(o=>o.id==x.value)).filter(Boolean);if(inv.length!=ck.length)return alert('তালিকা বদলে গেছে, আবার চেষ্টা করুন');
-const a=inv.reduce((s,o)=>s+netOf(o),0),c=N(me.cashBalance);if(!(a>0)||a>c)return alert('ক্যাশ বাকি ৳'+c+', নির্বাচিত ইনভয়েস ৳'+a+' — মিলছে না');
-if(busyF)return;busyF=1;setTimeout(()=>busyF=0,3000);
-try{await addDoc(collection(db,'cash_settlements'),{riderId:me.id,riderName:me.name,riderPhone:me.phone,amount:a,method:$('sm').value,trxRef:$('sr').value.trim(),invoices:inv.map(o=>({id:o.id,no:String(o.orderId||o.id),amount:netOf(o)})),status:'Pending',createdAt:iso()});$('stl').hidden=true;$('sr').value='';alert('অনুরোধ পাঠানো হয়েছে')}catch(e){alert(e.message)}};
+if(busyF)return;busyF=1;
+try{const f=httpsCallable(getFunctions(getApps()[0]),'requestSettlement');
+const r=(await f({invoiceIds:ck.map(x=>x.value),method:$('sm').value,trxRef:$('sr').value.trim()})).data;
+$('stl').hidden=true;$('sr').value='';alert('অনুরোধ পাঠানো হয়েছে: '+tk(r.amount)+(r.invoices.length>1?' ('+r.invoices.length+'টি ইনভয়েস)':''))}
+catch(e){alert(e.message||e)}busyF=0};
 window.expD=()=>xl('delivered-'+ld(new Date()),['Invoice','Customer','Phone','Address','Amount','Status','Payment','Trx ID','Return reason','Date'],dList().map(o=>[String(o.orderId||o.id),o.userName||'',o.userPhone||'',o.address||'',N(o.totalAmount),grp(o),o.paymentMethod||'',o.paymentTrxId||'',o.returnReason||'',fdt(od(o))]));
 window.expH=()=>xl('deposits-'+ld(new Date()),['Date','Invoice No','Amount','Method','Trx/Note','Status','Decision date'],hList().map(s=>[fdt(s.createdAt),invNo(s),N(s.amount),s.method||'',s.trxRef||'',s.status,fdt(s.approvedAt||s.rejectedAt)]));
 
@@ -177,7 +180,7 @@ window.renderA=()=>{const keep={};document.querySelectorAll('#olist select').for
 fill('of',Object.entries(FM).map(([k,v])=>[k,v,orders.filter(o=>stOf(o)==v).length]).concat([['ALL','সব',orders.length]]));
 const f=$('of').value,l=orders.filter(o=>f=='ALL'||stOf(o)==FM[f]).slice(0,60);
 $('olist').innerHTML=l.map(o=>`<div class="c"><div class="sp"><b>${E(o.orderId||o.id)}</b><span class="b">${E(stOf(o))}</span></div>
-<div>👤 ${E(o.userName)} · ${E(o.userPhone)}</div><div>📍 ${E(o.address)}</div><div class="sp"><b>৳${o.totalAmount||0}</b><small>${o.riderName?'🏍 '+E(o.riderName)+(o.riderPhone?' · '+E(o.riderPhone):''):''}</small></div>${offH(o)}
+<div>👤 ${E(o.userName)} · ${E(o.userPhone)}</div><div>📍 ${E(o.address)}</div><div class="sp"><b>${amtH(o)}</b><small>${o.riderName?'🏍 '+E(o.riderName)+(o.riderPhone?' · '+E(o.riderPhone):''):''}</small></div>${offH(o)}
 ${detailsHtml(o)}
 ${actH(o)}</div>`).join('')||'<small>কোনো অর্ডার নেই</small>';
 Object.entries(keep).forEach(([k,v])=>{const e=$(k);if(e)e.value=v});
@@ -217,10 +220,14 @@ const hBaseA=()=>{const m=$('hm').value,q=$('hq').value.trim().toLowerCase();ret
 const histA=()=>{const B=hBaseA(),c=$('hs').value||'ALL';return c=='ALL'?B:B.filter(s=>s.status==c)};
 window.renderS=()=>{const P=allS.filter(s=>s.status=='Pending'),B=hBaseA();$('pc').textContent=P.length?' ('+P.length+')':'';
 fill('hs',[['ALL','সব',B.length],['Approved','অনুমোদিত',cn(B,'Approved')],['Rejected','বাতিল',cn(B,'Rejected')]]);
-$('stP').innerHTML=P.map(s=>`<div class="c"><div class="sp"><b>${E(s.riderName)}</b><span class="b">${E(s.method)}</span></div><small>${E(s.riderPhone)} · ${E(s.trxRef)||'N/A'} · ${E(fdt(s.createdAt))}</small><div>🧾 ${E(invNo(s))||'ইনভয়েস ছাড়া'}</div><div><b>${tk(s.amount)}</b></div><div class="row"><button class="g" onclick="apvS('${s.id}')">অনুমোদন</button><button class="r" onclick="rejS('${s.id}')">বাতিল</button></div></div>`).join('')||'<small>কোনো অপেক্ষমাণ অনুরোধ নেই</small>';
+$('stP').innerHTML=P.map(s=>`<div class="c"><div class="sp"><b>${E(s.riderName)}</b><span class="b">${E(s.method)}</span></div><small>${E(s.riderPhone)} · ${E(s.trxRef)||'N/A'} · ${E(fdt(s.createdAt))}</small><div>🧾 ${E(invNo(s))||'ইনভয়েস ছাড়া'}</div><div><b>${tk(s.amount)}</b>${s.requestedAmount!=null&&N(s.requestedAmount)!=N(s.amount)?` <small style="color:#b45309">(ফেরতের পর সমন্বয় — রাইডার চেয়েছিল ${tk(s.requestedAmount)})</small>`:''}</div><div class="row"><button class="g" onclick="apvS('${s.id}')">অনুমোদন</button><button class="r" onclick="rejS('${s.id}')">বাতিল</button></div></div>`).join('')||'<small>কোনো অপেক্ষমাণ অনুরোধ নেই</small>';
 $('stH').innerHTML=histA().map(s=>`<div class="c"><div class="sp"><span><b>${E(s.riderName)}</b> <small>${E(s.method)} · ${E(s.trxRef)} · ${E(fdt(s.approvedAt||s.rejectedAt||s.createdAt))}</small></span><span><b>${tk(s.amount)}</b> <span class="b">${stT(s.status)}</span></span></div><small>🧾 ${E(invNo(s))||'ইনভয়েস ছাড়া'}</small></div>`).join('')||'<small>কিছু নেই</small>'};
 window.apvS=async id=>{if(!confirm('অনুমোদন করবেন? রাইডারের ক্যাশ বাকি থেকে টাকা কাটা হবে এবং আপনার নগদে যোগ হবে।'))return;
-try{const f=httpsCallable(getFunctions(getApps()[0]),'approveSettlement');await f({settlementId:id});alert('অনুমোদিত')}catch(e){alert(e.message||e)}};
+const f=httpsCallable(getFunctions(getApps()[0]),'approveSettlement');
+try{await f({settlementId:id});alert('অনুমোদিত')}catch(e){const m=String(e.message||e),x=m.match(/ADJUSTED:([\d.]+):([\d.]+)/);
+if(!x)return alert(m);
+if(!confirm('রাইডার ৳'+x[2]+' জমার অনুরোধ করেছিল, কিন্তু দরজায় ফেরতের পর সঠিক পরিমাণ ৳'+x[1]+'।\n\nরাইডারের কাছ থেকে ৳'+x[1]+' বুঝে নিয়ে অনুমোদন করবেন?'))return;
+try{await f({settlementId:id,confirmAdjusted:true});alert('অনুমোদিত: ৳'+x[1])}catch(e2){alert(e2.message||e2)}}};
 window.rejS=async id=>{if(!confirm('বাতিল করবেন? ইনভয়েসগুলো আবার Unpaid হয়ে যাবে।'))return;try{await runTransaction(db,async tx=>{const sr=doc(db,'cash_settlements',id),s=await tx.get(sr);if(!s.exists()||s.data().status!='Pending')throw new Error('এটি আর অপেক্ষমাণ নেই');tx.update(sr,{status:'Rejected',rejectedAt:iso()})})}catch(e){alert(e.message)}};
 window.expS=()=>xl('settlements-'+ld(new Date()),['Rider','Phone','Invoice No','Amount','Method','Trx/Note','Status','Request date','Decision date'],histA().map(s=>[s.riderName||'',s.riderPhone||'',invNo(s),N(s.amount),s.method||'',s.trxRef||'',s.status,fdt(s.createdAt),fdt(s.approvedAt||s.rejectedAt)]));
 
@@ -236,10 +243,18 @@ if(N(o.vat)){rows.push(['ভ্যাট',N(o.vat)]);t+=N(o.vat)}
 ['walletUsed','pointsUsed'].forEach(k=>{if(N(o[k])){rows.push([k=='walletUsed'?'ওয়ালেট থেকে':'পয়েন্ট থেকে',-N(o[k])]);t-=N(o[k])}});
 return{rows,sav,calc:t,stored:N(o.totalAmount)}}
 const rowH=r=>`<div class="sp"><span>${E(r[0])}</span><b>${r[2]||(r[1]<0?'−':'')+tk(Math.abs(r[1]))}</b></div>`;
+// card amount: after a door return show what is really due, with the original bill struck through
+const amtH=o=>N(o.reversedCash)>0?`${tk(Math.max(0,N(o.totalAmount)-N(o.reversedCash)))} <small style="color:#6b7280;font-weight:400"><s>${tk(o.totalAmount)}</s> আংশিক ফেরত</small>`:tk(o.totalAmount);
+// returns on a delivered order: door returns lower the rider's cash due, menu returns are refunded by the store
+const retRows=o=>{const rc=N(o.reversedCash),rf=N(o.reversedRefund),cash=o.paymentMethod=='Cash';let h='';
+if(rc>0)h+=`<div class="sp" style="color:#dc2626"><span>দরজায় ফেরত (কাস্টমার নেয়নি)</span><b>−${tk(rc)}</b></div>`;
+if(cash&&o.deliveredAt&&(rc>0||o.cashSettled))h+=`<div class="sp" style="border-top:1px dashed #d1d5db;margin-top:4px;padding-top:4px;color:#047857"><b>${o.cashSettled?'রাইডার জমা দিয়েছে':'রাইডারের জমা দিতে হবে'}</b><b>${tk(Math.max(0,N(o.totalAmount)-rc))}</b></div>`;
+if(rf>0)h+=`<div class="sp" style="color:#b45309"><span>রিটার্ন মেনু — কাস্টমারকে ফেরত</span><b>${tk(rf)}</b></div>`;
+return h};
 function detailsHtml(o){const c=calc(o),it=o.items||[];
 return `<details ${openD.has(o.id)?'open':''} ontoggle="tg('${o.id}',this.open)"><summary style="cursor:pointer;color:#6d28d9;font-weight:700;padding:6px 0">📦 পণ্যের বিস্তারিত (${it.length}টি)</summary>
-${it.map(i=>`<div class="sp" style="border-bottom:1px dashed #e5e7eb;padding:3px 0"><span>${E(i.name)}<br><small>${tk(i.price)} × ${N(i.qty)}</small></span><b>${tk(N(i.price)*N(i.qty))}</b></div>`).join('')||'<small>কোনো পণ্য নেই</small>'}
-<div style="margin-top:6px">${c.rows.map(rowH).join('')}<div class="sp" style="border-top:1px solid #d1d5db;margin-top:4px;padding-top:4px"><b>সর্বমোট</b><b>${tk(c.stored)}</b></div></div>
+${it.map(i=>`<div class="sp" style="border-bottom:1px dashed #e5e7eb;padding:3px 0"><span>${E(i.name)}<br><small>${tk(i.price)} × ${N(i.qty)}</small>${N(i.returnedQty)?` <small style="color:#dc2626;font-weight:700">(ফেরত ${N(i.returnedQty)})</small>`:''}</span><b>${tk(N(i.price)*N(i.qty))}</b></div>`).join('')||'<small>কোনো পণ্য নেই</small>'}
+<div style="margin-top:6px">${c.rows.map(rowH).join('')}<div class="sp" style="border-top:1px solid #d1d5db;margin-top:4px;padding-top:4px"><b>সর্বমোট</b><b>${tk(c.stored)}</b></div>${retRows(o)}</div>
 ${c.sav?`<small>🎉 পণ্যে সাশ্রয়: ${tk(c.sav)}</small><br>`:''}${Math.abs(c.calc-c.stored)>.5?`<small style="color:#dc2626">⚠ হিসাব মেলেনি (গণনা ${tk(c.calc)}, সেভ করা ${tk(c.stored)})</small><br>`:''}
 ${o.note?`<small>📝 ${E(o.note)}</small><br>`:''}<button class="s" onclick="printMemo('${o.id}')">🖨 মেমো প্রিন্ট</button></details>`}
 window.tg=(id,v)=>{v?openD.add(id):openD.delete(id)};
