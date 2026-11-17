@@ -18,7 +18,8 @@ button.g{background:#059669}button.r{background:#dc2626}button.s{background:#e5e
 #offer{background:#065f46;color:#fff;text-align:center;z-index:30}#offer>div{background:none}
 #offer .ph{font-size:44px;animation:p 1s infinite}@keyframes p{50%{transform:scale(1.2)}}
 small{color:#6b7280}
-.t button{padding:9px 4px;font-size:12px}label{display:block;margin-top:4px}.m>div{max-height:92vh;overflow:auto}</style><script>function __eb(m){var d=document.getElementById('eb');if(!d){d=document.createElement('div');d.id='eb';d.style.cssText='background:#dc2626;color:#fff;padding:8px;font:12px monospace;white-space:pre-wrap';document.body.insertBefore(d,document.body.firstChild)}d.textContent+=m+'\n'}
+.t button{padding:9px 4px;font-size:12px}label{display:block;margin-top:4px}.m>div{max-height:92vh;overflow:auto}</style><script src="../order-money.js"></script>
+  <script>function __eb(m){var d=document.getElementById('eb');if(!d){d=document.createElement('div');d.id='eb';d.style.cssText='background:#dc2626;color:#fff;padding:8px;font:12px monospace;white-space:pre-wrap';document.body.insertBefore(d,document.body.firstChild)}d.textContent+=m+'\n'}
 addEventListener('error',function(e){__eb((e.message||'error')+' @'+String(e.filename||'').split('/').pop()+':'+e.lineno)});addEventListener('unhandledrejection',function(e){__eb('Promise: '+(e.reason&&e.reason.message||e.reason))})</script></head><body>
 <header id="hd" hidden><b id="who"></b><button class="s" style="width:auto" onclick="logout()">লগআউট</button></header>
 <main>
@@ -157,7 +158,7 @@ try{const f=httpsCallable(getFunctions(getApps()[0]),'requestSettlement');
 const r=(await f({invoiceIds:ck.map(x=>x.value),method:$('sm').value,trxRef:$('sr').value.trim()})).data;
 $('stl').hidden=true;$('sr').value='';alert('অনুরোধ পাঠানো হয়েছে: '+tk(r.amount)+(r.invoices.length>1?' ('+r.invoices.length+'টি ইনভয়েস)':''))}
 catch(e){alert(e.message||e)}busyF=0};
-window.expD=()=>xl('delivered-'+ld(new Date()),['Invoice','Customer','Phone','Address','Amount','Status','Payment','Trx ID','Return reason','Date'],dList().map(o=>[String(o.orderId||o.id),o.userName||'',o.userPhone||'',o.address||'',N(o.totalAmount),grp(o),o.paymentMethod||'',o.paymentTrxId||'',o.returnReason||'',fdt(od(o))]));
+window.expD=()=>xl('delivered-'+ld(new Date()),['Invoice','Customer','Phone','Address','Order Total','Net Bill','Status','Payment','Trx ID','Return reason','Date'],dList().map(o=>[String(o.orderId||o.id),o.userName||'',o.userPhone||'',o.address||'',N(o.totalAmount),netBill(o),grp(o),o.paymentMethod||'',o.paymentTrxId||'',o.returnReason||'',fdt(od(o))]));
 window.expH=()=>xl('deposits-'+ld(new Date()),['Date','Invoice No','Amount','Method','Trx/Note','Status','Decision date'],hList().map(s=>[fdt(s.createdAt),invNo(s),N(s.amount),s.method||'',s.trxRef||'',s.status,fdt(s.approvedAt||s.rejectedAt)]));
 
 // ================= ADMIN =================
@@ -244,9 +245,10 @@ if(N(o.vat)){rows.push(['ভ্যাট',N(o.vat)]);t+=N(o.vat)}
 return{rows,sav,calc:t,stored:N(o.totalAmount)}}
 const rowH=r=>`<div class="sp"><span>${E(r[0])}</span><b>${r[2]||(r[1]<0?'−':'')+tk(Math.abs(r[1]))}</b></div>`;
 // card amount: after a door return show what is really due, with the original bill struck through
-const amtH=o=>N(o.reversedCash)>0?`${tk(Math.max(0,N(o.totalAmount)-N(o.reversedCash)))} <small style="color:#6b7280;font-weight:400"><s>${tk(o.totalAmount)}</s> আংশিক ফেরত</small>`:tk(o.totalAmount);
+const amtH=o=>OrderMoney.hasReturns(o)?`${tk(netBill(o))} <small style="color:#6b7280;font-weight:400"><s>${tk(o.totalAmount)}</s> ${netBill(o)>0?'আংশিক ফেরত':'সম্পূর্ণ ফেরত'}</small>`:tk(o.totalAmount);
 // returns on a delivered order: door returns lower the rider's cash due, menu returns are refunded by the store
 const retRows=o=>{const rc=N(o.reversedCash),rf=N(o.reversedRefund),cash=o.paymentMethod=='Cash';let h='';
+if(OrderMoney.hasReturns(o))h+=`<div class="sp" style="color:#047857"><b>বর্তমান বিল (ফেরতের পর)</b><b>${tk(netBill(o))}</b></div>`;
 if(rc>0)h+=`<div class="sp" style="color:#dc2626"><span>দরজায় ফেরত (কাস্টমার নেয়নি)</span><b>−${tk(rc)}</b></div>`;
 if(cash&&o.deliveredAt&&(rc>0||o.cashSettled))h+=`<div class="sp" style="border-top:1px dashed #d1d5db;margin-top:4px;padding-top:4px;color:#047857"><b>${o.cashSettled?'রাইডার জমা দিয়েছে':'রাইডারের জমা দিতে হবে'}</b><b>${tk(Math.max(0,N(o.totalAmount)-rc))}</b></div>`;
 if(rf>0)h+=`<div class="sp" style="color:#b45309"><span>রিটার্ন মেনু — কাস্টমারকে ফেরত</span><b>${tk(rf)}</b></div>`;

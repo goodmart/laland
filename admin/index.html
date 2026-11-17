@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Master Dashboard - Laland Express</title>
+  <script src="../order-money.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -210,9 +211,10 @@
       const prevO = list.filter(o => cu(o) >= P_START && cu(o) < M_START);
 
       const todayCount = todayO.length;
-      const todaySales = todayO.filter(o => !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+      // sales = the real bill after returns (cancelled / returned-before-delivery count as 0)
+      const todaySales = todayO.filter(o => !isCancelled(o)).reduce((s, o) => s + netBill(o), 0);
       const prevCount = prevO.length;
-      const prevSales = prevO.filter(o => !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+      const prevSales = prevO.filter(o => !isCancelled(o)).reduce((s, o) => s + netBill(o), 0);
 
       $('sTodayOrders').textContent = todayCount;
       pctLine($('sTodayOrdersPct'), todayCount, prevCount / prevDays, 'গত মাসের দৈনিক গড়ের তুলনায়');
@@ -226,7 +228,7 @@
       for (let i = 6; i >= 0; i--) days.push(addDays(today, -i));
       const sums = days.map(ymd => {
         const a = dhakaMidnight(ymd), b = dhakaMidnight(addDays(ymd, 1));
-        return list.filter(o => cu(o) >= a && cu(o) < b && !isCancelled(o)).reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+        return list.filter(o => cu(o) >= a && cu(o) < b && !isCancelled(o)).reduce((s, o) => s + netBill(o), 0);
       });
       const max = Math.max(1, ...sums);
       $('chart').innerHTML = sums.map((v, i) => `

@@ -6,6 +6,7 @@
   <title>Order Management - Laland Express Admin</title>
   
   <!-- Tailwind CSS CDN -->
+  <script src="../order-money.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -397,7 +398,7 @@
         else if (st === 'on the way') onTheWayCount++;
         else if (st === 'delivered') {
           deliveredCount++;
-          totalSales += Number(ord.totalAmount || 0);
+          totalSales += netBill(ord);          // after returns, only what the customer really kept
         } else if (st === 'cancelled') cancelledCount++;
       });
 
@@ -540,8 +541,9 @@
               </div>
 
               <div class="text-left sm:text-right w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-dashed border-gray-200">
-                <span class="text-[11px] text-gray-400 block">Total Bill (inc. Delivery charge)</span>
-                <span class="text-sm font-extrabold text-emerald-700">৳ ${ord.totalAmount || 0}</span>
+                <span class="text-[11px] text-gray-400 block">${OrderMoney.hasReturns(ord) ? 'বর্তমান বিল (ফেরতের পর)' : 'Total Bill (inc. Delivery charge)'}</span>
+                <span class="text-sm font-extrabold text-emerald-700">৳ ${netBill(ord)}</span>
+                ${OrderMoney.hasReturns(ord) ? `<span class="text-[10px] text-gray-400 block">অর্ডার ছিল <s>৳ ${ord.totalAmount || 0}</s></span>` : ''}
               </div>
             </div>
 
@@ -707,7 +709,7 @@ function rsRender(o){
     <div class="flex justify-between"><b>${rsE(o.orderId||o.id)}</b><span class="font-bold">${rsE(o.status)}</span></div>
     <div>👤 ${rsE(o.userName)} · ${rsE(o.userPhone)}</div>
     <div>📍 ${rsE(o.address)}</div>
-    <div>🏍 ${rsE(o.riderName||'—')} · পেমেন্ট: ${rsE(paid)} · মোট: <b>৳${rsNum(o.totalAmount)}</b></div>
+    <div>🏍 ${rsE(o.riderName||'—')} · পেমেন্ট: ${rsE(paid)} · বর্তমান বিল: <b>৳${netBill(o)}</b>${OrderMoney.hasReturns(o)?` <small>(অর্ডার ছিল ৳${rsNum(o.totalAmount)})</small>`:''}</div>
     <div class="text-gray-500">তারিখ: ${rsE(new Date(o.deliveredAt||o.createdAt||'').toLocaleString())}</div>
   </div>
   ${canReturn?`
@@ -880,9 +882,10 @@ window.updateOrderStatus = async function(orderId, newStatus) {
       if(!ord) return;
 
       const printWindow = window.open('', '_blank');
+      const memoSub = Number(ord.subtotal) || (ord.items || []).reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 0), 0);
       const itemsTable = ord.items ? ord.items.map(i => `
         <tr>
-          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${i.name}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #ddd;">${OrderMoney.esc(i.name)}${Number(i.returnedQty||0) ? ` <span style="color:#dc2626">(returned ${i.returnedQty})</span>` : ''}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: center;">${i.qty}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price}</td>
           <td style="padding: 6px; border-bottom: 1px solid #ddd; text-align: right;">৳ ${i.price * i.qty}</td>
@@ -929,11 +932,14 @@ window.updateOrderStatus = async function(orderId, newStatus) {
               </tbody>
             </table>
             <div style="margin-top: 15px; font-size: 13px; text-align: right;">
-              <p>Subtotal: ৳ ${(ord.totalAmount || 30) - 30}</p>
-              <p>Delivery Charge: ৳ 30</p>
+              <p>Subtotal: ৳ ${memoSub}</p>
+              ${Number(ord.discount||0) ? `<p>Discount${ord.couponCode ? ' (' + OrderMoney.esc(ord.couponCode) + ')' : ''}: −৳ ${Number(ord.discount)}</p>` : ''}
+              <p>Delivery Charge: ৳ ${ord.deliveryCharge == null ? 30 : Number(ord.deliveryCharge)}</p>
             </div>
             <div class="total">
-              Grand Total: ৳ ${ord.totalAmount || 0}
+              ${OrderMoney.hasReturns(ord)
+                ? `<span style="font-weight:normal;font-size:13px">Order Total: ৳ ${ord.totalAmount || 0}<br>Returned items: −৳ ${Math.round((Number(ord.totalAmount||0) - netBill(ord))*100)/100}</span><br>Net Payable: ৳ ${netBill(ord)}`
+                : `Grand Total: ৳ ${ord.totalAmount || 0}`}
             </div>
           </body>
         </html>
