@@ -6,6 +6,7 @@
   <title>MyBasket - Your daily needs</title>
   
   <!-- Tailwind CSS CDN -->
+  <script src="order-money.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1625,7 +1626,7 @@
         
         const itemsListHTML = ord.items && ord.items.length > 0 ? ord.items.map(i => `
           <div class="flex justify-between items-center text-gray-700 py-1 border-b border-dashed border-gray-100 last:border-none">
-            <span>${esc(i.name)} <strong class="text-emerald-700">(${i.qty}x)</strong></span>
+            <span>${esc(i.name)} <strong class="text-emerald-700">(${i.qty}x)</strong>${Number(i.returnedQty || 0) ? ` <span class="text-red-500 font-bold">(ফেরত ${i.returnedQty})</span>` : ''}</span>
             <span class="font-semibold">৳ ${i.price * i.qty}</span>
           </div>
         `).join('') : '<p class="text-red-500 font-bold py-1">কোনো পণ্য নেই।</p>';
@@ -1680,9 +1681,10 @@
               <p class="font-bold text-gray-500 mb-1">অর্ডারকৃত পণ্যসমূহ:</p>
               ${itemsListHTML}
               <div class="pt-2 border-t mt-1 flex justify-between font-extrabold text-gray-800 text-sm">
-                <span>মোট বিল:</span>
-                <span class="text-emerald-700">৳ ${ord.totalAmount || 0}</span>
+                <span>${OrderMoney.hasReturns(ord) ? 'মোট বিল (ফেরতের পর):' : 'মোট বিল:'}</span>
+                <span class="text-emerald-700">৳ ${netBill(ord)}</span>
               </div>
+              ${OrderMoney.hasReturns(ord) ? `<p class="text-[10px] text-gray-500 text-right">অর্ডার ছিল <s>৳ ${ord.totalAmount || 0}</s> — কিছু পণ্য ফেরত হয়েছে</p>` : ''}
               <p class="text-[10px] text-amber-600 bg-amber-50 p-1.5 rounded mt-1">
                 <i class="fa-solid fa-circle-info mr-1"></i> গুদাম স্টক অনুযায়ী অ্যাডমিন কর্তৃক পরিমাণ আপডেট করা হতে পারে।
               </p>
