@@ -180,7 +180,7 @@ const form=pend?`<div class="c" style="border-color:#f59e0b;background:#fffbeb">
 <button class="g" onclick="sendPayout()" ${earn>0?'':'disabled style="opacity:.5"'}>অনুরোধ পাঠান</button></div>`;
 return `<div class="c"><div class="sp"><span>আয় (কমিশন) ব্যালেন্স</span><h3 style="margin:0">${tk(earn)}</h3></div></div>${form}
 <b>অনুরোধের ইতিহাস</b>${pouts.map(poCard).join('')||'<div class="c"><small>এখনো কোনো অনুরোধ নেই</small></div>'}
-<b>বেতন রিলিজ</b>${sals.map(x=>`<div class="c"><div class="sp"><b>${tk(x.amount)}</b><span class="b">${E(x.month)}</span></div><small>রিলিজ: ${E(fdt(x.releasedAt))}${x.note?' · '+E(x.note):''}</small></div>`).join('')||'<div class="c"><small>এখনো কোনো বেতন রিলিজ হয়নি</small></div>'}`}
+<b>বেতন রিলিজ</b>${sals.map(x=>`<div class="c"><div class="sp"><b>${tk(x.amount)}</b><span class="b">${E(x.month)}</span></div><small>রিলিজ: ${E(fdt(x.releasedAt))}${x.note?' · '+E(x.note):''}</small><a href="payslip.html?type=rider&month=${E(x.month)}"><button class="s">📄 বেতন স্লিপ</button></a></div>`).join('')||'<div class="c"><small>এখনো কোনো বেতন রিলিজ হয়নি</small></div>'}`}
 window.coAcc=()=>{const c=$('coC').value,n=$('coN');n.hidden=c=='Cash';n.placeholder=c=='Bank'?'ব্যাংক অ্যাকাউন্ট নম্বর ও ব্যাংকের নাম':c+' নম্বর'};
 window.sendPayout=async()=>{const a=Number($('coA').value),ch=$('coC').value,acc=$('coN').value.trim(),earn=N(me.earningsBalance);
 if(!(a>0))return alert('পরিমাণ লিখুন');if(a>earn)return alert('আয় ব্যালেন্স '+tk(earn)+', এর বেশি তোলা যাবে না');if(ch!='Cash'&&!acc)return alert(ch+' নম্বর/অ্যাকাউন্ট লিখুন');

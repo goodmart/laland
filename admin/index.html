@@ -128,7 +128,7 @@
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, getDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc, setDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
@@ -248,6 +248,7 @@
     // ---------- admin accounts
     const call = (name, data) => httpsCallable(fns, name)(data);
 
+    window.loadAdmins = () => loadAdmins();
     async function loadAdmins() {
       const rows = $('adminRows');
       try {
@@ -267,7 +268,9 @@
           const actCell = isMe ? '—' : `<button data-act="toggle" data-uid="${esc(a.id)}" data-active="${active}"
               class="px-3 py-1 rounded-lg font-bold ${active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}">${active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}</button>`;
           return `<tr class="border-t">
-            <td class="p-2">${esc(a.name)}</td><td class="p-2">${esc(a.email)}</td><td class="p-2">${roleCell}</td>
+            <td class="p-2"><div class="flex items-center gap-2">${a.photoThumb ? `<img src="${esc(a.photoThumb)}" class="w-8 h-8 rounded-full object-cover">` : '<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">👤</span>'}
+              <div>${esc(a.name)}<br><button data-act="prof" data-uid="${esc(a.id)}" class="text-[10px] text-emerald-700 font-bold">প্রোফাইল / NID${a.hasNid ? ' ✓' : ''}</button></div></div></td>
+            <td class="p-2">${esc(a.email)}</td><td class="p-2">${roleCell}</td>
             <td class="p-2">${role === 'master' ? '—' : `<div class="flex items-center gap-1"><input data-sal="${esc(a.id)}" type="number" min="0" step="1" value="${Number(a.fixedSalary || 0)}" class="w-24 px-2 py-1 border rounded-lg">
               <button data-act="sal" data-uid="${esc(a.id)}" class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold">সেভ</button></div>`}</td>
             <td class="p-2 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}">${active ? 'সক্রিয়' : 'নিষ্ক্রিয়'}</span></td>
@@ -295,6 +298,8 @@
       loadAdmins();
     });
     $('adminRows').addEventListener('click', async (e) => {
+      const pb = e.target.closest('button[data-act="prof"]');
+      if (pb) return window.openProfile(pb.dataset.uid);
       const sb = e.target.closest('button[data-act="sal"]');
       if (sb) {
         const v = Number(document.querySelector(`input[data-sal="${sb.dataset.uid}"]`).value);
@@ -313,5 +318,84 @@
   </script>
 
   <script type="module" src="admin-nav.js"></script>
+  <!-- manager profile: photo, NID / birth certificate images, contact -->
+  <div id="profModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-lg max-h-[92vh] overflow-auto space-y-3">
+      <div class="flex justify-between items-center"><h3 id="pfTitle" class="font-bold text-sm">প্রোফাইল</h3><button id="pfClose" class="text-gray-500 text-lg">✕</button></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <label>মোবাইল<input id="pf_phone" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+        <label>NID / জন্মনিবন্ধন নম্বর<input id="pf_nid" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+        <label class="sm:col-span-2">ঠিকানা<input id="pf_address" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+        <label>জরুরি যোগাযোগ<input id="pf_emergency" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+        <label>যোগদানের তারিখ<input id="pf_joinDate" type="date" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+        <div class="border rounded-xl p-2 space-y-1"><b>প্রোফাইল ছবি</b><input type="file" accept="image/*" data-pk="photo" class="w-full text-[10px]"><img id="pv_photo" class="hidden w-full rounded-lg border cursor-pointer"></div>
+        <div class="border rounded-xl p-2 space-y-1"><b>NID — সামনে</b><input type="file" accept="image/*" data-pk="nidFront" class="w-full text-[10px]"><img id="pv_nidFront" class="hidden w-full rounded-lg border cursor-pointer"></div>
+        <div class="border rounded-xl p-2 space-y-1"><b>NID — পেছনে</b><input type="file" accept="image/*" data-pk="nidBack" class="w-full text-[10px]"><img id="pv_nidBack" class="hidden w-full rounded-lg border cursor-pointer"></div>
+      </div>
+      <p class="text-[11px] text-gray-500">ছবিতে চাপলে বড় করে খোলে। নতুন ছবি দিলে নিজে থেকে ছোট হয়ে সেভ হয়।</p>
+      <button id="pfSave" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-sm">সেভ করুন</button>
+    </div>
+  </div>
+  <script type="module">
+    import { getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+    const app = getApp(), db = getFirestore(app), fns = getFunctions(app);
+    const $ = (id) => document.getElementById(id);
+    let cur = null, pend = {};
+    function shrink(file, max, limit) {
+      return new Promise((ok, no) => {
+        if (!file || !/^image\//.test(file.type)) return no(new Error('শুধু ছবি (JPG/PNG) দিন'));
+        const im = new Image(), u = URL.createObjectURL(file);
+        im.onload = () => { URL.revokeObjectURL(u); let m = max;
+          for (let i = 0; i < 6; i++) { const k = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement('canvas');
+            c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+            const d = c.toDataURL('image/jpeg', .75); if (d.length < limit) return ok(d); m = Math.round(m * .75); }
+          no(new Error('ছবিটা অনেক বড়')); };
+        im.onerror = () => { URL.revokeObjectURL(u); no(new Error('ছবি পড়া যায়নি')); }; im.src = u;
+      });
+    }
+    const show = (k, src) => { const i = $('pv_' + k); i.src = src; i.classList.remove('hidden'); };
+    window.openProfile = async (uid) => {
+      cur = uid; pend = {};
+      ['photo', 'nidFront', 'nidBack'].forEach(k => { $('pv_' + k).classList.add('hidden'); });
+      document.querySelectorAll('#profModal input[type=file]').forEach(i => i.value = '');
+      const a = (await getDoc(doc(db, 'admins', uid))).data() || {};
+      $('pfTitle').textContent = `প্রোফাইল — ${a.name || a.email || uid}`;
+      ['phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => $('pf_' + k).value = a[k] || '');
+      $('profModal').classList.remove('hidden');
+      const f = await getDoc(doc(db, 'staff_files', uid)).catch(() => null);
+      const d = f && f.exists() ? f.data() : {};
+      ['photo', 'nidFront', 'nidBack'].forEach(k => { if (d[k] && !pend[k]) show(k, d[k]); });
+    };
+    document.querySelectorAll('#profModal input[type=file]').forEach(inp => inp.addEventListener('change', async () => {
+      const k = inp.dataset.pk, f = inp.files[0]; if (!f) return;
+      try {
+        pend[k] = await shrink(f, k === 'photo' ? 700 : 1400, k === 'photo' ? 200000 : 330000);
+        if (k === 'photo') pend.thumb = await shrink(f, 160, 30000);
+        show(k, pend[k]);
+      } catch (e) { alert(e.message); inp.value = ''; }
+    }));
+    ['photo', 'nidFront', 'nidBack'].forEach(k => $('pv_' + k).addEventListener('click', () => { const w = window.open(); if (w) w.document.write(`<img src="${$('pv_' + k).src}" style="max-width:100%">`); }));
+    $('pfClose').onclick = () => $('profModal').classList.add('hidden');
+    $('pfSave').onclick = async () => {
+      const btn = $('pfSave'); btn.disabled = true; btn.textContent = 'সেভ হচ্ছে…';
+      try {
+        const files = {}; ['photo', 'nidFront', 'nidBack'].forEach(k => { if (pend[k]) files[k] = pend[k]; });
+        if (Object.keys(files).length) await setDoc(doc(db, 'staff_files', cur), { ...files, updatedAt: new Date().toISOString(), updatedBy: getAuth(app).currentUser.uid }, { merge: true });
+        const data = { uid: cur };
+        ['phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => data[k] = $('pf_' + k).value.trim());
+        if (pend.thumb) data.photoThumb = pend.thumb;
+        if (files.nidFront || files.nidBack) data.hasNid = true;
+        await httpsCallable(fns, 'setAdminProfile')(data);
+        $('profModal').classList.add('hidden'); alert('প্রোফাইল সেভ হয়েছে।');
+        if (window.loadAdmins) window.loadAdmins();
+      } catch (e) { alert('ব্যর্থ: ' + (e.message || e)); }
+      btn.disabled = false; btn.textContent = 'সেভ করুন';
+    };
+  </script>
 </body>
 </html>

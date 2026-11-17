@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>বেতন স্লিপ - Laland Express</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans Bengali", sans-serif; background: #f3f4f6; color: #111827; margin: 0; padding: 16px; }
+    .bar { max-width: 760px; margin: 0 auto 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .bar input, .bar button, .bar a { font: inherit; font-size: 13px; padding: 8px 12px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; color: inherit; text-decoration: none; }
+    .bar button.p { background: #047857; color: #fff; border-color: #047857; font-weight: 700; }
+    .slip { max-width: 760px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 28px; }
+    .hd { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #047857; padding-bottom: 14px; gap: 12px; }
+    .brand { font-size: 22px; font-weight: 800; color: #047857; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .who { display: flex; gap: 14px; align-items: center; margin: 18px 0; }
+    .who img, .who .ph { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #ecfdf5; display: flex; align-items: center; justify-content: center; font-size: 28px; flex: none; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 14px; }
+    th { text-align: left; background: #f9fafb; color: #374151; font-size: 12px; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
+    td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    tr.tot td { font-weight: 800; border-top: 2px solid #111827; border-bottom: none; }
+    tr.neg td.n { color: #be123c; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 6px 18px; font-size: 13px; }
+    .net { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; font-weight: 800; font-size: 16px; }
+    .warn { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; font-size: 12px; margin: 8px 0; }
+    .ft { margin-top: 24px; padding-top: 10px; border-top: 1px dashed #d1d5db; display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; }
+    h3 { font-size: 14px; margin: 18px 0 4px; }
+    @media print { body { background: #fff; padding: 0; } .bar { display: none; } .slip { border: none; border-radius: 0; padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <a href="javascript:history.back()">← ফিরে যান</a>
+    <input id="month" type="month">
+    <button class="p" onclick="window.print()">🖨 প্রিন্ট / PDF</button>
+  </div>
+  <div class="slip" id="slip"><p class="muted">লোড হচ্ছে…</p></div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const auth = getAuth(app), db = getFirestore(app);
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (v) => Number(v || 0);
+    const money = (n) => '৳' + (Math.round(num(n) * 100) / 100).toLocaleString('en-IN');
+    const dhakaMonth = (iso) => iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' }).slice(0, 7) : '';
+    const when = (iso) => iso ? new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }) : '';
+    const MONTHS = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+    const monthBn = (m) => { const [y, mm] = m.split('-'); return `${MONTHS[Number(mm) - 1]} ${y}`; };
+    const ROLE_BN = { rider: 'ডেলিভারি রাইডার', store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager' };
+
+    // ?type=rider|manager&uid=...&month=YYYY-MM   (no uid = my own slip)
+    const qp = new URLSearchParams(location.search);
+    let month = qp.get('month') || dhakaMonth(new Date().toISOString());
+    $('month').value = month;
+    $('month').addEventListener('change', () => { month = $('month').value; qp.set('month', month); history.replaceState(null, '', '?' + qp); load(); });
+
+    let me = null;
+    onAuthStateChanged(auth, (u) => {
+      if (!u) { $('slip').innerHTML = '<p>স্লিপ দেখতে আগে লগইন করুন। রাইডার: <a href="rider.html">rider.html</a> · ম্যানেজার: <a href="index.html">অ্যাডমিন</a></p>'; return; }
+      me = u; load();
+    });
+
+    async function load() {
+      $('slip').innerHTML = '<p class="muted">লোড হচ্ছে…</p>';
+      try {
+        const uid = qp.get('uid') || me.uid;
+        let type = qp.get('type');
+        if (!type) type = (await getDoc(doc(db, 'riders', uid)).catch(() => null))?.exists() ? 'rider' : 'manager';
+        const isRider = type === 'rider';
+        const ps = await getDoc(doc(db, isRider ? 'riders' : 'admins', uid));
+        if (!ps.exists()) throw new Error('স্টাফ পাওয়া যায়নি।');
+        const p = ps.data();
+        const rel = await getDoc(doc(db, 'salary_releases', `${isRider ? 'rsalary' : 'salary'}_${uid}_${month}`)).catch(() => null);
+        const r = rel && rel.exists() ? rel.data() : null;
+
+        // delivery commission earned in the month (riders): delivered in this Dhaka month, minus commission reversed by returns
+        let deliveries = 0, commission = 0, estimated = false;
+        if (isRider && p.phone) {
+          const os = await getDocs(query(collection(db, 'orders'), where('riderPhone', '==', p.phone)));
+          const rate = p.deliveryCommission == null ? 30 : num(p.deliveryCommission);
+          os.forEach(d => {
+            const o = d.data();
+            if (!o.deliveredAt || dhakaMonth(o.deliveredAt) !== month) return;
+            const c = o.deliveryCredit ? num(o.deliveryCredit.commission) : (estimated = true, rate);
+            const net = c - num(o.reversedCommission);
+            if (net <= 0 && num(o.reversedCommission)) return;          // fully returned: no commission, not counted
+            deliveries++; commission += net;
+          });
+        }
+        // cash-outs paid in the month
+        const seen = new Map();
+        const qs = [getDocs(query(collection(db, 'payout_requests'), where('uid', '==', uid)))];
+        if (isRider) qs.push(getDocs(query(collection(db, 'payout_requests'), where('riderId', '==', uid))));
+        for (const q of await Promise.all(qs.map(x => x.catch(() => ({ forEach() {} }))))) q.forEach(d => seen.set(d.id, d.data()));
+        const paid = [...seen.values()].filter(x => x.status === 'paid' && dhakaMonth(x.paidAt) === month).sort((a, b) => a.paidAt < b.paidAt ? -1 : 1);
+        // current balance
+        let avail = num(p.earningsBalance);
+        if (!isRider) {
+          const b = await getDoc(doc(db, 'account_balances', `mgr:${uid}:salary`)).catch(() => null);
+          avail = -(b && b.exists() ? num(b.data().balance) : 0);
+        }
+
+        const basic = num(p.fixedSalary), released = r ? num(r.amount) : 0, deducted = r ? num(r.deducted) : 0;
+        const gross = released + commission, net = gross - deducted;
+        const diffRow = r && Math.abs(released - (r.basic != null ? num(r.basic) : basic)) > 0.005
+          ? `<tr><td colspan="2" class="muted">বেসিকের সাথে পার্থক্য ${money(released - (r.basic != null ? num(r.basic) : basic))}${r.note ? ` — ${esc(r.note)}` : ''}</td></tr>` : '';
+        $('slip').innerHTML = `
+          <div class="hd">
+            <div><div class="brand">Laland Express</div><div class="muted">basket.bd · কর্মচারী বেতন স্লিপ</div></div>
+            <div style="text-align:right"><div style="font-weight:800;font-size:16px">${monthBn(month)}</div><div class="muted">স্লিপ নং: ${esc((isRider ? 'R' : 'M') + '-' + month.replace('-', '') + '-' + uid.slice(0, 6).toUpperCase())}</div></div>
+          </div>
+          <div class="who">
+            ${p.photoThumb ? `<img src="${esc(p.photoThumb)}" alt="">` : `<div class="ph">${isRider ? '🏍' : '👤'}</div>`}
+            <div class="grid" style="flex:1">
+              <div><span class="muted">নাম</span><br><b>${esc(p.name)}</b></div>
+              <div><span class="muted">পদবি</span><br><b>${ROLE_BN[isRider ? 'rider' : p.role] || esc(p.role)}</b></div>
+              <div><span class="muted">মোবাইল</span><br><b>${esc(p.phone || '—')}</b></div>
+              <div><span class="muted">যোগদান</span><br><b>${esc(p.joinDate || '—')}</b></div>
+            </div>
+          </div>
+          ${r ? '' : `<div class="warn">এই মাসের বেতন এখনো রিলিজ হয়নি। মাস্টার অ্যাডমিন রিলিজ করলে এখানে দেখাবে।</div>`}
+          <h3>আয় ও কর্তন</h3>
+          <table>
+            <tr><th>বিবরণ</th><th style="text-align:right">টাকা</th></tr>
+            <tr><td>মাসিক বেসিক বেতন <span class="muted">(চুক্তি অনুযায়ী)</span></td><td class="n muted">${money(basic)}</td></tr>
+            <tr><td>রিলিজকৃত বেতন${r ? ` <span class="muted">· ${when(r.releasedAt)}</span>` : ''}</td><td class="n">${r ? money(released) : '—'}</td></tr>
+            ${diffRow}
+            ${isRider ? `<tr><td>ডেলিভারি কমিশন <span class="muted">(${deliveries}টি ডেলিভারি${estimated ? ', কিছু আগের রেটে আনুমানিক' : ''})</span></td><td class="n">${money(commission)}</td></tr>` : ''}
+            <tr><td><b>মোট আয়</b></td><td class="n"><b>${money(gross)}</b></td></tr>
+            <tr class="neg"><td>কর্তন: আগের মাসের ক্যাশ ঘাটতি</td><td class="n">${deducted ? '−' + money(deducted) : money(0)}</td></tr>
+            <tr class="tot"><td>নিট আয় (এই মাস)</td><td class="n">${money(net)}</td></tr>
+          </table>
+          <h3>এই মাসে পরিশোধ (ক্যাশ আউট)</h3>
+          <table>
+            <tr><th>তারিখ</th><th>মাধ্যম</th><th>Trx / নোট</th><th style="text-align:right">টাকা</th></tr>
+            ${paid.map(x => `<tr><td>${when(x.paidAt)}</td><td>${esc(x.paidChannel || x.channel || '')}</td><td>${esc(x.trxRef || '')}</td><td class="n">${money(x.amount)}</td></tr>`).join('')
+              || '<tr><td colspan="4" class="muted">এই মাসে কোনো পরিশোধ নেই</td></tr>'}
+            <tr class="tot"><td colspan="3">মোট পরিশোধ</td><td class="n">${money(paid.reduce((a, x) => a + num(x.amount), 0))}</td></tr>
+          </table>
+          <div class="net"><span>আজকের তোলার যোগ্য ব্যালেন্স</span><span>${money(avail)}</span></div>
+          <p class="muted" style="margin-top:6px">ব্যালেন্সে আগের মাসগুলোর না-তোলা টাকাও থাকে${isRider ? '' : ', আর দিন শেষের বাড়তি ক্যাশ যোগ হয়'}।</p>
+          <div class="ft"><span>কম্পিউটারে তৈরি স্লিপ — স্বাক্ষরের প্রয়োজন নেই</span><span>তৈরি: ${when(new Date().toISOString())}</span></div>`;
+        document.title = `বেতন স্লিপ ${monthBn(month)} — ${p.name || ''}`;
+      } catch (e) {
+        $('slip').innerHTML = `<p>স্লিপ লোড করা যায়নি: ${esc(e.message || e)}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>

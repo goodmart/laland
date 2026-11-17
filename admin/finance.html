@@ -60,6 +60,19 @@
       <div id="salTable" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
     </section>
 
+    <!-- RIDER BALANCE AUDIT -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm text-gray-800">৬. রাইডার ব্যালেন্স অডিট ও লেজার</h2>
+        <div class="flex gap-2 text-xs">
+          <button id="auditRun" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold">🔍 অডিট চালান</button>
+          <button id="ledSync" class="bg-gray-100 px-3 py-1.5 rounded-lg font-bold">লেজার মিলিয়ে নিন</button>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-500">আগে রাইডারের ব্যালেন্স ব্রাউজার থেকে লেখা হতো। অডিট প্রতিটা অর্ডার, ফেরত, বেতন, ক্যাশ আউট আর জমা থেকে <b>হওয়ার কথা</b> এমন ব্যালেন্স হিসাব করে বর্তমানের পাশে দেখায়। পার্থক্য মানে খতিয়ে দেখা দরকার, নিশ্চিত প্রতারণা নয়। আগের কিছু অর্ডারে কমিশন আনুমানিক ধরা হয়। <b>"লেজার মিলিয়ে নিন"</b> একবার চালালে লেজারের হিসাব রাইডারের বর্তমান ব্যালেন্সের সাথে মিলে যায়। আগে অডিট দেখে দরকারি সংশোধন করে নিন, তারপর চালান।</p>
+      <div id="auditOut" class="overflow-x-auto"></div>
+    </section>
+
     <!-- COMPANY REIMBURSEMENT TO MASTER -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
       <h2 class="font-bold text-sm text-gray-800">৩. দৈনিক দাবি (কোম্পানি থেকে আপনার ফেরত)</h2>
@@ -295,7 +308,7 @@
         const done = released[p.uid];
         return `<div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between ${done ? 'bg-emerald-50 border-emerald-200' : ''}">
           <div class="min-w-[160px]"><p class="font-bold text-sm">${esc(p.name)} <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.type === 'manager' ? 'bg-blue-100 text-blue-700' : 'bg-violet-100 text-violet-700'}">${ROLE_BN[p.role] || p.role}</span></p>
-            <p class="text-[11px] text-gray-500">বেসিক বেতন: <b>${money(p.basic)}</b>${!p.basic ? ` <span class="text-amber-600">(সেট করা নেই — ${p.type === 'manager' ? 'Dashboard → অ্যাডমিন অ্যাকাউন্ট' : 'Rider Finance → রাইডার → এডিট'} থেকে সেট করুন)</span>` : ''}</p></div>
+            <p class="text-[11px] text-gray-500"><a href="payslip.html?type=${p.type}&uid=${encodeURIComponent(p.uid)}&month=${salMonth}" target="_blank" class="text-emerald-700 font-bold mr-1">📄 স্লিপ</a> বেসিক বেতন: <b>${money(p.basic)}</b>${!p.basic ? ` <span class="text-amber-600">(সেট করা নেই — ${p.type === 'manager' ? 'Dashboard → অ্যাডমিন অ্যাকাউন্ট' : 'Rider Finance → রাইডার → এডিট'} থেকে সেট করুন)</span>` : ''}</p></div>
           ${done
             ? `<div class="text-xs text-emerald-700 font-bold">✅ রিলিজ হয়েছে ${money(done.amount)}${done.deducted ? ` <span class="text-rose-600 font-normal">(ঘাটতি কাটা ${money(done.deducted)})</span>` : ''}<br><span class="font-normal text-gray-500">${new Date(done.releasedAt).toLocaleString('en-GB')}${done.note ? ' · ' + esc(done.note) : ''}</span></div>`
             : `<div class="flex items-center gap-2">
@@ -329,6 +342,40 @@
       $('salAll').disabled = false; alert(`${n} জনের বেতন রিলিজ হয়েছে।`);
     });
 
+    // ---------- rider balance audit
+    let auditRows = [];
+    function drawAudit(at) {
+      const td = (v, diff) => `<td class="p-2 text-right ${diff ? (Math.abs(diff) > 0.5 ? 'text-red-600 font-bold' : 'text-emerald-700') : ''}">${v}</td>`;
+      $('auditOut').innerHTML = `<p class="text-[11px] text-gray-500 mb-1">অডিট: ${new Date(at).toLocaleString('en-GB')}</p>
+        <table class="w-full text-xs"><thead class="bg-gray-50 text-gray-600"><tr>
+          <th class="p-2 text-left">রাইডার</th><th class="p-2">ডেলিভারি</th>
+          <th class="p-2 text-right">আয় এখন</th><th class="p-2 text-right">হওয়ার কথা</th><th class="p-2 text-right">পার্থক্য</th>
+          <th class="p-2 text-right">ক্যাশ বাকি এখন</th><th class="p-2 text-right">হওয়ার কথা</th><th class="p-2 text-right">পার্থক্য</th><th class="p-2"></th></tr></thead>
+        <tbody>${auditRows.map(r => `<tr class="border-t ${Math.abs(r.earnDiff) > 0.5 || Math.abs(r.cashDiff) > 0.5 ? 'bg-red-50' : ''}">
+          <td class="p-2"><b>${esc(r.name)}</b><br><span class="text-gray-400">${esc(r.phone)}</span></td>
+          <td class="p-2 text-center">${r.delivered}${r.estimated ? `<br><span class="text-amber-600 text-[10px]">${r.estimated}টি আনুমানিক</span>` : ''}</td>
+          ${td(money(r.earnNow))}${td(money(r.earnExpected))}${td((r.earnDiff > 0 ? '+' : '') + money(r.earnDiff), r.earnDiff || 0.0001)}
+          ${td(money(r.cashNow))}${td(money(r.cashExpected))}${td((r.cashDiff > 0 ? '+' : '') + money(r.cashDiff), r.cashDiff || 0.0001)}
+          <td class="p-2 space-y-1 text-right">
+            ${Math.abs(r.earnDiff) > 0.5 ? `<button data-fix="earn" data-rid="${esc(r.riderId)}" data-to="${r.earnExpected}" class="block w-full bg-amber-100 text-amber-800 px-2 py-1 rounded font-bold">আয় ঠিক করুন</button>` : ''}
+            ${Math.abs(r.cashDiff) > 0.5 ? `<button data-fix="cash" data-rid="${esc(r.riderId)}" data-to="${r.cashExpected}" class="block w-full bg-amber-100 text-amber-800 px-2 py-1 rounded font-bold">ক্যাশ বাকি ঠিক করুন</button>` : ''}
+          </td></tr>
+          <tr><td colspan="9" class="px-2 pb-2 text-[10px] text-gray-500">কমিশন ${money(r.commission)} + বেতন ${money(r.salary)} − ক্যাশ আউট ${money(r.paidOut)} · লেজারে: আয় ${money(r.ledgerEarn)}, ক্যাশ বাকি ${money(r.ledgerOwes)}</td></tr>`).join('')
+          || '<tr><td colspan="9" class="p-2 text-gray-400">কোনো রাইডার নেই</td></tr>'}</tbody></table>`;
+    }
+    async function runAudit() {
+      $('auditRun').disabled = true; $('auditRun').textContent = 'চলছে…';
+      try { const r = (await call('auditStaffBalances', {})).data; auditRows = r.riders; drawAudit(r.at); }
+      catch (err) { alert('অডিট ব্যর্থ: ' + (err.message || err)); }
+      $('auditRun').disabled = false; $('auditRun').textContent = '🔍 অডিট চালান';
+    }
+    $('auditRun').addEventListener('click', runAudit);
+    $('ledSync').addEventListener('click', async () => {
+      if (!confirm('সব রাইডারের লেজার হিসাব তাদের বর্তমান ব্যালেন্সের সাথে মিলিয়ে দেবেন?\n\nআগে অডিট দেখে দরকারি সংশোধন করে নিন। এটা রাইডারের ব্যালেন্স বদলায় না, শুধু লেজার মেলায়।')) return;
+      try { const r = (await call('syncRiderLedger', {})).data; alert(`${r.synced} জন রাইডারের লেজার মেলানো হয়েছে।`); if (auditRows.length) runAudit(); }
+      catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
+    });
+
     // ---------- actions
     document.addEventListener('click', async (e) => {
       const pay = e.target.closest('button[data-pay]');
@@ -352,6 +399,18 @@
         rej.disabled = true;
         try { await call('rejectPayout', { requestId: rej.dataset.rej, reason: reason.trim() }); }
         catch (err) { alert('ব্যর্থ: ' + (err.message || err)); rej.disabled = false; }
+        return;
+      }
+      const fx = e.target.closest('button[data-fix]');
+      if (fx) {
+        const what = fx.dataset.fix === 'earn' ? 'তোলার যোগ্য আয়' : 'ক্যাশ জমা বাকি';
+        const v = prompt(`নতুন ${what} কত হবে? (অডিট অনুযায়ী ${money(fx.dataset.to)})`, fx.dataset.to);
+        if (v === null) return;
+        if (!(Number(v) >= 0) || String(v).trim() === '') return alert('সঠিক সংখ্যা লিখুন (০ বা বেশি)।');
+        const reason = prompt('সংশোধনের কারণ লিখুন (লেজারে থাকবে):', 'অডিট অনুযায়ী সংশোধন');
+        if (!reason || !reason.trim()) return alert('কারণ লিখুন।');
+        try { await call('correctRiderBalance', { riderId: fx.dataset.rid, field: fx.dataset.fix, value: Number(v), reason: reason.trim() }); alert('সংশোধন হয়েছে।'); runAudit(); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); }
         return;
       }
       const rel = e.target.closest('button[data-rel]');

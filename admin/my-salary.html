@@ -19,6 +19,8 @@
     <p id="msg" class="text-sm text-gray-500">লোড হচ্ছে…</p>
 
     <div id="box" class="hidden space-y-4">
+      <!-- my profile (photo / NID are uploaded by the master) -->
+      <div id="prof" class="bg-white rounded-2xl border p-4 flex items-center gap-3"></div>
       <!-- summary -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">মাসিক বেসিক বেতন</p><p id="cBasic" class="text-xl font-extrabold mt-1">…</p></div>
@@ -74,6 +76,21 @@
       const paid = Math.max(Number(me.totalPaidOut || 0), reqs.filter(r => r.status === 'paid').reduce((s, r) => s + Number(r.amount || 0), 0));
       $('cPaid').textContent = money(paid);
     }
+    const ROLE_BN = { store: 'স্টোর ম্যানেজার', vendor: 'Vendor Manager' };
+    function drawProfile() {
+      $('prof').innerHTML = `${me.photoThumb ? `<img src="${esc(me.photoThumb)}" class="w-14 h-14 rounded-full object-cover cursor-pointer" data-file="photo">` : '<div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center text-2xl">👤</div>'}
+        <div class="flex-1 text-xs space-y-0.5"><p class="font-bold text-sm">${esc(me.name || '')} <span class="ml-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px]">${ROLE_BN[me.role] || esc(me.role)}</span></p>
+          <p class="text-gray-500">${esc(me.phone || '')}${me.nid ? ' · NID: ' + esc(me.nid) : ''}${me.joinDate ? ' · যোগদান: ' + esc(me.joinDate) : ''}</p></div>
+        ${me.hasNid ? '<button data-file="nid" class="bg-gray-100 px-3 py-2 rounded-lg text-xs font-bold">🪪 NID</button>' : ''}`;
+    }
+    document.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-file]'); if (!b) return;
+      const s = await getDoc(doc(db, 'staff_files', uid)).catch(() => null);
+      const f = s && s.exists() ? s.data() : {};
+      const imgs = b.dataset.file === 'photo' ? [['প্রোফাইল ছবি', f.photo]] : [['NID — সামনে', f.nidFront], ['NID — পেছনে', f.nidBack]];
+      $('pfBody').innerHTML = imgs.filter(x => x[1]).map(([t, src]) => `<p class="text-xs font-bold">${t}</p><img src="${esc(src)}" class="w-full rounded-lg border">`).join('') || '<p class="text-xs">ছবি পাওয়া যায়নি</p>';
+      $('pfModal').classList.remove('hidden');
+    });
     function drawRequest() {
       const pend = reqs.find(r => r.status === 'Pending');
       if (pend) {
@@ -143,7 +160,7 @@
       me = s.data();
       if ((me.role || 'master') === 'master') { $('msg').innerHTML = 'এই পেজ ম্যানেজারদের জন্য। স্টাফদের বেতন রিলিজ ও ক্যাশ আউট দেখতে <a class="text-emerald-700 font-bold underline" href="finance.html">Finance</a> খুলুন।'; return; }
       $('msg').classList.add('hidden'); $('box').classList.remove('hidden');
-      onSnapshot(doc(db, 'admins', uid), (d) => { me = d.data() || me; drawCards(); });
+      onSnapshot(doc(db, 'admins', uid), (d) => { me = d.data() || me; drawCards(); drawProfile(); });
       onSnapshot(doc(db, 'account_balances', `mgr:${uid}:salary`), (d) => {
         avail = Math.round(-(d.exists() ? Number(d.data().balance || 0) : 0) * 100) / 100;   // salary is stored as a credit
         drawCards(); drawRequest();
@@ -158,7 +175,8 @@
         list.sort((a, b) => (b.month || '') < (a.month || '') ? -1 : 1);
         $('sals').innerHTML = list.map(x => `<div class="border rounded-xl p-3 text-xs flex justify-between items-center">
           <div><b class="text-sm">${esc(x.month)}</b><p class="text-gray-500">${when(x.releasedAt)}${x.note ? ' · ' + esc(x.note) : ''}</p></div>
-          <div class="text-right"><b class="text-emerald-700">${money(x.amount)}</b>${x.deducted ? `<p class="text-rose-600">ঘাটতি কাটা ${money(x.deducted)}</p>` : ''}</div></div>`).join('')
+          <div class="text-right"><b class="text-emerald-700">${money(x.amount)}</b>${x.deducted ? `<p class="text-rose-600">ঘাটতি কাটা ${money(x.deducted)}</p>` : ''}
+          <a href="payslip.html?type=manager&month=${esc(x.month)}" class="inline-block mt-1 bg-gray-100 px-2 py-1 rounded-lg font-bold">📄 স্লিপ</a></div></div>`).join('')
           || '<p class="text-xs text-gray-400">এখনো কোনো বেতন রিলিজ হয়নি</p>';
       }, (e) => console.error('salaries', e));
     });
