@@ -1867,9 +1867,21 @@
         if (signupBtn.disabled) return;
         signupBtn.disabled = true;
 
-        // ---- step 1: send OTP
+        // ---- step 1: send OTP (only for a number that is not registered yet)
         if (!signupConfirm || phone !== signupPhoneSent) {
           try {
+            let registered = false;
+            try {
+              const r = await window.httpsCallable(window.firebaseFunctions, 'checkSignupPhone')({ phone });
+              registered = !!(r.data && r.data.registered);
+            } catch (chkErr) { console.warn('checkSignupPhone', chkErr); }   // if the check fails, the OTP step still catches it
+            if (registered) {
+              alert("এই নম্বর দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।\nপাসওয়ার্ড মনে না থাকলে Forgot Password চাপুন।");
+              document.getElementById('showLoginBtn').click();
+              document.getElementById('loginPhone').value = phone;
+              document.getElementById('loginPassword').focus();
+              return;
+            }
             signupRecaptcha = await freshRecaptcha(signupRecaptcha, 'signup-recaptcha');   // new token for every send
             signupConfirm = await signInWithPhoneNumber(auth, '+88' + phone, signupRecaptcha);
             signupPhoneSent = phone;
@@ -1961,4 +1973,20 @@
             'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।',
             'auth/network-request-failed': 'ইন্টারনেট সংযোগ চেক করুন।',
             'auth/unauthorized-domain': 'এই ডোমেইন Firebase-এ authorize করা নেই।',
-            'auth
+            'auth/operation-not-allowed': 'Email/Password sign-in চালু নেই।',
+            'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'API Key সঠিক নয়।',
+            'auth/requests-from-referer-' : ''
+          };
+          alert(msgs[err.code] || ('Login failed: ' + (err.code || err.message)));
+        } finally { submitBtn.disabled = false; }
+      });
+
+      // LOGOUT HANDLER
+      document.getElementById('logoutBtn').addEventListener('click', async () => {
+        await signOut(auth);
+        alert("Signed out successfully.");
+      });
+    }
+  </script>
+</body>
+</html>
