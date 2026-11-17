@@ -26,7 +26,9 @@
       RecaptchaVerifier,
       updatePassword,
       EmailAuthProvider,
-      reauthenticateWithCredential
+      reauthenticateWithCredential,
+      linkWithCredential,
+      getAdditionalUserInfo
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       getFirestore, 
@@ -39,7 +41,8 @@
       query,
       where,
       updateDoc,
-      onSnapshot
+      onSnapshot,
+      deleteField
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -85,7 +88,10 @@
       RecaptchaVerifier,
       updatePassword,
       EmailAuthProvider,
-      reauthenticateWithCredential
+      reauthenticateWithCredential,
+      linkWithCredential,
+      getAdditionalUserInfo,
+      deleteField
     };
   </script>
 
@@ -231,8 +237,15 @@
             <label class="text-xs text-gray-600 block mb-1">Details Address Road, House No *</label>
             <input type="text" id="signupDetailedAddress" required placeholder="House #12, Road #4, Block B" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
-          <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
-            Create Account
+          <!-- Step 2: OTP (shown after "OTP পাঠান") -->
+          <div id="signupOtpStep" class="hidden space-y-2 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+            <p id="signupOtpInfo" class="text-[11px] text-emerald-800"></p>
+            <input type="text" id="signupOtpCode" inputmode="numeric" maxlength="6" placeholder="৬ ডিজিটের OTP" class="w-full px-3 py-2 border rounded-xl text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <button type="button" id="signupResendBtn" class="text-[11px] text-emerald-700 hover:underline">নম্বর বদলান / আবার OTP পাঠান</button>
+          </div>
+          <div id="signup-recaptcha"></div>
+          <button type="submit" id="signupSubmitBtn" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl shadow hover:bg-emerald-700 text-sm">
+            OTP পাঠান
           </button>
         </form>
 
@@ -479,7 +492,10 @@
 
       <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-3">
         <div>
-          <label class="text-xs font-bold text-gray-700 block mb-1">ডেলিভারি ঠিকানা সিলেক্ট করুন (তালিকা থেকে):</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-gray-700">ডেলিভারি ঠিকানা:</label>
+            <button type="button" onclick="if(!window.firebaseAuth.currentUser){alert('প্রথমে লগইন করুন।');return;} openAddressModal()" class="text-[11px] text-emerald-700 font-bold hover:underline">+ নতুন ঠিকানা</button>
+          </div>
           <select id="checkoutAddressSelect" class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             <option value="">ঠিকানা লোড হচ্ছে...</option>
           </select>
@@ -821,45 +837,100 @@
       document.getElementById('profileView').classList.remove('hidden');
     };
 
+    // ===== ADDRESS BOOK =====
+    // users/{uid}.addresses = [{ id, label, text }]   users/{uid}.address = primary address text (other pages read this)
+    window.userAddresses = [];
+    window.currentUserAddress = '';
+    const NA = 'প্রযোজ্য নয়';
+    function setAddressBook(data) {
+      let list = Array.isArray(data.addresses) ? data.addresses.filter(a => a && a.text) : [];
+      if (!list.length && data.address) list = [{ id: 'a1', label: 'প্রাইমারি', text: data.address }];   // older accounts
+      window.userAddresses = list;
+      window.currentUserAddress = data.address || (list[0] ? list[0].text : '');
+      const addrText = document.getElementById('addressCountText');
+      if (addrText) addrText.innerText = list.length ? `${list.length} টি ঠিকানা সেভ করা` : 'কোনো ঠিকানা নেই';
+      renderCheckoutAddresses();
+    }
+    window.setAddressBook = setAddressBook;
+
+    // checkout: the customer's own saved addresses (primary first)
+    function renderCheckoutAddresses() {
+      const sel = document.getElementById('checkoutAddressSelect');
+      if (!sel) return;
+      const user = window.firebaseAuth && window.firebaseAuth.currentUser;
+      if (!user) { sel.innerHTML = `<option value="">অর্ডার করতে লগইন করুন</option>`; return; }
+      const list = window.userAddresses || [];
+      if (!list.length) { sel.innerHTML = `<option value="">কোনো ঠিকানা নেই — অ্যাকাউন্ট > ঠিকানাসমূহ থেকে যোগ করুন</option>`; return; }
+      const prev = sel.value;
+      const sorted = list.slice().sort((x, y) => (y.text === window.currentUserAddress) - (x.text === window.currentUserAddress));
+      sel.innerHTML = sorted.map(a => `<option value="${esc(a.text)}">${esc(a.label ? a.label + ' — ' : '')}${esc(a.text)}</option>`).join('');
+      if (prev && sorted.some(a => a.text === prev)) sel.value = prev;
+    }
+    window.renderCheckoutAddresses = renderCheckoutAddresses;
+
+    async function saveAddressBook(list, primaryText) {
+      const user = window.firebaseAuth.currentUser;
+      if (!user) { alert("প্রথমে লগইন করুন!"); return false; }
+      const { doc, updateDoc } = window.firebaseServices;
+      const primary = list.some(a => a.text === primaryText) ? primaryText : (list[0] ? list[0].text : '');
+      try {
+        await updateDoc(doc(window.firebaseDb, "users", user.uid), { addresses: list, address: primary });
+        setAddressBook({ addresses: list, address: primary });
+        return true;
+      } catch (err) { alert("ঠিকানা সেভ করতে সমস্যা হয়েছে: " + err.message); return false; }
+    }
+
     window.openAddressModal = function() {
-      const currentAddr = window.currentUserAddress || "কোনো ঠিকানা সেভ করা নেই";
+      const list = window.userAddresses || [];
+      const rows = list.map(a => {
+        const isPrimary = a.text === window.currentUserAddress;
+        return `<div class="p-2.5 rounded-xl border ${isPrimary ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white'} space-y-1">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-bold text-gray-800 text-xs"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${esc(a.label || 'ঠিকানা')}</span>
+            ${isPrimary ? '<span class="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">প্রাইমারি</span>' : ''}
+          </div>
+          <p class="text-[11px] text-gray-600">${esc(a.text)}</p>
+          <div class="flex gap-3 pt-1 text-[11px] font-bold">
+            ${isPrimary ? '' : `<button data-addr-primary="${esc(a.id)}" class="text-emerald-700 hover:underline">প্রাইমারি করুন</button>`}
+            <button data-addr-del="${esc(a.id)}" class="text-red-500 hover:underline">মুছুন</button>
+          </div>
+        </div>`;
+      }).join('') || '<p class="text-xs text-gray-400 text-center py-2">কোনো ঠিকানা সেভ করা নেই।</p>';
 
-      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আপনার ডেলিভারি ঠিকানা সেট করুন`;
+      document.getElementById('featureModalTitle').innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i> আমার ঠিকানাসমূহ`;
       document.getElementById('featureModalBody').innerHTML = `
-        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 space-y-1">
-          <p class="font-bold text-emerald-800 text-xs">বর্তমান প্রাইমারি ঠিকানা:</p>
-          <p id="modalCurrentAddressText" class="text-xs text-gray-700">${esc(currentAddr)}</p>
-        </div>
-
-        <div class="space-y-3 pt-2 border-t">
-          <div>
-            <label class="text-[11px] font-bold text-gray-700 block mb-1">-- এলাকা সিলেক্ট করুন --</label>
-            <select id="dropPrimaryArea" onchange="onPrimaryAreaChange()" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="">-- এলাকা সিলেক্ট করুন --</option>
-            </select>
+        <div id="addrList" class="space-y-2 max-h-60 overflow-y-auto">${rows}</div>
+        <div class="space-y-2 pt-3 border-t">
+          <p class="font-bold text-gray-700 text-xs">নতুন ঠিকানা যোগ করুন</p>
+          <div class="flex gap-2">
+            ${['বাসা', 'অফিস', 'অন্যান্য'].map((l, i) => `<label class="flex items-center gap-1 text-[11px]"><input type="radio" name="addrLabel" value="${l}" ${i === 0 ? 'checked' : ''}> ${l}</label>`).join('')}
           </div>
-
-          <div>
-            <label class="text-[11px] font-bold text-gray-700 block mb-1">সাব-লোকেশন সিলেক্ট করুন:</label>
-            <select id="dropSubLocation" onchange="onSubLocationChange()" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="">-- প্রথমে প্রাইমারি সিলেক্ট করুন --</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="text-[11px] font-bold text-gray-700 block mb-1">রোড / সেকেন্ডারি সিলেক্ট করুন:</label>
-            <select id="dropRoadSecondary" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-              <option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>
-            </select>
-          </div>
-
+          <select id="dropPrimaryArea" onchange="onPrimaryAreaChange()" class="w-full px-3 py-2 border rounded-xl text-xs bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="">-- এলাকা সিলেক্ট করুন --</option>
+          </select>
+          <select id="dropSubLocation" onchange="onSubLocationChange()" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="">-- প্রথমে এলাকা সিলেক্ট করুন --</option>
+          </select>
+          <select id="dropRoadSecondary" disabled class="w-full px-3 py-2 border rounded-xl text-xs bg-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <option value="">-- সাব-লোকেশন সিলেক্ট করুন --</option>
+          </select>
+          <input id="addrDetail" type="text" maxlength="120" placeholder="বাসা নং, রোড, ফ্ল্যাট (যেমন: বাসা #১২, রোড #৪)" class="w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <label class="flex items-center gap-1.5 text-[11px] text-gray-600"><input type="checkbox" id="addrMakePrimary"> এটিকে প্রাইমারি ঠিকানা করুন</label>
           <button onclick="saveUserAddressFromThreeDropdowns()" class="w-full bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs hover:bg-emerald-700 transition shadow">
-            ঠিকানা সেভ করুন
+            ঠিকানা যোগ করুন
           </button>
         </div>
       `;
+      document.querySelectorAll('[data-addr-primary]').forEach(btn => btn.onclick = async () => {
+        const a = window.userAddresses.find(x => x.id === btn.dataset.addrPrimary);
+        if (a && await saveAddressBook(window.userAddresses, a.text)) openAddressModal();
+      });
+      document.querySelectorAll('[data-addr-del]').forEach(btn => btn.onclick = async () => {
+        const a = window.userAddresses.find(x => x.id === btn.dataset.addrDel);
+        if (!a || !confirm(`"${a.text}" ঠিকানাটি মুছবেন?`)) return;
+        if (await saveAddressBook(window.userAddresses.filter(x => x.id !== a.id), window.currentUserAddress)) openAddressModal();
+      });
       document.getElementById('featureModal').classList.remove('hidden');
-      
       populatePrimaryDropdown();
     };
 
@@ -970,37 +1041,19 @@
       const p1 = document.getElementById('dropPrimaryArea').value;
       const p2 = document.getElementById('dropSubLocation').value;
       const p3 = document.getElementById('dropRoadSecondary').value;
-
-      if(!p1) {
-        alert("দয়া করে অন্তত প্রথম এলাকাটি সিলেক্ট করুন।");
-        return;
-      }
-
-      const finalFullAddress = [p1, p2, p3].filter(Boolean).join(', ');
-
-      const auth = window.firebaseAuth;
-      const db = window.firebaseDb;
-      const { doc, updateDoc } = window.firebaseServices;
-
-      const user = auth.currentUser;
-      if(!user) {
-        alert("প্রথমে লগইন করুন!");
-        return;
-      }
-
-      try {
-        const userRef = doc(db, "users", user.uid);
-        await updateDoc(userRef, { address: finalFullAddress });
-        
-        window.currentUserAddress = finalFullAddress;
-        document.getElementById('modalCurrentAddressText').innerText = finalFullAddress;
-        const addrText = document.getElementById('addressCountText');
-        if(addrText) addrText.innerText = "Primary: " + finalFullAddress;
-        
-        alert("আপনার ঠিকানা সফলভাবে আপডেট করা হয়েছে!");
-        closeFeatureModal();
-      } catch(err) {
-        alert("ঠিকানা আপডেট করতে সমস্যা হয়েছে: " + err.message);
+      const detail = (document.getElementById('addrDetail').value || '').trim();
+      if (!p1) { alert("দয়া করে অন্তত প্রথম এলাকাটি সিলেক্ট করুন।"); return; }
+      if (!detail) { alert("বাসা নং / রোড লিখুন।"); return; }
+      const text = [p1, p2, p3].filter(x => x && x !== NA).join(', ') + ', ' + detail;
+      const list = window.userAddresses || [];
+      if (list.some(a => a.text === text)) { alert("এই ঠিকানাটি আগেই সেভ করা আছে।"); return; }
+      if (list.length >= 10) { alert("সর্বোচ্চ ১০টি ঠিকানা রাখা যায়। পুরনো একটি মুছে নতুনটি যোগ করুন।"); return; }
+      const label = (document.querySelector('input[name="addrLabel"]:checked') || {}).value || 'অন্যান্য';
+      const makePrimary = document.getElementById('addrMakePrimary').checked || !list.length;
+      const next = [...list, { id: 'a' + Date.now().toString(36), label, text }];
+      if (await saveAddressBook(next, makePrimary ? text : window.currentUserAddress)) {
+        alert("ঠিকানা যোগ হয়েছে!");
+        openAddressModal();
       }
     };
 
@@ -1430,7 +1483,6 @@
     async function loadAdminAddresses() {
       const db = window.firebaseDb;
       const { collection, getDocs } = window.firebaseServices;
-      const checkoutSelect = document.getElementById('checkoutAddressSelect');
       const signupSelect = document.getElementById('signupAddressSelect');
       
       if(!db) {
@@ -1442,7 +1494,6 @@
         const querySnapshot = await getDocs(collection(db, "delivery_locations"));
         if (querySnapshot.empty) {
           const emptyOpt = `<option value="">কোনো ঠিকানা পাওয়া যায়নি</option>`;
-          if(checkoutSelect) checkoutSelect.innerHTML = emptyOpt;
           if(signupSelect) signupSelect.innerHTML = emptyOpt;
           return;
         }
@@ -1460,12 +1511,10 @@
           }
         });
 
-        if(checkoutSelect) checkoutSelect.innerHTML = optionsHTML;
         if(signupSelect) signupSelect.innerHTML = optionsHTML;
       } catch (e) {
         console.error("Error loading addresses:", e);
         const errOpt = `<option value="">ঠিকানা লোড করতে সমস্যা হয়েছে</option>`;
-        if(checkoutSelect) checkoutSelect.innerHTML = errOpt;
         if(signupSelect) signupSelect.innerHTML = errOpt;
       }
     }
@@ -1640,12 +1689,61 @@
                 </div>
               </div>
             </div>
+
+            <div class="flex gap-2 pt-2 border-t border-gray-100">
+              ${status === 'pending' ? `<button onclick="cancelMyOrder('${esc(ord.id)}')" class="flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-2 rounded-xl hover:bg-red-100"><i class="fa-solid fa-xmark mr-1"></i> অর্ডার বাতিল করুন</button>` : ''}
+              <button onclick="reorderOrder('${esc(ord.id)}')" class="flex-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold py-2 rounded-xl hover:bg-emerald-100"><i class="fa-solid fa-rotate-right mr-1"></i> আবার অর্ডার করুন</button>
+            </div>
           </div>
         `;
       });
 
       container.innerHTML = html;
     }
+
+    // customer cancels his own order while it is still Pending (allowed by firestore.rules)
+    window.cancelMyOrder = async function(docId) {
+      const ord = currentGlobalOrders.find(o => o.id === docId);
+      if (!ord) return;
+      if ((ord.status || '').toLowerCase() !== 'pending') { alert("এই অর্ডারটি আর বাতিল করা যাবে না — এটি প্রসেসিং শুরু হয়ে গেছে।"); return; }
+      if (!confirm(`অর্ডার ${ord.orderId || ''} বাতিল করবেন?`)) return;
+      try {
+        const { doc, updateDoc } = window.firebaseServices;
+        await updateDoc(doc(window.firebaseDb, "orders", docId), { status: 'Cancelled', cancelledAt: new Date().toISOString(), cancelledBy: 'customer' });
+        alert("অর্ডারটি বাতিল করা হয়েছে।");
+      } catch (e) {
+        alert(e.code === 'permission-denied' ? "এই অর্ডারটি আর বাতিল করা যাবে না — দোকান এটি প্রসেস করা শুরু করেছে।" : "বাতিল করা যায়নি: " + e.message);
+      }
+    };
+
+    // put the items of an old order back in the cart at TODAY's price, limited by today's stock
+    window.reorderOrder = function(docId) {
+      const ord = currentGlobalOrders.find(o => o.id === docId);
+      if (!ord) return;
+      if (!products.length) { alert("পণ্যের তালিকা এখনো লোড হচ্ছে, একটু পরে চেষ্টা করুন।"); return; }
+      const added = [], short = [], missing = [];
+      (ord.items || []).forEach(it => {
+        // same product id, or (after an MRP change created a new entry) the in-stock product with the same name
+        const p = products.find(x => String(x.id) === String(it.id) && x.stock > 0)
+          || products.find(x => (x.name || '').trim().toLowerCase() === (it.name || '').trim().toLowerCase() && x.stock > 0);
+        if (!p) { missing.push(it.name); return; }
+        const inCart = cart.find(c => String(c.id) === String(p.id));
+        const room = p.stock - (inCart ? inCart.qty : 0);
+        const want = Number(it.qty || 0);
+        const n = Math.min(want, room);
+        if (n <= 0) { short.push(it.name); return; }
+        if (inCart) inCart.qty += n; else cart.push({ ...p, qty: n });
+        added.push(n < want ? `${p.name} (${n}/${want})` : p.name);
+        if (n < want) short.push(it.name);
+      });
+      if (!added.length) { alert("এই অর্ডারের কোনো পণ্য এখন স্টকে নেই।"); return; }
+      saveCart();
+      let msg = `${added.length} টি পণ্য কার্টে যোগ হয়েছে (আজকের দামে)।`;
+      if (short.length) msg += `\nস্টক কম: ${short.join(', ')}`;
+      if (missing.length) msg += `\nএখন পাওয়া যাচ্ছে না: ${missing.join(', ')}`;
+      alert(msg);
+      toggleCartModal();
+    };
 
     function getStatusBadgeStyle(status) {
       status = (status || '').toLowerCase().trim();
@@ -1662,7 +1760,9 @@
       const db = window.firebaseDb;
       const { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc } = window.firebaseServices;
 
-      onAuthStateChanged(auth, async (user) => {
+      // Profile / wallet / address book for the signed-in customer. Also called right after sign-up,
+      // because onAuthStateChanged is ignored while the OTP sign-up is still writing the profile.
+      window.__refreshAuthUI = async (user) => {
         if (window.__walletUnsub) { window.__walletUnsub(); window.__walletUnsub = null; }
         const wEl = document.getElementById('walletBalanceText');
         if (user && wEl) {
@@ -1685,24 +1785,41 @@
               const data = docSnap.data();
               document.getElementById('userName').innerText = data.name || "Customer";
               document.getElementById('userPhone').innerText = data.phone || "No phone";
-              
-              window.currentUserAddress = data.address || "";
-              const addrText = document.getElementById('addressCountText');
-              if(addrText) addrText.innerText = data.address ? "Primary: " + data.address : "কোনো ঠিকানা নেই";
+              setAddressBook(data);
+            } else {
+              setAddressBook({});
             }
             fetchCustomerOrderHistory();
           } catch (e) { console.error("Firestore read error:", e); }
         } else {
+          setAddressBook({});
           document.getElementById('authForms').classList.remove('hidden');
           document.getElementById('profileView').classList.add('hidden');
           document.getElementById('dedicatedOrdersPage').classList.add('hidden');
         }
+      };
+      onAuthStateChanged(auth, (user) => {
+        if (window.__signupInProgress) return;      // the sign-up handler refreshes the UI when it is done
+        window.__refreshAuthUI(user);
       });
 
-      // 1. SIGN UP HANDLER
+      // 1. SIGN UP HANDLER — step 1 sends an SMS OTP, step 2 verifies it and creates the account.
+      // The account is the verified PHONE user with the email/password (017...@lalandexpress.com) linked to it,
+      // so login stays "mobile number + password" and the profile phone is guaranteed to be the verified one.
+      let signupConfirm = null, signupRecaptcha = null, signupPhoneSent = '';
+      const signupBtn = document.getElementById('signupSubmitBtn');
+      const resetSignupOtp = () => {
+        signupConfirm = null; signupPhoneSent = '';
+        document.getElementById('signupOtpStep').classList.add('hidden');
+        document.getElementById('signupOtpCode').value = '';
+        document.getElementById('signupPhone').readOnly = false;
+        signupBtn.textContent = 'OTP পাঠান';
+      };
+      document.getElementById('signupResendBtn').addEventListener('click', resetSignupOtp);
+
       document.getElementById('signupForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const { signInWithPhoneNumber, RecaptchaVerifier, EmailAuthProvider, linkWithCredential, getAdditionalUserInfo } = window.firebaseServices;
         const name = document.getElementById('signupName').value.trim();
         const phone = normPhone(document.getElementById('signupPhone').value);
         const password = document.getElementById('signupPassword').value;
@@ -1712,32 +1829,77 @@
         if (!name) { alert("আপনার নাম দিন।"); return; }
         if (!phone) { alert("সঠিক মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।"); return; }
         if (password.length < 6) { alert("পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।"); return; }
-        if (!baseAddress) { alert("Please select a delivery address."); return; }
+        if (!baseAddress) { alert("ডেলিভারি এলাকা সিলেক্ট করুন।"); return; }
+        if (signupBtn.disabled) return;
+        signupBtn.disabled = true;
 
+        // ---- step 1: send OTP
+        if (!signupConfirm || phone !== signupPhoneSent) {
+          try {
+            if (!signupRecaptcha) signupRecaptcha = new RecaptchaVerifier(auth, 'signup-recaptcha', { size: 'invisible' });
+            signupConfirm = await signInWithPhoneNumber(auth, '+88' + phone, signupRecaptcha);
+            signupPhoneSent = phone;
+            document.getElementById('signupOtpInfo').textContent = `${phone} নম্বরে ৬ ডিজিটের OTP পাঠানো হয়েছে।`;
+            document.getElementById('signupOtpStep').classList.remove('hidden');
+            document.getElementById('signupPhone').readOnly = true;
+            signupBtn.textContent = 'যাচাই করে অ্যাকাউন্ট খুলুন';
+            document.getElementById('signupOtpCode').focus();
+          } catch (err) {
+            console.error(err);
+            try { signupRecaptcha && signupRecaptcha.clear(); } catch (_) {}
+            signupRecaptcha = null; signupConfirm = null;
+            alert(err.code === 'auth/too-many-requests' ? "অনেকবার চেষ্টা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।"
+              : err.code === 'auth/invalid-phone-number' ? "মোবাইল নম্বর সঠিক নয়।"
+              : "OTP পাঠানো যায়নি: " + (err.code || err.message));
+          } finally { signupBtn.disabled = false; }
+          return;
+        }
+
+        // ---- step 2: verify OTP + create the account
+        const code = document.getElementById('signupOtpCode').value.trim();
+        if (!/^\d{6}$/.test(code)) { alert("৬ ডিজিটের OTP দিন।"); signupBtn.disabled = false; return; }
         const fullCombinedAddress = detailAddress ? `${baseAddress}, ${detailAddress}` : baseAddress;
         const email = `${phone}@lalandexpress.com`;
-        let createdUser = null;
-        submitBtn.disabled = true;
-
+        let phoneUser = null, isNewUser = false, done = false;
+        window.__signupInProgress = true;
         try {
-          const cred = await createUserWithEmailAndPassword(auth, email, password);
-          createdUser = cred.user;
-          await setDoc(doc(db, "users", createdUser.uid), {
-            name: name, phone: phone, email: email, address: fullCombinedAddress, createdAt: new Date().toISOString()
+          const cred = await signupConfirm.confirm(code);          // signs in as the phone user
+          phoneUser = cred.user;
+          isNewUser = !!(getAdditionalUserInfo(cred) || {}).isNewUser;
+          if (phoneUser.providerData.some(p => p.providerId === 'password')) {
+            alert("এই নম্বর দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।");
+            await signOut(auth);
+            return;
+          }
+          await linkWithCredential(phoneUser, EmailAuthProvider.credential(email, password));
+          await phoneUser.getIdToken(true);                         // token now carries both email and phone_number
+          await setDoc(doc(db, "users", phoneUser.uid), {
+            name, phone, email,
+            address: fullCombinedAddress,
+            addresses: [{ id: 'a' + Date.now().toString(36), label: 'বাসা', text: fullCombinedAddress }],
+            createdAt: new Date().toISOString()
           });
-          document.getElementById('userName').innerText = name;
-          document.getElementById('userPhone').innerText = phone;
-          window.currentUserAddress = fullCombinedAddress;
-          const addrText = document.getElementById('addressCountText');
-          if (addrText) addrText.innerText = "Primary: " + fullCombinedAddress;
+          done = true;
           sendWelcomeSMS(phone, name);
+          document.getElementById('signupForm').reset();
+          resetSignupOtp();
           alert("অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!");
         } catch (error) {
-          if (createdUser) { try { await createdUser.delete(); } catch (_) {} }
-          alert(error.code === 'auth/email-already-in-use'
+          console.error(error);
+          if (error.code === 'auth/invalid-verification-code') { alert("OTP কোড ভুল। আবার লিখুন।"); return; }
+          if (error.code === 'auth/code-expired') { resetSignupOtp(); alert("OTP-র মেয়াদ শেষ। আবার OTP পাঠান।"); return; }
+          // the phone login was created only for this attempt -> remove it so the number can register again
+          if (phoneUser && isNewUser) { try { await phoneUser.delete(); } catch (_) {} }
+          if (auth.currentUser) { try { await signOut(auth); } catch (_) {} }
+          resetSignupOtp();
+          alert(error.code === 'auth/email-already-in-use' || error.code === 'auth/credential-already-in-use'
             ? "এই নম্বর দিয়ে আগেই অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।"
-            : "রেজিস্ট্রেশন ব্যর্থ: " + error.message);
-        } finally { submitBtn.disabled = false; }
+            : "রেজিস্ট্রেশন ব্যর্থ: " + (error.code || error.message));
+        } finally {
+          window.__signupInProgress = false;
+          signupBtn.disabled = false;
+          window.__refreshAuthUI(auth.currentUser);
+        }
       });
 
       // 2. LOGIN HANDLER (error code সহ)
