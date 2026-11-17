@@ -29,10 +29,22 @@
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
       <div class="flex items-center justify-between">
         <h2 class="font-bold text-sm text-gray-800">১. রাইডার ক্যাশ-আউট অনুরোধ</h2>
-        <span class="text-[11px] text-gray-500">পুরো পরিমাণ একবারে পরিশোধ হবে</span>
+        <span class="text-[11px] text-gray-500">টাকা পাঠিয়ে Trx ID ও পেমেন্ট প্রুফের ছবি দিয়ে অনুমোদন করুন</span>
       </div>
       <div id="reqRows" class="space-y-2"><p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p></div>
+      <details class="pt-2 border-t">
+        <summary class="cursor-pointer text-xs font-bold text-gray-600">পরিশোধিত / বাতিল অনুরোধ (সর্বশেষ ৫০)</summary>
+        <div id="reqHist" class="space-y-2 mt-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+      </details>
     </section>
+
+    <!-- payment proof viewer -->
+    <div id="pfModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3" onclick="if(event.target===this)this.classList.add('hidden')">
+      <div class="bg-white rounded-2xl p-4 w-full max-w-md max-h-[92vh] overflow-auto space-y-2">
+        <div class="flex justify-between items-center"><b class="text-sm">🧾 পেমেন্ট প্রুফ</b><button onclick="document.getElementById('pfModal').classList.add('hidden')" class="text-gray-500 text-lg">✕</button></div>
+        <div id="pfBody"></div>
+      </div>
+    </div>
 
     <!-- COMPANY REIMBURSEMENT TO MASTER -->
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
@@ -72,6 +84,42 @@
     const chanSelect = (id) => `<select id="${id}" class="px-2 py-1.5 border rounded-lg text-xs bg-white">${CHANNELS.map(c => `<option>${c}</option>`).join('')}</select>`;
 
     let names = {}, balances = {};
+    const riderBal = {}, proofs = {};   // proofs[requestId] = { data: dataURL, name }
+
+    // shrink a photo / screenshot to a JPEG small enough to store (max ~1400px, under ~650 KB)
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !/^image\//.test(file.type)) return reject(new Error('শুধু ছবি (JPG/PNG) দিন।'));
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.width, h = img.height, max = 1400, out = '';
+          for (let i = 0; i < 6; i++) {
+            const k = Math.min(1, max / Math.max(w, h));
+            const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+            out = c.toDataURL('image/jpeg', 0.72);
+            if (out.length < 650000) return resolve(out);
+            max = Math.round(max * 0.75);
+          }
+          reject(new Error('ছবিটা অনেক বড়, অন্য ছবি দিন।'));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('ছবিটা পড়া যায়নি।')); };
+        img.src = url;
+      });
+    }
+    function showProofPreview(id) {
+      const im = $(`pfp_${id}`), l = $(`pfl_${id}`);
+      if (!im || !proofs[id]) return;
+      im.src = proofs[id].data; im.classList.remove('hidden');
+      l.textContent = '✅ ' + (proofs[id].name || 'প্রুফ যোগ হয়েছে') + ' (বদলাতে চাপুন)';
+    }
+    document.addEventListener('change', async (e) => {
+      const id = e.target && e.target.dataset && e.target.dataset.pf;
+      if (!id || !e.target.files[0]) return;
+      try { proofs[id] = { data: await compressImage(e.target.files[0]), name: e.target.files[0].name }; showProofPreview(id); }
+      catch (err) { alert(err.message); }
+    });
 
     // ---------- summary + balances (live)
     async function loadNames() {
@@ -89,20 +137,73 @@
         $('sRes').textContent = money(balances['master:reserve'] || 0);
         renderSalaries();
       });
+      let pendRows = [];
       onSnapshot(query(collection(db, 'payout_requests'), where('status', '==', 'Pending')), (snap) => {
-        const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-        $('sReq').textContent = money(rows.reduce((s, r) => s + Number(r.amount || 0), 0));
-        $('reqRows').innerHTML = rows.map(r => `
-          <div class="border rounded-xl p-3 flex flex-wrap items-center gap-2 justify-between">
-            <div><p class="font-bold text-sm">${esc(r.riderName || names[r.riderId] || r.riderId)}</p>
-              <p class="text-[11px] text-gray-500">অনুরোধ: ${new Date(r.createdAt).toLocaleString('en-GB')}</p></div>
-            <div class="flex items-center gap-2">
-              <span class="font-extrabold text-emerald-700">${money(r.amount)}</span>
-              ${chanSelect('ch_' + r.id)}
-              <input id="tx_${r.id}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
-              <button data-pay="${r.id}" data-rider="${esc(r.riderId)}" data-amt="${Number(r.amount)}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">পরিশোধ</button>
-            </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p>';
+        pendRows = []; snap.forEach(d => pendRows.push({ id: d.id, ...d.data() }));
+        pendRows.sort((x, y) => (x.createdAt || '') < (y.createdAt || '') ? -1 : 1);
+        drawPending();
       }, (e) => console.error('payouts', e));
+      function drawPending() {
+        const rows = pendRows;
+        $('sReq').textContent = money(rows.reduce((s, r) => s + Number(r.amount || 0), 0));
+        // keep what the master already typed / picked when the list refreshes
+        const keep = {}; rows.forEach(r => { keep[r.id] = { tx: ($(`tx_${r.id}`) || {}).value, ch: ($(`ch_${r.id}`) || {}).value }; });
+        $('reqRows').innerHTML = rows.map(r => {
+          const bal = riderBal[r.riderId];
+          const low = bal != null && Number(r.amount) > bal;
+          return `
+          <div class="border rounded-xl p-3 space-y-2 ${low ? 'border-red-300 bg-red-50' : ''}">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div><p class="font-bold text-sm">${esc(r.riderName || names[r.riderId] || r.riderId)} <span class="text-[11px] text-gray-500 font-normal">${esc(r.riderPhone || '')}</span></p>
+                <p class="text-[11px] text-gray-500">অনুরোধ: ${new Date(r.createdAt).toLocaleString('en-GB')}</p>
+                <p class="text-[11px]">চায়: <b>${esc(r.channel || '—')}</b> ${esc(r.account || '')}${r.note ? ` · 📝 ${esc(r.note)}` : ''}</p>
+                <p class="text-[11px] ${low ? 'text-red-600 font-bold' : 'text-gray-500'}">রাইডারের বর্তমান আয় ব্যালেন্স: ${bal == null ? '…' : money(bal)}${low ? ' — অনুরোধের চেয়ে কম!' : ''}</p></div>
+              <span class="font-extrabold text-lg text-emerald-700">${money(r.amount)}</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              ${chanSelect('ch_' + r.id)}
+              <input id="tx_${r.id}" placeholder="Trx ID / নোট" class="px-2 py-1.5 border rounded-lg text-xs">
+              <label class="px-2 py-1.5 border border-dashed rounded-lg text-xs cursor-pointer bg-gray-50 text-center">
+                <input id="pf_${r.id}" data-pf="${r.id}" type="file" accept="image/*" class="hidden">
+                <span id="pfl_${r.id}">📎 পেমেন্ট প্রুফ (ছবি)</span>
+              </label>
+            </div>
+            <img id="pfp_${r.id}" class="hidden max-h-32 rounded-lg border">
+            <div class="flex gap-2">
+              <button data-pay="${r.id}" data-rider="${esc(r.riderId)}" data-amt="${Number(r.amount)}" class="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold">✅ অনুমোদন ও পরিশোধ</button>
+              <button data-rej="${r.id}" class="bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-xs font-bold">বাতিল</button>
+            </div>
+          </div>`;
+        }).join('') || '<p class="text-xs text-gray-400">কোনো অপেক্ষমাণ অনুরোধ নেই</p>';
+        rows.forEach(r => {
+          const k = keep[r.id] || {};
+          $(`ch_${r.id}`).value = k.ch || (CHANNELS.includes(r.channel) ? r.channel : 'bKash');
+          if (k.tx) $(`tx_${r.id}`).value = k.tx;
+          if (proofs[r.id]) showProofPreview(r.id);
+        });
+      }
+      // history: paid + rejected
+      const hist = { paid: [], rejected: [] };
+      const drawHist = () => {
+        const rows = [...hist.paid, ...hist.rejected].sort((x, y) => ((y.paidAt || y.rejectedAt || '') < (x.paidAt || x.rejectedAt || '') ? -1 : 1)).slice(0, 50);
+        $('reqHist').innerHTML = rows.map(r => `
+          <div class="border rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div><b>${esc(r.riderName || names[r.riderId] || r.riderId)}</b> · ${money(r.amount)}
+              <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}">${r.status === 'paid' ? 'পরিশোধিত' : 'বাতিল'}</span>
+              <p class="text-[11px] text-gray-500">${r.status === 'paid'
+                ? `${new Date(r.paidAt).toLocaleString('en-GB')} · ${esc(r.trxRef || '')} · ${esc(r.paidByName || '')}`
+                : `${new Date(r.rejectedAt).toLocaleString('en-GB')} · কারণ: ${esc(r.rejectReason || '')}`}</p></div>
+            ${r.hasProof ? `<button data-proof="${r.id}" class="bg-gray-100 px-3 py-1.5 rounded-lg font-bold">🧾 প্রুফ</button>` : ''}
+          </div>`).join('') || '<p class="text-xs text-gray-400">কিছু নেই</p>';
+      };
+      ['paid', 'rejected'].forEach(st => onSnapshot(query(collection(db, 'payout_requests'), where('status', '==', st)), (snap) => {
+        hist[st] = []; snap.forEach(d => hist[st].push({ id: d.id, ...d.data() })); drawHist();
+      }, (e) => console.error('payout history', e)));
+      // live rider earnings, so the master sees if a request is still covered
+      onSnapshot(collection(db, 'riders'), (snap) => {
+        snap.forEach(d => { riderBal[d.id] = Number(d.data().earningsBalance || 0); names[d.id] = d.data().name || d.id; });
+        drawPending();
+      });
       onSnapshot(query(collection(db, 'master_claims'), where('status', '==', 'open')), (snap) => {
         const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
         $('claimRows').innerHTML = rows.map(c => `
@@ -155,10 +256,36 @@
       if (pay) {
         const id = pay.dataset.pay, trx = ($(`tx_${id}`).value || '').trim(), channel = $(`ch_${id}`).value;
         if (!trx) return alert('Trx ID বা নোট লিখুন।');
-        if (!confirm(`${money(pay.dataset.amt)} পুরোটা পরিশোধ করবেন?`)) return;
-        pay.disabled = true;
-        try { await call('payoutFromMaster', { riderId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel }); alert('পরিশোধ হয়েছে।'); }
-        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); pay.disabled = false; }
+        if (!proofs[id]) return alert('পেমেন্ট প্রুফের ছবি (স্লিপ / স্ক্রিনশট) যোগ করুন।');
+        if (!confirm(`${money(pay.dataset.amt)} ${channel}-এ পরিশোধ হয়েছে বলে নিশ্চিত করবেন?`)) return;
+        pay.disabled = true; pay.textContent = 'সেভ হচ্ছে…';
+        try {
+          await call('payoutFromMaster', { riderId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel, proof: proofs[id].data, proofName: proofs[id].name });
+          delete proofs[id]; alert('পরিশোধ হয়েছে, প্রুফ সেভ হয়েছে।');
+        } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); pay.disabled = false; pay.textContent = '✅ অনুমোদন ও পরিশোধ'; }
+        return;
+      }
+      const rej = e.target.closest('button[data-rej]');
+      if (rej) {
+        const reason = prompt('বাতিলের কারণ লিখুন (রাইডার দেখতে পাবে):');
+        if (reason === null) return;
+        if (!reason.trim()) return alert('কারণ লিখুন।');
+        rej.disabled = true;
+        try { await call('rejectPayout', { requestId: rej.dataset.rej, reason: reason.trim() }); }
+        catch (err) { alert('ব্যর্থ: ' + (err.message || err)); rej.disabled = false; }
+        return;
+      }
+      const pf = e.target.closest('button[data-proof]');
+      if (pf) {
+        try {
+          const s = await getDoc(doc(db, 'payout_proofs', pf.dataset.proof));
+          if (!s.exists()) return alert('প্রুফ পাওয়া যায়নি।');
+          const p = s.data();
+          $('pfBody').innerHTML = `<img src="${esc(p.image)}" class="w-full rounded-lg border">
+            <p class="text-[11px] text-gray-500">আপলোড: ${esc(p.uploadedByName || '')} · ${new Date(p.uploadedAt).toLocaleString('en-GB')}${p.fileName ? ' · ' + esc(p.fileName) : ''}</p>
+            <a href="${esc(p.image)}" download="payment-proof-${esc(pf.dataset.proof)}.jpg" class="block text-center bg-gray-100 rounded-lg py-2 text-xs font-bold">⬇ ডাউনলোড</a>`;
+          $('pfModal').classList.remove('hidden');
+        } catch (err) { alert(err.message || err); }
         return;
       }
       const claim = e.target.closest('button[data-claim]');

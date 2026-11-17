@@ -30,7 +30,7 @@ addEventListener('error',function(e){__eb((e.message||'error')+' @'+String(e.fil
 <section id="rider" hidden>
 <div class="row"><div class="c">ক্যাশ জমা বাকি<h3 id="cash">৳0</h3></div><div class="c">আয় (কমিশন)<h3 id="earn">৳0</h3></div></div>
 <button class="g" onclick="openStl()">ক্যাশ জমা দিন</button>
-<div class="t" style="margin-top:10px"><button id="rt-act" class="on" onclick="rTab('act')">চলমান</button><button id="rt-done" onclick="rTab('done')">সম্পন্ন</button><button id="rt-h" onclick="rTab('h')">জমার ইতিহাস</button><button id="rt-p" onclick="rTab('p')">প্রোফাইল</button></div>
+<div class="t" style="margin-top:10px"><button id="rt-act" class="on" onclick="rTab('act')">চলমান</button><button id="rt-done" onclick="rTab('done')">সম্পন্ন</button><button id="rt-h" onclick="rTab('h')">জমার ইতিহাস</button><button id="rt-co" onclick="rTab('co')">ক্যাশ আউট</button><button id="rt-p" onclick="rTab('p')">প্রোফাইল</button></div>
 <div id="dF" class="c" hidden><div class="row"><input id="dm" type="month" onchange="dmC()"><input id="dd" type="date" onchange="ddC()"></div><select id="ds" onchange="renderR()"></select><button class="g" onclick="expD()">📥 এক্সেল এক্সপোর্ট</button></div>
 <div id="hF" class="c" hidden><div class="row"><input id="hm2" type="month" onchange="renderR()"><select id="hs2" onchange="renderR()"></select></div><button class="g" onclick="expH()">📥 এক্সেল এক্সপোর্ট</button></div>
 <div id="rlist"></div></section>
@@ -60,7 +60,7 @@ const cfg={apiKey:"AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",authDomain:"laland-e
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i),E=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FIN=['Delivered','Completed','Cancelled','Returned'];
-let me,orders=[],riders=[],stls=[],allS=[],busyF=0,unsub=[],rt='act',offerId,cdT,ringT,ctx,payId,isAd=false;
+let pouts=[],me,orders=[],riders=[],stls=[],allS=[],busyF=0,unsub=[],rt='act',offerId,cdT,ringT,ctx,payId,isAd=false;
 const iso=()=>new Date().toISOString();
 
 // ---- shared helpers
@@ -103,8 +103,9 @@ const list=s=>s.docs.map(d=>({id:d.id,...d.data()}));
 function startRider(){isAd=false;$('rider').hidden=false;$('who').textContent='🏍 '+me.name;
 snap(doc(db,'riders',me.id),s=>{me={id:s.id,...s.data()};$('cash').textContent='৳'+(me.cashBalance||0);$('earn').textContent='৳'+(me.earningsBalance||0);renderR()});
 snap(query(collection(db,'orders'),where('riderPhone','==',me.phone)),s=>{orders=list(s);renderR();checkOffer()});
-snap(query(collection(db,'cash_settlements'),where('riderPhone','==',me.phone)),s=>{stls=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()})}
-window.rTab=t=>{rt=t;['act','done','h','p'].forEach(x=>$('rt-'+x).className=x==t?'on':'');renderR()};
+snap(query(collection(db,'cash_settlements'),where('riderPhone','==',me.phone)),s=>{stls=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()});
+snap(query(collection(db,'payout_requests'),where('riderId','==',me.id)),s=>{pouts=list(s).sort((a,b)=>(b.createdAt||'')<(a.createdAt||'')?-1:1);renderR()})}
+window.rTab=t=>{rt=t;['act','done','h','co','p'].forEach(x=>$('rt-'+x).className=x==t?'on':'');renderR()};
 window.dmC=()=>{$('dd').value='';renderR()};window.ddC=()=>{$('dm').value='';renderR()};
 const dBase=()=>{const m=$('dm').value,d=$('dd').value;return orders.filter(o=>['Delivered','Completed','Returned','Cancelled'].includes(o.status)&&(!m||ld(od(o)).startsWith(m))&&(!d||ld(od(o))==d)).sort((a,b)=>od(b)>od(a)?1:-1)};
 const dList=()=>{const B=dBase(),c=$('ds').value||'ALL';return c=='ALL'?B:B.filter(o=>grp(o)==c)};
@@ -117,6 +118,7 @@ ${detailsHtml(o)}
 <div class="sp"><b>${amtH(o)}</b>${act?`<span style="display:flex;gap:6px"><button class="r" style="width:auto" onclick="retO('${o.id}')">ফেরত</button><button class="g" style="width:auto" onclick="openPay('${o.id}')">ডেলিভারি হয়েছে</button></span>`:`<span>${E(grp(o)=='Delivered'?o.paymentMethod:o.returnReason)}</span>`}</div>${act?'':`<small>${E(fdt(od(o)))}</small>`}</div>`;
 function renderR(){if(!isAd&&$('stl')&&!$('stl').hidden)drawStl();const c=$('rlist');$('dF').hidden=rt!='done';$('hF').hidden=rt!='h';
 if(rt=='p'){c.innerHTML=`<div class="c">${profHtml(me,false)}</div>`;return}
+if(rt=='co'){c.innerHTML=coHtml();return}
 if(rt=='h'){const B=hBase();fill('hs2',[['ALL','সব',B.length],['Pending','অপেক্ষায়',cn(B,'Pending')],['Approved','অনুমোদিত',cn(B,'Approved')],['Rejected','বাতিল',cn(B,'Rejected')]]);
 c.innerHTML=hList().map(s=>`<div class="c"><div class="sp"><b>৳${N(s.amount)}</b><span class="b">${stT(s.status)}</span></div><small>${E(s.method)} · ${E(s.trxRef)||'—'} · ${E(fdt(s.createdAt))}</small><div>🧾 ${E(invNo(s))||'<small>পুরনো জমা (ইনভয়েস ছাড়া)</small>'}</div></div>`).join('')||'<small>কিছু নেই</small>';return}
 if(rt=='done'){const B=dBase();fill('ds',[['ALL','সব',B.length],['Delivered','Delivered',cg(B,'Delivered')],['Returned','Returned',cg(B,'Returned')],['Cancelled','Cancelled',cg(B,'Cancelled')]]);
@@ -136,9 +138,9 @@ try{await updateDoc(doc(db,'orders',id),ok?{offerState:'Accepted',acceptedAt:iso
 window.openPay=id=>{payId=id;$('payAmt').textContent='৳'+orders.find(o=>o.id==id).totalAmount;$('pay').hidden=false};
 window.donePay=async()=>{if(busyF)return;const o=orders.find(x=>x.id==payId);if(!o||FIN.includes(o.status))return;
 const rd=isAd?riders.find(r=>r.phone==o.riderPhone):me,m=$('pm').value,amt=Number(o.totalAmount||0),com=rd?(rd.deliveryCommission==null?30:Number(rd.deliveryCommission)||0):0;busyF=1;
-try{const b=writeBatch(db);b.update(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso(),...(isAd?{deliveredBy:'admin'}:{})});
-if(rd)b.update(doc(db,'riders',rd.id),{...(m=='Cash'?{cashBalance:increment(amt)}:{}),earningsBalance:increment(com)});
-await b.commit();$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন!'+(rd?' কমিশন ৳'+com:''))}catch(e){alert('ব্যর্থ: '+e.message)}busyF=0};
+// only the order is written here; the server (creditDelivery) adds the cash due + commission to the rider
+try{await updateDoc(doc(db,'orders',payId),{status:'Delivered',paymentMethod:m,paymentTrxId:$('trx').value.trim(),deliveredAt:iso(),serverCredit:true,...(isAd?{deliveredBy:'admin'}:{})});
+$('pay').hidden=true;$('trx').value='';alert('সম্পন্ন!'+(rd?' কমিশন ৳'+com+' কয়েক সেকেন্ডের মধ্যে আপনার আয়ে যোগ হবে।':''))}catch(e){alert('ব্যর্থ: '+e.message)}busyF=0};
 
 window.retO=async id=>{const r=prompt('ফেরতের কারণ লিখুন');if(r===null)return;if(!r.trim())return alert('কারণ লিখুন');if(!confirm('অর্ডারটি ফেরত (Returned) দিচ্ছেন?'))return;
 try{await updateDoc(doc(db,'orders',id),{status:'Returned',returnReason:r.trim().slice(0,200),returnedAt:iso()})}catch(e){alert(e.message)}};
@@ -160,6 +162,31 @@ $('stl').hidden=true;$('sr').value='';alert('অনুরোধ পাঠান�
 catch(e){alert(e.message||e)}busyF=0};
 window.expD=()=>xl('delivered-'+ld(new Date()),['Invoice','Customer','Phone','Address','Order Total','Net Bill','Status','Payment','Trx ID','Return reason','Date'],dList().map(o=>[String(o.orderId||o.id),o.userName||'',o.userPhone||'',o.address||'',N(o.totalAmount),netBill(o),grp(o),o.paymentMethod||'',o.paymentTrxId||'',o.returnReason||'',fdt(od(o))]));
 window.expH=()=>xl('deposits-'+ld(new Date()),['Date','Invoice No','Amount','Method','Trx/Note','Status','Decision date'],hList().map(s=>[fdt(s.createdAt),invNo(s),N(s.amount),s.method||'',s.trxRef||'',s.status,fdt(s.approvedAt||s.rejectedAt)]));
+
+// ================= RIDER: CASH-OUT (ক্যাশ আউট) =================
+const poT=s=>s=='paid'?'✅ পরিশোধিত':s=='rejected'?'❌ বাতিল':'⏳ অপেক্ষমাণ';
+const poCard=p=>`<div class="c"><div class="sp"><b>${tk(p.amount)}</b><span class="b">${poT(p.status)}</span></div>
+<small>অনুরোধ: ${E(fdt(p.createdAt))} · ${E(p.channel)}${p.account?' '+E(p.account):''}</small>${p.note?`<div><small>📝 ${E(p.note)}</small></div>`:''}
+${p.status=='paid'?`<div><small>পরিশোধ: ${E(fdt(p.paidAt))} · ${E(p.paidChannel||'')} · Trx: ${E(p.trxRef)}</small></div>${p.hasProof?`<button class="s" onclick="viewProof('${E(p.id)}')">🧾 পেমেন্ট প্রুফ দেখুন</button>`:''}`:''}
+${p.status=='rejected'?`<div><small style="color:#dc2626">কারণ: ${E(p.rejectReason)}</small></div>`:''}</div>`;
+function coHtml(){const earn=N(me.earningsBalance),pend=pouts.find(p=>p.status=='Pending');
+const form=pend?`<div class="c" style="border-color:#f59e0b;background:#fffbeb"><b>⏳ আপনার ${tk(pend.amount)} এর অনুরোধ অপেক্ষমাণ</b><br><small>মাস্টার অ্যাডমিন পরিশোধ করলে এখানে পেমেন্ট প্রুফসহ দেখাবে।</small></div>`
+:`<div class="c"><b>ক্যাশ আউট অনুরোধ</b><div class="sp"><span>তোলা যাবে (আয় ব্যালেন্স)</span><b>${tk(earn)}</b></div>
+<label>পরিমাণ</label><input id="coA" type="number" min="1" step="1" max="${earn}" value="${earn>0?earn:''}">
+<label>কীভাবে নেবেন</label><select id="coC" onchange="coAcc()"><option>bKash</option><option>Nagad</option><option>Bank</option><option>Cash</option></select>
+<input id="coN" placeholder="bKash নম্বর" value="${E(me.phone||'')}"><input id="coNote" placeholder="নোট (ঐচ্ছিক)" maxlength="120">
+<button class="g" onclick="sendPayout()" ${earn>0?'':'disabled style="opacity:.5"'}>অনুরোধ পাঠান</button></div>`;
+return `<div class="c"><div class="sp"><span>আয় (কমিশন) ব্যালেন্স</span><h3 style="margin:0">${tk(earn)}</h3></div></div>${form}
+<b>অনুরোধের ইতিহাস</b>${pouts.map(poCard).join('')||'<div class="c"><small>এখনো কোনো অনুরোধ নেই</small></div>'}`}
+window.coAcc=()=>{const c=$('coC').value,n=$('coN');n.hidden=c=='Cash';n.placeholder=c=='Bank'?'ব্যাংক অ্যাকাউন্ট নম্বর ও ব্যাংকের নাম':c+' নম্বর'};
+window.sendPayout=async()=>{const a=Number($('coA').value),ch=$('coC').value,acc=$('coN').value.trim(),earn=N(me.earningsBalance);
+if(!(a>0))return alert('পরিমাণ লিখুন');if(a>earn)return alert('আয় ব্যালেন্স '+tk(earn)+', এর বেশি তোলা যাবে না');if(ch!='Cash'&&!acc)return alert(ch+' নম্বর/অ্যাকাউন্ট লিখুন');
+if(!confirm(tk(a)+' ক্যাশ আউটের অনুরোধ পাঠাবেন? ('+ch+(ch!='Cash'?' '+acc:'')+')'))return;if(busyF)return;busyF=1;
+try{await httpsCallable(getFunctions(getApps()[0]),'requestPayout')({amount:a,channel:ch,account:ch=='Cash'?'':acc,note:$('coNote').value.trim()});alert('অনুরোধ পাঠানো হয়েছে। মাস্টার অ্যাডমিন পরিশোধ করবেন।')}
+catch(e){alert(e.message||e)}busyF=0};
+// payment proof viewer (rider: own requests only — firestore.rules)
+window.viewProof=async id=>{try{const s=await getDoc(doc(db,'payout_proofs',id));if(!s.exists())return alert('প্রুফ পাওয়া যায়নি');const p=s.data();
+$('rpB').innerHTML=`<h3>🧾 পেমেন্ট প্রুফ</h3><img src="${E(p.image)}" style="width:100%;border-radius:8px;border:1px solid #e5e7eb"><small>আপলোড: ${E(p.uploadedByName||'মাস্টার')} · ${E(fdt(p.uploadedAt))}</small><a href="${E(p.image)}" download="payment-proof-${E(id)}.jpg"><button class="s">⬇ ডাউনলোড</button></a>`;$('rpm').hidden=false}catch(e){alert(e.message||e)}};
 
 // ================= ADMIN =================
 function startAdmin(){isAd=true;$('admin').hidden=false;$('who').textContent='👑 অ্যাডমিন';
