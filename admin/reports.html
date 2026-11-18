@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>রিপোর্ট - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    @media print { header, nav, #tabs, .noprint { display: none !important; } body { background: #fff; } section { box-shadow: none !important; border: 0 !important; } }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-chart-line text-xl"></i><h1 class="font-bold text-base">রিপোর্ট (মাস্টার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <div id="tabs" class="flex flex-wrap gap-2 text-xs">
+      <button data-tab="pl" class="tb px-3 py-2 rounded-lg border font-bold"><i class="fa-solid fa-scale-unbalanced"></i> মাসিক লাভ-ক্ষতি</button>
+      <button data-tab="bs" class="tb px-3 py-2 rounded-lg border font-bold"><i class="fa-solid fa-building"></i> ব্যবসার মোট অবস্থা</button>
+      <button data-tab="cb" class="tb px-3 py-2 rounded-lg border font-bold"><i class="fa-solid fa-book"></i> দৈনিক ক্যাশ বুক</button>
+      <button data-tab="br" class="tb px-3 py-2 rounded-lg border font-bold"><i class="fa-solid fa-building-columns"></i> ব্যাংক মিলানো</button>
+      <span class="flex-1"></span>
+      <button id="printBtn" class="px-3 py-2 rounded-lg border font-bold bg-white noprint"><i class="fa-solid fa-print"></i> প্রিন্ট / PDF</button>
+    </div>
+
+    <!-- P&L -->
+    <section id="t_pl" class="tab bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm">মাসিক লাভ-ক্ষতি <span id="plTitle" class="text-gray-400 font-normal"></span></h2>
+        <div class="flex items-center gap-2 text-xs noprint"><span>শেষ মাস</span><input id="plMonth" type="month" class="px-2 py-1.5 border rounded-lg"><select id="plSpan" class="px-2 py-1.5 border rounded-lg bg-white"><option value="1">১ মাস</option><option value="3">৩ মাস</option><option value="6" selected>৬ মাস</option><option value="12">১২ মাস</option></select></div>
+      </div>
+      <div id="plCards" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+      <div class="overflow-x-auto"><table id="plTable" class="w-full text-xs"></table></div>
+      <div id="plShare"></div>
+      <p class="text-[11px] text-gray-500">বিক্রি = ডেলিভারি হওয়া অর্ডারের বিল (ডেলিভারি চার্জসহ), দরজায় ফেরত বাদ দিয়ে। এখন সব অর্ডার ক্যাশ অন ডেলিভারি; প্রি-পেমেন্ট চালু হলে অনলাইন পেমেন্টের বিক্রিও এখানে যোগ হবে। সম্পদ কেনা আর মালিকের উত্তোলন লাভ-ক্ষতিতে আসে না।</p>
+    </section>
+
+    <!-- BALANCE SHEET -->
+    <section id="t_bs" class="tab hidden bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between"><h2 class="font-bold text-sm">ব্যবসার মোট অবস্থা <span id="bsTitle" class="text-gray-400 font-normal"></span></h2><span id="bsCheck" class="text-[11px]"></span></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><h3 class="font-bold text-xs text-emerald-700 mb-1">যা আছে (সম্পদ)</h3><table id="bsAssets" class="w-full text-xs"></table></div>
+        <div class="space-y-4">
+          <div><h3 class="font-bold text-xs text-rose-700 mb-1">যা দিতে হবে (দায়)</h3><table id="bsLiab" class="w-full text-xs"></table></div>
+          <div><h3 class="font-bold text-xs text-blue-700 mb-1">মালিকদের অংশ (মূলধন)</h3><table id="bsEq" class="w-full text-xs"></table></div>
+        </div>
+      </div>
+      <p class="text-[11px] text-gray-500">"যা আছে" − "যা দিতে হবে" = মালিকদের অংশ। দুই দিক না মিললে উপরে লাল লেখায় দেখাবে।</p>
+    </section>
+
+    <!-- CASH BOOK -->
+    <section id="t_cb" class="tab hidden bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm">দৈনিক ক্যাশ বুক <span id="cbTitle" class="text-gray-400 font-normal"></span></h2>
+        <div class="flex gap-2 text-xs noprint"><button id="cbPrev" class="px-2 py-1.5 border rounded-lg bg-white">‹</button><input id="cbDate" type="date" class="px-2 py-1.5 border rounded-lg"><button id="cbNext" class="px-2 py-1.5 border rounded-lg bg-white">›</button></div>
+      </div>
+      <div class="overflow-x-auto"><table id="cbTable" class="w-full text-xs"></table></div>
+      <h3 class="font-bold text-xs text-gray-600 pt-2">এই দিনের লেনদেন</h3>
+      <div id="cbRows" class="space-y-1 text-xs"></div>
+      <p class="text-[11px] text-gray-500">যেদিন সিস্টেমে লেখা হয়েছে সেই দিন ধরে হিসাব। এখানে আছে মাস্টারের হাতের ক্যাশ আর কোম্পানির সব অ্যাকাউন্ট; ম্যানেজার আর রাইডারের হাতের ক্যাশ আলাদা ("ব্যবসার মোট অবস্থা"-তে দেখায়)।</p>
+    </section>
+
+    <!-- BANK RECON -->
+    <section id="t_br" class="tab hidden bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm">ব্যাংক মিলানো</h2>
+      <p class="text-[11px] text-gray-500">ব্যাংক / bKash স্টেটমেন্টে কোনো দিনের শেষে যে ব্যালেন্স আছে, সেটা লিখুন। সিস্টেম সেই দিনের ব্যালেন্সের সাথে মিলিয়ে দেখাবে। মাসে অন্তত একবার করুন।</p>
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs noprint">
+        <select id="brAcc" class="px-2 py-2 border rounded-lg bg-white sm:col-span-2"></select>
+        <input id="brDate" type="date" class="px-2 py-2 border rounded-lg">
+        <input id="brBal" type="number" step="0.01" placeholder="স্টেটমেন্টের ব্যালেন্স ৳" class="px-2 py-2 border rounded-lg">
+        <button id="brSave" class="bg-emerald-600 text-white px-3 py-2 rounded-lg font-bold">মিলিয়ে দেখুন</button>
+        <input id="brNote" maxlength="300" placeholder="নোট (যেমন: চেক এখনো ক্লিয়ার হয়নি)" class="px-2 py-2 border rounded-lg sm:col-span-5">
+      </div>
+      <p id="brPreview" class="text-xs"></p>
+      <div id="brRows" class="space-y-2"></div>
+    </section>
+
+    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500 noprint">
+      <span>নভেম্বর ২০২৬-এর আগের মাস বা দিন খালি দেখালে একবার এই বাটনটা চাপুন: পুরো লেজার থেকে মাসিক ও দৈনিক যোগফল নতুন করে হিসাব হবে।</span>
+      <button id="rebuild" class="px-3 py-1.5 rounded-lg border bg-white font-bold">রিপোর্ট নতুন করে হিসাব করুন</button>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const db = getFirestore(app), fns = getFunctions(app), auth = getAuth(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+    const money = (n) => (r2(n) < 0 ? '−৳' : '৳') + Math.abs(r2(n)).toLocaleString('en-IN');
+    const call = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
+    const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const errText = (e) => String((e && e.message) || e).replace(/^FirebaseError:\s*/, '');
+    const MON = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন', 'জুলা', 'আগ', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+    const monLbl = (m) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(2, 4)}`;
+    const addMonths = (m, k) => { let [y, mo] = m.split('-').map(Number); mo += k; while (mo < 1) { mo += 12; y--; } while (mo > 12) { mo -= 12; y++; } return `${y}-${String(mo).padStart(2, '0')}`; };
+    const addDays = (d, k) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date(Date.parse(d + 'T12:00:00+06:00') + k * 86400000));
+
+    // expense categories (same list as expenses.html / functions/expenses.js)
+    const GROUPS = { fixed: 'স্থায়ী মাসিক খরচ', operating: 'দৈনন্দিন পরিচালনা', marketing: 'মার্কেটিং', govt: 'সরকারি ও পেশাদার ফি', other: 'অন্যান্য', asset: 'সম্পদ' };
+    const DEFAULTS = [['rent', 'ভাড়া (দোকান / গোডাউন)', 'fixed'], ['electricity', 'বিদ্যুৎ বিল', 'fixed'], ['water_gas', 'পানি ও গ্যাস বিল', 'fixed'], ['internet_phone', 'ইন্টারনেট ও মোবাইল বিল', 'fixed'], ['software', 'সার্ভার, ডোমেইন ও SMS', 'fixed'],
+      ['packaging', 'প্যাকেজিং', 'operating'], ['fuel_transport', 'জ্বালানি ও যাতায়াত', 'operating'], ['maintenance', 'মেরামত ও রক্ষণাবেক্ষণ', 'operating'], ['office_supplies', 'অফিস ও পরিষ্কার সামগ্রী', 'operating'], ['staff_welfare', 'স্টাফের খাবার ও চা', 'operating'], ['gateway_fees', 'পেমেন্ট গেটওয়ে / bKash চার্জ', 'operating'],
+      ['ads_online', 'অনলাইন বিজ্ঞাপন', 'marketing'], ['promo_print', 'লিফলেট, ব্যানার ও প্রচার', 'marketing'], ['promo_gift', 'প্রমোশন ও উপহার', 'marketing'],
+      ['license_fees', 'ট্রেড লাইসেন্স ও সরকারি ফি', 'govt'], ['tax_vat', 'আয়কর ও ভ্যাট', 'govt'], ['professional', 'হিসাবরক্ষক / আইনি ফি', 'govt'], ['misc', 'অন্যান্য খরচ', 'other'],
+      ['asset_equipment', 'যন্ত্রপাতি', 'asset'], ['asset_it', 'কম্পিউটার, প্রিন্টার, মোবাইল', 'asset'], ['asset_vehicle', 'গাড়ি / বাইক', 'asset'], ['asset_deposit', 'ভাড়ার অগ্রিম / জামানত', 'asset']];
+    let catDocs = {}, balances = {}, monthRows = [], partners = {}, accs = {}, admins = {}, riders = {}, suppliers = {}, recons = [];
+    const cat = (id) => { const d = DEFAULTS.find(x => x[0] === id); const c = catDocs[id] || {}; return { name: c.name || (d ? d[1] : id), group: d ? d[2] : (c.group || 'other') }; };
+    const accName = (id) => id === 'pool' ? 'মাস্টারের হাতে ক্যাশ' : (accs[id] ? accs[id].name : id);
+    const moneyAccounts = () => [{ id: 'pool', name: 'মাস্টারের হাতে ক্যাশ', ledger: 'company:pool' }, ...Object.entries(accs).map(([id, a]) => ({ id, ...a, ledger: 'money:' + id }))];
+
+    // ---------- tabs
+    let tab = 'pl';
+    function setTab(t) {
+      tab = t;
+      document.querySelectorAll('.tb').forEach(b => b.className = 'tb px-3 py-2 rounded-lg border font-bold ' + (b.dataset.tab === t ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white'));
+      document.querySelectorAll('.tab').forEach(s => s.classList.toggle('hidden', s.id !== 't_' + t));
+      if (t === 'cb') loadCashBook();
+    }
+
+    // ---------- P&L
+    // one month: every number is "how much", positive = income or cost as you would say it
+    function plOf(m) {
+      const rows = monthRows.filter(r => r.month === m);
+      const v = (a) => r2(rows.filter(r => r.account === a).reduce((s, r) => s + Number(r.total || 0), 0));
+      const pre = (p) => rows.filter(r => r.account.startsWith(p));
+      const sales = -v('company:sales'), refunds = v('company:refund_expense'), other = -v('company:surplus');
+      const netSales = r2(sales - refunds), cogs = v('company:cogs'), gross = r2(netSales - cogs);
+      const exp = {}; pre('expense:').forEach(r => { const id = r.account.slice(8); exp[id] = r2((exp[id] || 0) + Number(r.total || 0)); });
+      const opex = { commission: v('company:commission_expense'), salary: v('company:salary_expense'), bank: v('company:bank_charges'), loss: v('company:stock_loss'), exp };
+      const totalOpex = r2(opex.commission + opex.salary + opex.bank + opex.loss + Object.values(exp).reduce((s, x) => s + x, 0));
+      const assets = r2(pre('asset:').reduce((s, r) => s + Number(r.total || 0), 0));
+      return { sales, refunds, netSales, cogs, gross, opex, totalOpex, other, net: r2(gross - totalOpex + other), assets, empty: !rows.length };
+    }
+    function drawPL() {
+      const end = $('plMonth').value || today().slice(0, 7), span = Number($('plSpan').value);
+      const ms = Array.from({ length: span }, (_, i) => addMonths(end, i - span + 1));
+      const P = ms.map(plOf), T = (f) => P.reduce((s, p) => s + f(p), 0), last = P[P.length - 1];
+      $('plTitle').textContent = span === 1 ? `(${monLbl(end)})` : `(${monLbl(ms[0])} – ${monLbl(end)})`;
+      const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 + '%' : '—';
+      const card = (t, v, sub, cls) => `<div class="border rounded-2xl p-3"><p class="text-[11px] text-gray-500">${t}</p><p class="text-lg font-extrabold ${cls}">${money(v)}</p><p class="text-[10px] text-gray-400">${sub}</p></div>`;
+      $('plCards').innerHTML = card(`নিট বিক্রি · ${monLbl(end)}`, last.netSales, `আগের মাসে ${money(P.length > 1 ? P[P.length - 2].netSales : plOf(addMonths(end, -1)).netSales)}`, 'text-gray-800')
+        + card('মোট লাভ', last.gross, `মার্জিন ${pct(last.gross, last.netSales)}`, 'text-emerald-700')
+        + card('পরিচালনা খরচ', last.totalOpex, `বিক্রির ${pct(last.totalOpex, last.netSales)}`, 'text-rose-600')
+        + card(last.net >= 0 ? 'নিট লাভ' : 'নিট লোকসান', last.net, `বিক্রির ${pct(last.net, last.netSales)}${end === today().slice(0, 7) ? ' · মাস চলছে' : ''}`, last.net >= 0 ? 'text-emerald-700' : 'text-rose-600');
+      const multi = span > 1;
+      const head = `<thead><tr class="border-b text-gray-500"><th class="text-left py-2">বিবরণ</th>${ms.map(m => `<th class="num px-2">${monLbl(m)}</th>`).join('')}${multi ? '<th class="num px-2">মোট</th>' : ''}</tr></thead>`;
+      const row = (label, f, cls = '', indent = 0) => {
+        const vals = P.map(f); if (!cls.includes('keep') && vals.every(x => !r2(x))) return '';
+        return `<tr class="border-b ${cls}"><td class="py-1.5" style="padding-left:${indent * 14}px">${label}</td>${vals.map(x => `<td class="num px-2">${r2(x) ? money(x) : '—'}</td>`).join('')}${multi ? `<td class="num px-2 font-bold">${money(vals.reduce((s, x) => s + x, 0))}</td>` : ''}</tr>`;
+      };
+      const expIds = [...new Set(P.flatMap(p => Object.keys(p.opex.exp)))];
+      const byGroup = {}; expIds.forEach(id => (byGroup[cat(id).group] = byGroup[cat(id).group] || []).push(id));
+      let body = row('বিক্রি (ডেলিভারি চার্জসহ)', p => p.sales, 'keep')
+        + row('বাদ: কাস্টমারকে রিফান্ড', p => -p.refunds, 'text-rose-600', 1)
+        + row('<b>নিট বিক্রি</b>', p => p.netSales, 'keep font-bold bg-gray-50')
+        + row('বাদ: বিক্রিত পণ্যের ক্রয়মূল্য', p => -p.cogs, 'keep text-rose-600', 1)
+        + row('<b>মোট লাভ</b>', p => p.gross, 'keep font-bold bg-emerald-50 text-emerald-800')
+        + `<tr><td colspan="${ms.length + 2}" class="pt-3 pb-1 font-bold text-gray-600">পরিচালনা খরচ</td></tr>`
+        + row('রাইডারের ডেলিভারি কমিশন', p => p.opex.commission, '', 1)
+        + row('বেতন', p => p.opex.salary, '', 1)
+        + Object.entries(GROUPS).filter(([g]) => g !== 'asset' && byGroup[g]).map(([g, gn]) =>
+            row(`<span class="text-gray-500">${gn}</span>`, p => byGroup[g].reduce((s, id) => s + (p.opex.exp[id] || 0), 0), 'font-semibold', 1)
+            + byGroup[g].map(id => row(esc(cat(id).name), p => p.opex.exp[id] || 0, 'text-gray-600', 2)).join('')).join('')
+        + row('ব্যাংক / ট্রান্সফার চার্জ', p => p.opex.bank, '', 1)
+        + row('পণ্যের ক্ষতি (নষ্ট, মেয়াদ শেষ, রিটার্নে না পাওয়া)', p => p.opex.loss, '', 1)
+        + row('<b>মোট পরিচালনা খরচ</b>', p => p.totalOpex, 'keep font-bold bg-rose-50 text-rose-800')
+        + row('অন্যান্য আয়', p => p.other, '', 0)
+        + row('<b>নিট লাভ / লোকসান</b>', p => p.net, 'keep font-extrabold bg-blue-50 text-blue-900')
+        + row('<span class="text-gray-400">তথ্য: এ মাসে সম্পদ কেনা (লাভ-ক্ষতিতে নয়)</span>', p => p.assets, 'text-gray-400');
+      $('plTable').innerHTML = head + '<tbody>' + body + '</tbody>';
+      // partner shares of the period's net profit
+      const ps = Object.entries(partners).filter(([, p]) => p.active !== false);
+      const net = T(p => p.net);
+      $('plShare').innerHTML = ps.length ? `<div class="border rounded-xl p-3 text-xs"><p class="font-bold mb-1">অংশীদারদের ভাগ (${span === 1 ? monLbl(end) : 'এই সময়ের'} নিট ${net >= 0 ? 'লাভ' : 'লোকসান'} ${money(net)})</p>
+        ${ps.map(([, p]) => `<div class="flex justify-between border-b py-1"><span>${esc(p.name)} · ${p.sharePct != null ? p.sharePct + '%' : 'ভাগ ঠিক করা নেই'}</span><span class="num font-bold">${p.sharePct != null ? money(net * p.sharePct / 100) : '—'}</span></div>`).join('')}
+        <p class="text-[10px] text-gray-500 mt-1">এটা শুধু হিসাব; টাকা নেওয়া হয় "ব্যাংক ও মূলধন" → মালিকের উত্তোলন দিয়ে।</p></div>` : '';
+      if (P.every(p => p.empty)) $('plTable').innerHTML += `<caption class="caption-bottom text-[11px] text-amber-700 pt-2">এই সময়ের কোনো হিসাব পাওয়া যায়নি। আগের মাস হলে নিচে "রিপোর্ট নতুন করে হিসাব করুন" চাপুন।</caption>`;
+    }
+
+    // ---------- balance sheet
+    function drawBS() {
+      $('bsTitle').textContent = '(' + new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' }) + ')';
+      const A = [], Li = [], E = [];
+      const sum = (re) => Object.entries(balances).filter(([k]) => re.test(k)).reduce((s, [, v]) => s + v, 0);
+      const list = (re) => Object.entries(balances).filter(([k, v]) => re.test(k) && Math.abs(v) > 0.004);
+      // assets
+      moneyAccounts().forEach(a => { const b = balances[a.ledger] || 0; if (Math.abs(b) > 0.004 || a.id === 'pool') A.push([esc(a.name), b, 1]); });
+      A.push(['স্টক (ক্রয়মূল্যে)', balances['company:inventory'] || 0]);
+      const rOw = list(/^rider:.+:owes$/); if (rOw.length) A.push([`রাইডারদের কাছে ক্যাশ (${rOw.length} জন)`, rOw.reduce((s, [, v]) => s + v, 0)]);
+      const mC = list(/^mgr:.+:cash$/); if (mC.length) A.push([`ম্যানেজারদের হাতে ক্যাশ (${mC.length} জন)`, mC.reduce((s, [, v]) => s + v, 0)]);
+      const mR = list(/^mgr:.+:receivable$/); if (mR.length) A.push(['ম্যানেজারদের ঘাটতি (আদায় বাকি)', mR.reduce((s, [, v]) => s + v, 0)]);
+      if (Math.abs(balances['master:reserve'] || 0) > 0.004) A.push(['মাস্টারের কাছে রিফান্ড রিজার্ভ', balances['master:reserve']]);
+      list(/^asset:/).forEach(([k, v]) => A.push([esc(cat(k.slice(6)).name), v]));
+      const supAll = list(/^supplier:.+:payable$/);
+      const adv = supAll.filter(([, v]) => v > 0); if (adv.length) A.push([`সাপ্লায়ারকে অগ্রিম (${adv.length} জন)`, adv.reduce((s, [, v]) => s + v, 0)]);
+      // liabilities (shown positive)
+      supAll.filter(([, v]) => v < 0).forEach(([k, v]) => Li.push([esc(k.slice(9, -8)), -v, 1]));
+      const rE = list(/^rider:.+:earn$/).filter(([, v]) => v < 0); if (rE.length) Li.push([`রাইডারদের তোলার যোগ্য আয় (${rE.length} জন)`, -rE.reduce((s, [, v]) => s + v, 0)]);
+      const mS = list(/^mgr:.+:salary$/).filter(([, v]) => v < 0); if (mS.length) Li.push([`ম্যানেজারদের না-তোলা বেতন (${mS.length} জন)`, -mS.reduce((s, [, v]) => s + v, 0)]);
+      if (Math.abs(balances['company:wallet_liability'] || 0) > 0.004) Li.push(['কাস্টমারদের ওয়ালেট', -balances['company:wallet_liability']]);
+      if (Math.abs(balances['master:owed'] || 0) > 0.004) Li.push(['মাস্টারকে ফেরত দিতে হবে (দাবি)', -balances['master:owed']]);
+      // equity
+      Object.entries(partners).forEach(([id, p]) => {
+        const cap = -(balances[`partner:${id}:capital`] || 0), dr = balances[`partner:${id}:drawings`] || 0;
+        if (cap || dr) E.push([`${esc(p.name)}: মূলধন ${money(cap)}${dr ? ' − উত্তোলন ' + money(dr) : ''}`, cap - dr]);
+      });
+      const PL = /^(company:(sales|refund_expense|cogs|commission_expense|salary_expense|bank_charges|stock_loss|surplus)|expense:)/;
+      const retained = -sum(PL);
+      E.push([retained >= 0 ? 'এ পর্যন্ত জমা লাভ' : 'এ পর্যন্ত জমা লোকসান', retained]);
+      if (Math.abs(balances['company:opening_adjustment'] || 0) > 0.004) E.push(['শুরুর ব্যালেন্স / সমন্বয়', -balances['company:opening_adjustment']]);
+      // anything not classified above (shown so nothing is hidden)
+      const known = /^(company:(pool|inventory|wallet_liability|opening_adjustment)|money:|rider:|mgr:|master:(reserve|owed)|asset:|supplier:|partner:)/;
+      const other = Object.entries(balances).filter(([k, v]) => !known.test(k) && !PL.test(k) && Math.abs(v) > 0.004);
+      other.forEach(([k, v]) => (v > 0 ? A : Li).push([`<span class="text-gray-400">${esc(k)}</span>`, Math.abs(v)]));
+      const tbl = (rows, total, label) => rows.map(([n, v, ind]) => `<tr class="border-b"><td class="py-1.5" ${ind ? 'style="padding-left:12px"' : ''}>${n}</td><td class="num ${v < 0 ? 'text-rose-600' : ''}">${money(v)}</td></tr>`).join('')
+        + `<tr class="font-extrabold bg-gray-50"><td class="py-2">${label}</td><td class="num">${money(total)}</td></tr>`;
+      const tA = A.reduce((s, r) => s + r[1], 0), tL = Li.reduce((s, r) => s + r[1], 0), tE = E.reduce((s, r) => s + r[1], 0);
+      $('bsAssets').innerHTML = tbl(A, tA, 'মোট সম্পদ');
+      $('bsLiab').innerHTML = tbl(Li, tL, 'মোট দায়');
+      $('bsEq').innerHTML = tbl(E, tE, 'মালিকদের মোট অংশ');
+      const gap = r2(tA - tL - tE);
+      $('bsCheck').innerHTML = Math.abs(gap) < 1 ? '<span class="text-emerald-700 font-bold">✔ হিসাব মিলেছে</span>' : `<span class="text-rose-600 font-bold">অমিল ${money(gap)}</span>`;
+    }
+
+    // ---------- cash book
+    async function loadCashBook() {
+      const d = $('cbDate').value || today();
+      $('cbTitle').textContent = `(${d})`;
+      $('cbTable').innerHTML = '<tr><td class="text-gray-400 py-2">লোড হচ্ছে…</td></tr>';
+      try {
+        const [after, rows] = await Promise.all([
+          getDocs(query(collection(db, 'account_days'), where('day', '>=', d))),
+          getDocs(query(collection(db, 'treasury_txns'), where('dayKey', '==', d)))
+        ]);
+        const fwd = {}, today_ = {};
+        after.forEach(x => { const v = x.data(); if (v.day > d) fwd[v.account] = (fwd[v.account] || 0) + Number(v.in || 0) - Number(v.out || 0); else today_[v.account] = v; });
+        let T = { o: 0, i: 0, x: 0, c: 0 };
+        const lines = moneyAccounts().map(a => {
+          const close = r2((balances[a.ledger] || 0) - (fwd[a.ledger] || 0)), t = today_[a.ledger] || {}, inn = Number(t.in || 0), out = Number(t.out || 0), open = r2(close - inn + out);
+          if (!open && !inn && !out && !close) return '';
+          T.o += open; T.i += inn; T.x += out; T.c += close;
+          return `<tr class="border-b"><td class="py-1.5">${esc(a.name)}</td><td class="num">${money(open)}</td><td class="num text-emerald-700">${inn ? '+' + money(inn) : '—'}</td><td class="num text-rose-600">${out ? '−' + money(out) : '—'}</td><td class="num font-bold">${money(close)}</td></tr>`;
+        }).join('');
+        $('cbTable').innerHTML = `<thead><tr class="border-b text-gray-500"><th class="text-left py-2">অ্যাকাউন্ট</th><th class="num">দিনের শুরুতে</th><th class="num">এসেছে</th><th class="num">গেছে</th><th class="num">দিনের শেষে</th></tr></thead><tbody>${lines || '<tr><td colspan="5" class="text-gray-400 py-2">কোনো ব্যালেন্স নেই</td></tr>'}
+          <tr class="font-extrabold bg-gray-50"><td class="py-2">মোট</td><td class="num">${money(T.o)}</td><td class="num">${T.i ? '+' + money(T.i) : '—'}</td><td class="num">${T.x ? '−' + money(T.x) : '—'}</td><td class="num">${money(T.c)}</td></tr></tbody>`;
+        const SYS = { rider_payout_master: 'রাইডার ক্যাশ আউট', manager_salary_cashout: 'ম্যানেজারের বেতন ক্যাশ আউট', master_reimbursement: 'মাস্টারের দাবি পরিশোধ', cash_handover: 'ম্যানেজারের ক্যাশ জমা', menu_refund_cash: 'কাস্টমার রিফান্ড', expense: 'খরচ', asset_purchase: 'সম্পদ কেনা', expense_reverse: 'খরচ বাতিল', supplier_payment: 'সাপ্লায়ার পেমেন্ট' };
+        const KIND = { deposit: 'ব্যাংকে জমা', transfer: 'ট্রান্সফার', capital: 'মূলধন জমা', drawing: 'মালিকের উত্তোলন', opening: 'শুরুর ব্যালেন্স' };
+        const list = []; rows.forEach(x => list.push(x.data()));
+        list.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+        $('cbRows').innerHTML = list.map(t => `<div class="flex flex-wrap justify-between border-b py-1 ${t.status === 'reversed' ? 'opacity-50 line-through' : ''}">
+          <span>${esc(String(t.createdAt || '').slice(11, 16))} · <b>${t.kind === 'system' ? (SYS[t.type] || t.type) : KIND[t.kind] || t.kind}</b> · ${t.fromId ? esc(accName(t.fromId)) : ''}${t.fromId && t.toId ? ' → ' : ''}${t.toId ? esc(accName(t.toId)) : ''}${t.staffName ? ' · ' + esc(t.staffName) : t.partnerName ? ' · ' + esc(t.partnerName) : ''}</span>
+          <span class="num font-bold">${money(t.amount)}</span></div>`).join('') || '<p class="text-gray-400">এই দিনে কোনো লেনদেন নেই</p>';
+      } catch (e) { $('cbTable').innerHTML = `<tr><td class="text-rose-600 py-2">লোড হয়নি: ${esc(errText(e))}</td></tr>`; }
+    }
+    $('cbDate').onchange = loadCashBook;
+    $('cbPrev').onclick = () => { $('cbDate').value = addDays($('cbDate').value || today(), -1); loadCashBook(); };
+    $('cbNext').onclick = () => { const n = addDays($('cbDate').value || today(), 1); if (n <= today()) { $('cbDate').value = n; loadCashBook(); } };
+
+    // ---------- bank recon
+    function drawRecon() {
+      const keep = $('brAcc').value;
+      $('brAcc').innerHTML = moneyAccounts().filter(a => a.id !== 'pool').map(a => `<option value="${a.id}" ${a.id === keep ? 'selected' : ''}>${esc(a.name)}${a.accountNo ? ' · ' + esc(a.accountNo) : ''}</option>`).join('') || '<option value="">আগে "ব্যাংক ও মূলধন"-এ অ্যাকাউন্ট যোগ করুন</option>';
+      $('brRows').innerHTML = recons.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt)).map(r => `<div class="border rounded-xl p-3 text-xs ${r.matched ? '' : 'border-amber-200 bg-amber-50'}">
+        <div class="flex flex-wrap justify-between gap-2"><span><b>${esc(r.accountName)}</b> · ${esc(r.date)} ${r.matched ? '<span class="text-emerald-700 font-bold">✔ মিলেছে</span>' : `<span class="text-amber-700 font-bold">পার্থক্য ${money(r.diff)}</span>`}</span>
+        <span class="text-gray-500">স্টেটমেন্ট ${money(r.statementBalance)} · সিস্টেম ${money(r.systemBalance)}</span></div>
+        ${r.note ? `<p class="text-[11px] mt-1">📝 ${esc(r.note)}</p>` : ''}<p class="text-[10px] text-gray-400">${esc(r.byName || '')} · ${new Date(r.createdAt).toLocaleString('en-GB')}</p></div>`).join('') || '<p class="text-xs text-gray-400">এখনো কোনো মিলানো হয়নি</p>';
+    }
+    $('brSave').onclick = async () => {
+      const data = { accountId: $('brAcc').value, date: $('brDate').value || today(), statementBalance: $('brBal').value, note: $('brNote').value.trim() };
+      if (!data.accountId) return alert('অ্যাকাউন্ট বেছে নিন।');
+      if (data.statementBalance === '') return alert('স্টেটমেন্টের ব্যালেন্স লিখুন।');
+      $('brSave').disabled = true;
+      try {
+        const r = await call('saveBankRecon', { ...data, statementBalance: Number(data.statementBalance) });
+        $('brPreview').innerHTML = Math.abs(r.diff) < 0.01 ? `<span class="text-emerald-700 font-bold">✔ মিলেছে: সিস্টেমেও ${money(r.systemBalance)}</span>`
+          : `<span class="text-amber-700 font-bold">সিস্টেমে ${money(r.systemBalance)}, পার্থক্য ${money(r.diff)}।</span> <span class="text-gray-600">${r.diff > 0 ? 'ব্যাংকে বেশি আছে: কোনো জমা বা মূলধন হয়তো সিস্টেমে লেখা হয়নি।' : 'ব্যাংকে কম আছে: কোনো খরচ, চার্জ বা পেমেন্ট হয়তো সিস্টেমে লেখা হয়নি, অথবা চেক এখনো ক্লিয়ার হয়নি।'} ওই তারিখের ক্যাশ বুক মিলিয়ে দেখুন।</span>`;
+        $('brBal').value = ''; $('brNote').value = '';
+        loadRecons();
+      } catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('brSave').disabled = false; }
+    };
+    async function loadRecons() { const s = await getDocs(collection(db, 'bank_recons')); recons = []; s.forEach(d => recons.push(d.data())); drawRecon(); }
+
+    $('rebuild').onclick = async () => {
+      if (!confirm('পুরো লেজার থেকে মাসিক আর দৈনিক যোগফল নতুন করে হিসাব করবেন? কয়েক সেকেন্ড লাগতে পারে। কোনো টাকার হিসাব বদলায় না।')) return;
+      $('rebuild').disabled = true;
+      try { const r = await call('rebuildReportTotals', {}); alert(`হয়ে গেছে: ${r.lines}টা লেজার লাইন থেকে ${r.months.written}টা মাসিক আর ${r.days.written}টা দৈনিক যোগফল।`); watchMonths(); if (tab === 'cb') loadCashBook(); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('rebuild').disabled = false; }
+    };
+
+    // ---------- data
+    let unsubM = null;
+    function watchMonths() {
+      const end = $('plMonth').value || today().slice(0, 7), span = Number($('plSpan').value);
+      const start = addMonths(end, -Math.max(span, 2) + 1);
+      if (unsubM) unsubM();
+      unsubM = onSnapshot(query(collection(db, 'account_months'), where('month', '>=', start)), s => { monthRows = []; s.forEach(d => { if (d.data().month <= end) monthRows.push(d.data()); }); drawPL(); }, e => console.error('months', e));
+    }
+    function start() {
+      const live = (q, fn, n) => onSnapshot(q, fn, e => console.error(n, e));
+      live(collection(db, 'account_balances'), s => { balances = {}; s.forEach(d => balances[d.data().account] = Number(d.data().balance || 0)); drawBS(); if (tab === 'cb') loadCashBook(); }, 'balances');
+      live(collection(db, 'partners'), s => { partners = {}; s.forEach(d => partners[d.id] = d.data()); drawPL(); drawBS(); }, 'partners');
+      live(collection(db, 'money_accounts'), s => { accs = {}; s.forEach(d => accs[d.id] = d.data()); drawBS(); drawRecon(); }, 'accounts');
+      live(collection(db, 'expense_categories'), s => { catDocs = {}; s.forEach(d => catDocs[d.id] = d.data()); drawPL(); drawBS(); }, 'cats');
+      watchMonths(); loadRecons();
+    }
+    $('plMonth').onchange = watchMonths; $('plSpan').onchange = watchMonths;
+    document.querySelectorAll('.tb').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+    $('printBtn').onclick = () => window.print();
+
+    $('plMonth').value = today().slice(0, 7); $('plMonth').max = today().slice(0, 7);
+    $('cbDate').value = today(); $('cbDate').max = today(); $('brDate').value = today(); $('brDate').max = today();
+    setTab('pl');
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      const a = await getDoc(doc(db, 'admins', u.uid));
+      if (!a.exists() || (a.data().role || 'master') !== 'master') { document.querySelector('main').innerHTML = '<p class="text-center text-sm text-rose-600 py-10">এই পাতা শুধু মাস্টারের জন্য।</p>'; return; }
+      start();
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>
