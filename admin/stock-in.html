@@ -138,6 +138,14 @@
           </div>
         </div>
         
+        <!-- PAYMENT TERMS: বাকি / নগদ (the master pays; this only tells him when) -->
+        <div class="flex flex-wrap items-center gap-3 text-xs bg-gray-50 border rounded-xl p-3">
+          <span class="font-bold text-gray-700">পেমেন্ট:</span>
+          <label class="flex items-center gap-1"><input type="radio" name="payTerms" value="credit" checked onchange="document.getElementById('creditDaysWrap').classList.remove('hidden')"> বাকিতে</label>
+          <span id="creditDaysWrap" class="flex items-center gap-1">— <input id="creditDays" type="number" min="0" max="365" placeholder="দিন" class="w-16 px-2 py-1 border rounded-lg"> দিনের মধ্যে</span>
+          <label class="flex items-center gap-1"><input type="radio" name="payTerms" value="cash" onchange="document.getElementById('creditDaysWrap').classList.add('hidden')"> নগদে (মাস্টার রিসিভের দিনই পরিশোধ করবেন)</label>
+        </div>
+
         <!-- LOAD FROM PURCHASE ORDER -->
         <div id="poLoadBox" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row gap-2 sm:items-center">
           <span class="text-xs font-bold text-amber-700"><i class="fa-solid fa-file-invoice mr-1"></i> Load from Purchase Order:</span>
@@ -613,9 +621,11 @@
           alert("Stock-in chalan successfully updated!");
           safePrint({ ...old, ...res.record, chalanImage: chalanBase64 || old.chalanImage });
         } else {
-          const fp = JSON.stringify([vendor, items, loadedPo ? loadedPo.docId : '']);
+          const fp = JSON.stringify([vendor, items, loadedPo ? loadedPo.docId : '', (document.querySelector('input[name="payTerms"]:checked') || {}).value, document.getElementById('creditDays').value]);
           if (fp !== lastFp) { currentRequestId = newRequestId(); lastFp = fp; }
-          const payload = { requestId: currentRequestId, vendor, items, chalanImage: chalanBase64 || '', poDocId: loadedPo ? loadedPo.docId : '' };
+          const paymentTerms = (document.querySelector('input[name="payTerms"]:checked') || {}).value || 'credit';
+          const creditDays = document.getElementById('creditDays').value;
+          const payload = { requestId: currentRequestId, vendor, items, chalanImage: chalanBase64 || '', poDocId: loadedPo ? loadedPo.docId : '', paymentTerms, ...(paymentTerms === 'credit' && creditDays !== '' ? { creditDays: Number(creditDays) } : {}) };
           let res = await window.callFn('receiveStockIn', payload);
           if (res.needsConfirm) {
             if (!confirm('Please confirm:\n\n' + res.messages.join('\n') + '\n\nContinue?')) return;
@@ -678,6 +688,8 @@
       document.getElementById('formSectionTitle').innerHTML = `<i class="fa-solid fa-square-plus mr-1"></i> Create New Stock-In Chalan (Stock In Entry)`;
       document.getElementById('cancelEditBtn').classList.add('hidden');
       document.getElementById('submitStockBtn').innerText = "Confirm Stock-In & Generate Invoice";
+      const ct = document.querySelector('input[name="payTerms"][value="credit"]'); if (ct) ct.checked = true;
+      document.getElementById('creditDays').value = ''; document.getElementById('creditDaysWrap').classList.remove('hidden');
       stockCart = [];
       generateNewInvoiceNo();
       renderStockCart();

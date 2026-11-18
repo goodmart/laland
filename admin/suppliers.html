@@ -13,8 +13,9 @@
   <!-- Firebase SDKs (v10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, getDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U",
@@ -35,6 +36,23 @@
     window.firebaseServices = {
       collection, addDoc, getDocs, doc, updateDoc, deleteDoc
     };
+    const fns = getFunctions(app);
+    window.callFn = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
+    // supplier payments: only the master, from a company account (bank / bKash / cash in hand)
+    window.__role = null; window.__payAccounts = [];
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      try {
+        const a = await getDoc(doc(db, 'admins', u.uid));
+        window.__role = a.exists() ? (a.data().role || 'master') : null;
+        if (window.__role !== 'master') return;
+        const [accs, bals] = await Promise.all([getDocs(collection(db, 'money_accounts')), getDocs(collection(db, 'account_balances'))]);
+        const bal = {}; bals.forEach(d => bal[d.data().account] = Number(d.data().balance || 0));
+        const list = [{ id: 'pool', name: 'মাস্টারের হাতে ক্যাশ', ledger: 'company:pool' }];
+        accs.forEach(d => { if (d.data().active !== false) list.push({ id: d.id, ...d.data() }); });
+        window.__payAccounts = list.map(x => ({ ...x, balance: bal[x.ledger] || 0 }));
+      } catch (e) { console.warn('accounts', e.message); }
+    });
   </script>
 
   <!-- Immediate URL check script to hide dashboard instantly if profile URL is refreshed -->
@@ -354,13 +372,10 @@
         </div>
 
         <div>
-          <label class="text-xs text-gray-600 block mb-1">Payment Method *</label>
-          <select id="payModalMethod" onchange="onPaymentMethodModalChange()" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-            <option value="Cash">Cash</option>
-            <option value="Bank Transfer">Bank Transfer</option>
-            <option value="Mobile Banking">Mobile Banking</option>
-            <option value="Cheque">Cheque</option>
-          </select>
+          <label class="text-xs text-gray-600 block mb-1">কোন অ্যাকাউন্ট থেকে *</label>
+          <select id="payModalFrom" required class="w-full px-3 py-2 border rounded-xl text-sm bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"></select>
+          <p class="text-[10px] text-gray-400 mt-0.5">টাকা এই অ্যাকাউন্ট থেকে কাটবে, আর "ব্যাংক ও মূলধন"-এর ইতিহাসে দেখাবে।</p>
+          <select id="payModalMethod" class="hidden"><option value="Cash">Cash</option></select>
         </div>
 
         <!-- Automatic Bank Details Box when Bank Transfer is selected -->
@@ -378,7 +393,9 @@
         <input type="hidden" id="payProofBase64">
 
         <div>
-          <label class="text-xs text-gray-600 block mb-1">Notes / Transaction ID (Optional)</label>
+          <label class="text-xs text-gray-600 block mb-1">Trx ID / চেক নং (ঐচ্ছিক)</label>
+          <input type="text" id="payModalTrx" maxlength="60" class="w-full px-3 py-2 border rounded-xl text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <label class="text-xs text-gray-600 block mb-1">Notes (Optional)</label>
           <input type="text" id="payModalRemarks" placeholder="e.g., Bank transaction ref #9842" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500">
         </div>
 
@@ -532,36 +549,34 @@
       // Payment Submission Handler
       document.getElementById('submitPaymentForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const db = window.firebaseDb;
-        const { collection, addDoc } = window.firebaseServices;
-
         const invoiceNo = document.getElementById('payModalInvoiceNo').value;
         const supplier = document.getElementById('payModalSupplier').value;
         const amount = Number(document.getElementById('payModalAmount').value);
-        const method = document.getElementById('payModalMethod').value;
+        const fromAccount = document.getElementById('payModalFrom').value;
         const proof = document.getElementById('payProofBase64').value;
         const remarks = document.getElementById('payModalRemarks').value.trim();
-
-        const paymentRecord = {
-          voucherNo: 'PAY-' + Math.floor(100000 + Math.random() * 900000),
-          invoiceNo: invoiceNo,
-          supplier: supplier,
-          amount: amount,
-          method: method,
-          proof: proof,
-          remarks: remarks,
-          createdAt: new Date().toISOString()
-        };
-
+        const trxRef = document.getElementById('payModalTrx').value.trim();
+        if (!(amount > 0)) return alert('পরিমাণ লিখুন।');
+        const fromTxt = document.getElementById('payModalFrom').selectedOptions[0].text;
+        if (!confirm(`${supplier}-কে ৳ ${amount} পরিশোধ\nকোথা থেকে: ${fromTxt}\nচালান: ${invoiceNo || '—'}\n\nনিশ্চিত?`)) return;
+        const btn = e.submitter || document.querySelector('#submitPaymentForm button[type=submit]');
+        btn.disabled = true;
+        const data = { requestId: window.__payReqId, supplier, amount, fromAccount, invoiceNo, proof, remarks, trxRef };
         try {
-          await addDoc(collection(db, "supplier_payments"), paymentRecord);
-          alert(`৳ ${amount} payment released successfully! Voucher generated.`);
+          let res;
+          try { res = await window.callFn('paySupplier', data); }
+          catch (err) {
+            const m = String(err.message || err).match(/ADVANCE:(-?[\d.]+)/);
+            if (!m) throw err;
+            if (!confirm(`এই সাপ্লায়ারের মোট পাওনা ৳ ${m[1]}। আপনি ৳ ${amount} দিচ্ছেন, বাড়তি টাকা অগ্রিম হিসেবে থাকবে (পরের চালান থেকে কাটা যাবে)। চালিয়ে যাবেন?`)) return;
+            res = await window.callFn('paySupplier', { ...data, allowAdvance: true });
+          }
+          alert(`৳ ${amount} পরিশোধ হয়েছে। এখন মোট পাওনা: ৳ ${res.dueAfter}`);
           closePaymentModal();
           loadAllData();
-          if(currentSelectedSupplier) {
-            openSupplierProfile(currentSelectedSupplier.id, false);
-          }
-        } catch (err) { alert("Error: " + err.message); }
+          if(currentSelectedSupplier) openSupplierProfile(currentSelectedSupplier.id, false);
+        } catch (err) { alert("ব্যর্থ: " + String(err.message || err).replace(/^FirebaseError:\s*/, '')); }
+        finally { btn.disabled = false; }
       });
     });
 
@@ -900,7 +915,7 @@
           unpaidHtml += `
             <tr class="border-b hover:bg-gray-50">
               <td class="p-2.5 font-bold text-emerald-700">${inv.invoiceNo}</td>
-              <td class="p-2.5 text-gray-500">${dateStr}</td>
+              <td class="p-2.5 text-gray-500">${dateStr}${inv.paymentTerms === 'cash' ? '<span class="block text-[10px] font-bold text-amber-700">নগদ ক্রয়</span>' : inv.dueDate ? `<span class="block text-[10px] ${inv.dueDate < new Date().toISOString().slice(0, 10) ? 'text-red-600 font-bold' : 'text-gray-400'}">দিতে হবে ${inv.dueDate}</span>` : ''}</td>
               <td class="p-2.5 text-right font-bold">৳ ${totalBill}</td>
               <td class="p-2.5 text-right text-emerald-600 font-bold">৳ ${paid}${credUsed ? `<span class="block text-[10px] text-purple-600">+ ৳ ${credUsed} return credit</span>` : ''}</td>
               <td class="p-2.5 text-right text-red-600 font-bold">৳ ${due}</td>
@@ -1103,13 +1118,19 @@
 
     // Payment Modal handling with Automatic Bank Details Display
     window.openPaymentModal = function(invoiceNo, supplierName, due) {
+      if (window.__role !== 'master') { alert('সাপ্লায়ারকে পেমেন্ট এখন শুধু মাস্টার করেন, কোম্পানির অ্যাকাউন্ট থেকে। মাস্টারকে জানান।'); return; }
+      window.__payReqId = 'sp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const fmt = (n) => (n < 0 ? '−৳' : '৳') + Math.abs(Math.round(n * 100) / 100).toLocaleString('en-IN');
+      document.getElementById('payModalFrom').innerHTML = (window.__payAccounts || []).map(a => `<option value="${a.id}">${a.name} — ${fmt(a.balance)}</option>`).join('') || '<option value="pool">মাস্টারের হাতে ক্যাশ</option>';
+      document.getElementById('payModalTrx').value = '';
+      document.getElementById('payModalRemarks').value = '';
       document.getElementById('payModalInvoiceNo').value = invoiceNo;
       document.getElementById('payModalSupplier').value = supplierName;
       document.getElementById('modalInvoiceId').innerText = `Invoice ID: ${invoiceNo}`;
       document.getElementById('modalSupplierName').innerText = `Supplier: ${supplierName}`;
       document.getElementById('modalDueAmount').innerText = `Current Due: ৳ ${due}`;
       document.getElementById('payModalAmount').value = due;
-      document.getElementById('payModalAmount').max = due;
+      document.getElementById('payModalAmount').removeAttribute('max');   // more than the due = advance (asked on save)
       document.getElementById('payModalMethod').value = "Cash";
       document.getElementById('payProofFile').value = "";
       document.getElementById('payProofBase64').value = "";
@@ -1125,7 +1146,7 @@
         document.getElementById('modalBankAccountDisplay').innerText = `Account: N/A`;
       }
 
-      onPaymentMethodModalChange();
+      document.getElementById('modalBankInfoBox').classList.toggle('hidden', !(sup && sup.bankName));
       document.getElementById('paymentModal').classList.remove('hidden');
     };
 
