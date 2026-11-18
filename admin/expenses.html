@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>খরচ - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-receipt text-xl"></i><h1 class="font-bold text-base">খরচ (মাস্টার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-5">
+    <div class="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-[11px] text-blue-800">
+      <b>এখানে লিখবেন না:</b> স্টাফের বেতন, রাইডারের কমিশন, ট্রান্সফারের চার্জ আর কাস্টমার রিফান্ড। এগুলো নিজে থেকেই হিসাবে ওঠে, এখানে লিখলে দুবার গোনা হবে।
+      মাল কেনা আর সাপ্লায়ার পেমেন্ট আসবে পরের ধাপে (স্টক ও সাপ্লায়ার)।
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">এ মাসের খরচ</p><p id="sExp" class="text-xl font-extrabold text-rose-600 mt-1">…</p><p id="sExpPrev" class="text-[10px] text-gray-400"></p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">এ মাসে সম্পদ কেনা</p><p id="sAsset" class="text-xl font-extrabold text-blue-700 mt-1">…</p><p class="text-[10px] text-gray-400">খরচ নয়, ব্যবসার সম্পত্তি</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">বাকি নিয়মিত বিল</p><p id="sDue" class="text-xl font-extrabold text-amber-600 mt-1">…</p><p id="sDueAmt" class="text-[10px] text-gray-400"></p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">সবচেয়ে বড় খরচ</p><p id="sTop" class="text-sm font-extrabold text-gray-800 mt-1">…</p><p id="sTopAmt" class="text-[10px] text-gray-400"></p></div>
+    </div>
+
+    <!-- DUE BILLS -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-sm text-gray-800">১. এ মাসের নিয়মিত বিল <span id="curMonthLbl" class="text-gray-400 font-normal"></span></h2>
+        <button id="addBill" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> নতুন নিয়মিত বিল</button>
+      </div>
+      <div id="billRows" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+    </section>
+
+    <!-- NEW EXPENSE -->
+    <section id="formSec" class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-sm text-gray-800">২. নতুন খরচ</h2>
+        <span id="billTag" class="hidden px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[11px] font-bold"></span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <label class="space-y-1"><span class="font-bold text-gray-600">ক্যাটাগরি</span><select id="fCat" class="w-full px-2 py-2 border rounded-lg bg-white"></select><span id="catHint" class="text-[10px] text-blue-700"></span></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">পরিমাণ (৳)</span><input id="fAmt" type="number" min="0" step="0.01" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">কোন অ্যাকাউন্ট থেকে</span><select id="fFrom" class="w-full px-2 py-2 border rounded-lg bg-white"></select></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">তারিখ</span><input id="fDate" type="date" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">কাকে দেওয়া হলো</span><input id="fPayee" maxlength="80" placeholder="যেমন DESCO, বাড়িওয়ালা, দোকানের নাম" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">Trx ID / বিল নং</span><input id="fTrx" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1 sm:col-span-2"><span class="font-bold text-gray-600">নোট</span><input id="fNote" maxlength="200" class="w-full px-2 py-2 border rounded-lg"></label>
+        <div class="space-y-1 sm:col-span-2">
+          <span class="font-bold text-gray-600">রসিদ / ভাউচারের ছবি</span>
+          <label class="block px-3 py-2 border border-dashed rounded-lg cursor-pointer bg-gray-50 text-center"><input id="fRec" type="file" accept="image/*" class="hidden"><span id="recLbl">📎 ছবি বেছে নিন</span></label>
+          <img id="recPrev" class="hidden max-h-40 rounded-lg border mx-auto">
+          <label class="flex items-center gap-2 mt-1"><input id="fNoRec" type="checkbox"> রসিদ নেই</label>
+          <input id="fNoRecWhy" maxlength="200" placeholder="রসিদ কেন নেই (যেমন: চায়ের দোকান রসিদ দেয় না)" class="hidden w-full px-2 py-2 border rounded-lg">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2"><button id="fClear" class="px-4 py-2 rounded-lg text-sm font-bold bg-gray-100">মুছুন</button><button id="fSave" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">সংরক্ষণ করুন</button></div>
+    </section>
+
+    <!-- MONTH REPORT -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm text-gray-800">৩. মাসের হিসাব</h2>
+        <div class="flex gap-2 text-xs"><input id="rMonth" type="month" class="px-2 py-1.5 border rounded-lg bg-white"><select id="rCat" class="px-2 py-1.5 border rounded-lg bg-white"></select></div>
+      </div>
+      <div id="rGroups" class="space-y-2"></div>
+      <details class="pt-2 border-t" open><summary class="cursor-pointer text-xs font-bold text-gray-600">সব এন্ট্রি</summary><div id="rRows" class="space-y-2 mt-2"></div></details>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <details><summary class="cursor-pointer font-bold text-sm text-gray-800">৪. ক্যাটাগরি সাজান</summary>
+        <p class="text-[11px] text-gray-500 my-2">নাম বদলানো যায়, দরকার না হলে বন্ধ করা যায়। নিজের ক্যাটাগরিও যোগ করা যায়। "সম্পদ" গ্রুপের কেনাকাটা খরচ হিসেবে গোনা হয় না।</p>
+        <div class="flex flex-wrap gap-2 text-xs mb-3"><input id="ncName" maxlength="60" placeholder="নতুন ক্যাটাগরির নাম" class="px-2 py-1.5 border rounded-lg"><select id="ncGroup" class="px-2 py-1.5 border rounded-lg bg-white"></select><button id="ncAdd" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold">যোগ করুন</button></div>
+        <div id="catRows" class="space-y-3"></div>
+      </details>
+    </section>
+  </main>
+
+  <!-- bill modal -->
+  <div id="billM" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md space-y-3 text-xs">
+      <div class="flex justify-between items-center"><b id="billMT" class="text-sm">নতুন নিয়মিত বিল</b><button data-close="billM" class="text-gray-500 text-lg">✕</button></div>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">নাম</span><input id="bName" maxlength="60" placeholder="যেমন গোডাউন ভাড়া, ইন্টারনেট বিল" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">ক্যাটাগরি</span><select id="bCat" class="w-full px-2 py-2 border rounded-lg bg-white"></select></label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block space-y-1"><span class="font-bold text-gray-600">প্রতি মাসে কত (৳)</span><input id="bAmt" type="number" min="0" step="0.01" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="block space-y-1"><span class="font-bold text-gray-600">মাসের কত তারিখে</span><input id="bDay" type="number" min="1" max="28" class="w-full px-2 py-2 border rounded-lg"></label>
+      </div>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">সাধারণত কোন অ্যাকাউন্ট থেকে</span><select id="bFrom" class="w-full px-2 py-2 border rounded-lg bg-white"></select></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">কাকে</span><input id="bPayee" maxlength="80" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label id="bActW" class="hidden flex items-center gap-2"><input id="bActive" type="checkbox"> চালু আছে</label>
+      <div class="flex justify-end"><button id="bSave" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">সংরক্ষণ</button></div>
+    </div>
+  </div>
+  <!-- receipt viewer -->
+  <div id="recM" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-4 w-full max-w-md max-h-[92vh] overflow-auto space-y-2">
+      <div class="flex justify-between items-center"><b class="text-sm">🧾 রসিদ</b><button data-close="recM" class="text-gray-500 text-lg">✕</button></div>
+      <div id="recBody"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const db = getFirestore(app), fns = getFunctions(app), auth = getAuth(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+    const money = (n) => (r2(n) < 0 ? '−৳' : '৳') + Math.abs(r2(n)).toLocaleString('en-IN');
+    const call = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
+    const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const thisMonth = () => today().slice(0, 7);
+    const prevMonth = (m) => { const [y, mo] = m.split('-').map(Number); return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; };
+    const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const errText = (e) => String((e && e.message) || e).replace(/^FirebaseError:\s*/, '');
+    const MON_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+    const monLbl = (m) => `${MON_BN[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
+
+    // same list as functions/expenses.js (DEFAULT_CATS / GROUPS)
+    const GROUPS = { fixed: 'স্থায়ী মাসিক খরচ', operating: 'দৈনন্দিন পরিচালনা', marketing: 'মার্কেটিং', govt: 'সরকারি ও পেশাদার ফি', other: 'অন্যান্য', asset: 'সম্পদ কেনা (খরচ নয়)' };
+    const DEFAULTS = [
+      ['rent', 'ভাড়া (দোকান / গোডাউন)', 'fixed'], ['electricity', 'বিদ্যুৎ বিল', 'fixed'], ['water_gas', 'পানি ও গ্যাস বিল', 'fixed'],
+      ['internet_phone', 'ইন্টারনেট ও মোবাইল বিল', 'fixed'], ['software', 'সার্ভার, ডোমেইন ও SMS', 'fixed'],
+      ['packaging', 'প্যাকেজিং (ব্যাগ, বক্স, টেপ)', 'operating'], ['fuel_transport', 'জ্বালানি ও যাতায়াত', 'operating'], ['maintenance', 'মেরামত ও রক্ষণাবেক্ষণ', 'operating'],
+      ['office_supplies', 'অফিস ও পরিষ্কার সামগ্রী', 'operating'], ['staff_welfare', 'স্টাফের খাবার ও চা', 'operating'], ['gateway_fees', 'পেমেন্ট গেটওয়ে / bKash চার্জ', 'operating'],
+      ['ads_online', 'অনলাইন বিজ্ঞাপন (Facebook, Google)', 'marketing'], ['promo_print', 'লিফলেট, ব্যানার ও প্রচার', 'marketing'], ['promo_gift', 'প্রমোশন ও উপহার', 'marketing'],
+      ['license_fees', 'ট্রেড লাইসেন্স ও সরকারি ফি', 'govt'], ['tax_vat', 'আয়কর ও ভ্যাট', 'govt'], ['professional', 'হিসাবরক্ষক / আইনি ফি', 'govt'],
+      ['misc', 'অন্যান্য খরচ', 'other'],
+      ['asset_equipment', 'যন্ত্রপাতি (ফ্রিজ, র‍্যাক, ওজন মেশিন)', 'asset'], ['asset_it', 'কম্পিউটার, প্রিন্টার, মোবাইল', 'asset'], ['asset_vehicle', 'গাড়ি / বাইক', 'asset'], ['asset_deposit', 'ভাড়ার অগ্রিম / জামানত', 'asset']
+    ];
+    const POOL = { id: 'pool', name: 'মাস্টারের হাতে ক্যাশ', ledger: 'company:pool' };
+
+    let catDocs = {}, accs = [], balances = {}, bills = {}, monthExp = [], prevExp = [], billPaid = [], receipt = null, billCtx = null, editBill = null, reqId = newId();
+    function cats(all = false) {
+      const list = DEFAULTS.map(([id, name, group]) => ({ id, name, group, builtin: true, active: true, ...(catDocs[id] || {}), group, type: group === 'asset' ? 'asset' : 'expense' }));
+      Object.entries(catDocs).forEach(([id, c]) => { if (!DEFAULTS.some(x => x[0] === id)) list.push({ id, ...c }); });
+      return all ? list : list.filter(c => c.active !== false);
+    }
+    const catName = (id) => (cats(true).find(c => c.id === id) || {}).name || id;
+    const accList = () => [POOL, ...accs];
+    const accOpts = (sel) => accList().map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} — ${money(balances[a.ledger] || 0)}</option>`).join('');
+    const catOpts = (sel) => Object.entries(GROUPS).map(([g, gn]) => {
+      const cs = cats().filter(c => c.group === g); if (!cs.length) return '';
+      return `<optgroup label="${esc(gn)}">${cs.map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
+    }).join('');
+
+    // ---------- image
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !/^image\//.test(file.type)) return reject(new Error('শুধু ছবি (JPG/PNG) দিন।'));
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let max = 1400;
+          for (let i = 0; i < 6; i++) {
+            const k = Math.min(1, max / Math.max(img.width, img.height));
+            const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+            const out = c.toDataURL('image/jpeg', 0.72);
+            if (out.length < 650000) return resolve(out);
+            max = Math.round(max * 0.75);
+          }
+          reject(new Error('ছবিটা অনেক বড়, অন্য ছবি দিন।'));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('ছবিটা পড়া যায়নি।')); };
+        img.src = url;
+      });
+    }
+    $('fRec').onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { receipt = { data: await compressImage(f), name: f.name }; $('recPrev').src = receipt.data; $('recPrev').classList.remove('hidden'); $('recLbl').textContent = '✅ ' + f.name + ' (বদলাতে চাপুন)'; $('fNoRec').checked = false; $('fNoRecWhy').classList.add('hidden'); }
+      catch (err) { alert(err.message); }
+    };
+    $('fNoRec').onchange = () => $('fNoRecWhy').classList.toggle('hidden', !$('fNoRec').checked);
+
+    // ---------- drawing
+    function drawSelects() {
+      const keepC = $('fCat').value, keepF = $('fFrom').value;
+      $('fCat').innerHTML = catOpts(keepC); $('fFrom').innerHTML = accOpts(keepF || 'pool');
+      $('bCat').innerHTML = catOpts($('bCat').value); $('bFrom').innerHTML = accOpts($('bFrom').value || 'pool');
+      const rc = $('rCat').value;
+      $('rCat').innerHTML = '<option value="">সব ক্যাটাগরি</option>' + cats(true).map(c => `<option value="${c.id}" ${c.id === rc ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+      $('ncGroup').innerHTML = Object.entries(GROUPS).map(([g, n]) => `<option value="${g}">${esc(n)}</option>`).join('');
+      catHint();
+    }
+    function catHint() {
+      const c = cats().find(x => x.id === $('fCat').value);
+      $('catHint').textContent = c && c.type === 'asset' ? 'সম্পদ: ব্যবসার সম্পত্তি হিসেবে থাকবে, এ মাসের খরচে গোনা হবে না।' : '';
+    }
+    $('fCat').onchange = catHint;
+
+    function billStatus(b) {
+      const m = thisMonth(), day = Number(today().slice(8, 10));
+      const paid = billPaid.find(e => e.recurringId === b.id && e.period === m && e.status === 'posted');
+      if (paid) return { k: 'paid', paid };
+      return { k: day > b.dayOfMonth ? 'late' : day === b.dayOfMonth ? 'today' : 'soon' };
+    }
+    function drawBills() {
+      $('curMonthLbl').textContent = '(' + monLbl(thisMonth()) + ')';
+      const list = Object.entries(bills).map(([id, b]) => ({ id, ...b })).sort((a, b) => a.dayOfMonth - b.dayOfMonth);
+      const act = list.filter(b => b.active !== false);
+      let due = 0, dueAmt = 0, soon = 0;
+      $('billRows').innerHTML = act.map(b => {
+        const st = billStatus(b);
+        if (st.k === 'late' || st.k === 'today') { due++; dueAmt += Number(b.amount || 0); } else if (st.k === 'soon') soon++;
+        const badge = { paid: ['পরিশোধিত', 'bg-emerald-100 text-emerald-700'], late: ['তারিখ পার হয়েছে', 'bg-rose-100 text-rose-700'], today: ['আজ দিতে হবে', 'bg-amber-100 text-amber-800'], soon: [`${b.dayOfMonth} তারিখে`, 'bg-gray-100 text-gray-600'] }[st.k];
+        return `<div class="border rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 ${st.k === 'late' ? 'border-rose-200 bg-rose-50' : ''}">
+          <div><p class="font-bold text-sm">${esc(b.name)} <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${badge[1]}">${badge[0]}</span></p>
+            <p class="text-[11px] text-gray-500">${esc(catName(b.categoryId))} · প্রতি মাসের ${b.dayOfMonth} তারিখ${b.payee ? ' · ' + esc(b.payee) : ''}</p>
+            ${st.paid ? `<p class="text-[11px] text-emerald-700">${money(st.paid.amount)} দেওয়া হয়েছে ${esc(st.paid.date)} · ${esc(st.paid.fromName || '')}</p>` : ''}</div>
+          <div class="flex items-center gap-3 text-xs"><span class="font-extrabold">${money(b.amount)}</span>
+            ${st.paid ? '' : `<button data-paybill="${b.id}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-bold">পরিশোধ লিখুন</button>`}
+            <button data-editbill="${b.id}" class="text-gray-600 font-bold">সম্পাদনা</button></div></div>`;
+      }).join('') || '<p class="text-xs text-gray-400">কোনো নিয়মিত বিল নেই। ভাড়া, ইন্টারনেটের মতো প্রতি মাসের বিল যোগ করলে প্রতি মাসে এখানে মনে করিয়ে দেবে।</p>';
+      const off = list.filter(b => b.active === false);
+      if (off.length) $('billRows').innerHTML += `<p class="text-[11px] text-gray-400">বন্ধ: ${off.map(b => `${esc(b.name)} <button data-editbill="${b.id}" class="text-emerald-700 font-bold">খুলুন</button>`).join(', ')}</p>`;
+      $('sDue').textContent = due;
+      $('sDueAmt').textContent = (due ? money(dueAmt) + ' দিতে বাকি' : 'এখন কিছু বাকি নেই') + (soon ? ` · আরও ${soon}টা সামনে` : '');
+    }
+    function drawReport() {
+      const m = $('rMonth').value || thisMonth(), fc = $('rCat').value;
+      const posted = monthExp.filter(e => e.status === 'posted');
+      const exp = posted.filter(e => e.type !== 'asset'), ast = posted.filter(e => e.type === 'asset');
+      const sum = (a) => a.reduce((s, e) => s + Number(e.amount || 0), 0);
+      $('sExp').textContent = money(sum(exp)); $('sAsset').textContent = money(sum(ast));
+      const pv = sum(prevExp.filter(e => e.status === 'posted' && e.type !== 'asset'));
+      $('sExpPrev').textContent = `${monLbl(m)} · আগের মাসে ${money(pv)}`;
+      const byCat = {}; exp.forEach(e => byCat[e.categoryId] = (byCat[e.categoryId] || 0) + Number(e.amount || 0));
+      const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+      $('sTop').textContent = top ? catName(top[0]) : '—'; $('sTopAmt').textContent = top ? money(top[1]) : '';
+      // by group -> category
+      const tot = sum(exp) || 1;
+      $('rGroups').innerHTML = Object.entries(GROUPS).map(([g, gn]) => {
+        const rows = posted.filter(e => (e.group || 'other') === g); if (!rows.length) return '';
+        const cs = {}; rows.forEach(e => cs[e.categoryId] = (cs[e.categoryId] || 0) + Number(e.amount || 0));
+        const gs = sum(rows);
+        return `<div class="border rounded-xl p-3 text-xs"><div class="flex justify-between font-bold"><span>${esc(gn)}</span><span>${money(gs)}${g !== 'asset' ? ` <span class="text-gray-400 font-normal">(${Math.round(gs / tot * 100)}%)</span>` : ''}</span></div>
+          ${Object.entries(cs).sort((a, b) => b[1] - a[1]).map(([c, v]) => `<div class="mt-1"><div class="flex justify-between text-gray-600"><span>${esc(catName(c))}</span><span>${money(v)}</span></div>
+            <div class="h-1.5 bg-gray-100 rounded"><div class="h-1.5 rounded ${g === 'asset' ? 'bg-blue-400' : 'bg-rose-400'}" style="width:${Math.max(2, Math.round(v / Math.max(gs, 1) * 100))}%"></div></div></div>`).join('')}</div>`;
+      }).join('') || `<p class="text-xs text-gray-400">${monLbl(m)} মাসে কোনো খরচ লেখা হয়নি</p>`;
+      const list = monthExp.filter(e => !fc || e.categoryId === fc).sort((a, b) => (b.date + b.createdAt) < (a.date + a.createdAt) ? -1 : 1);
+      $('rRows').innerHTML = list.map(e => {
+        const rev = e.status === 'reversed';
+        return `<div class="border rounded-xl p-3 text-xs ${rev ? 'bg-gray-50 opacity-70' : ''}"><div class="flex flex-wrap justify-between gap-2">
+          <div><p><b>${esc(e.categoryName || catName(e.categoryId))}</b>${e.type === 'asset' ? ' <span class="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold">সম্পদ</span>' : ''}${e.recurringName ? ` <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">${esc(e.recurringName)} · ${monLbl(e.period)}</span>` : ''}${rev ? ' <span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold">বাতিল</span>' : ''}</p>
+            <p class="text-[11px] text-gray-500">${esc(e.date)} · ${esc(e.fromName || '')}${e.payee ? ' · ' + esc(e.payee) : ''}${e.byName ? ' · ' + esc(e.byName) : ''}</p>
+            ${e.trxRef || e.note ? `<p class="text-[11px]">${e.trxRef ? 'Trx: <b>' + esc(e.trxRef) + '</b> ' : ''}${e.note ? '📝 ' + esc(e.note) : ''}</p>` : ''}
+            ${!e.hasReceipt ? `<p class="text-[11px] text-amber-700">রসিদ নেই: ${esc(e.noReceiptReason || '')}</p>` : ''}
+            ${rev ? `<p class="text-[11px] text-rose-600">বাতিলের কারণ: ${esc(e.reverseReason || '')} (${esc(e.reversedByName || '')})</p>` : ''}</div>
+          <div class="text-right"><p class="font-extrabold text-sm ${rev ? 'line-through' : ''}">${money(e.amount)}</p>
+            <div class="flex gap-3 justify-end mt-1">${e.hasReceipt ? `<button data-rec="${e.id}" class="text-blue-700 font-bold">🧾 রসিদ</button>` : ''}${rev ? '' : `<button data-rev="${e.id}" class="text-rose-600 font-bold">বাতিল</button>`}</div></div>
+        </div></div>`;
+      }).join('') || '<p class="text-xs text-gray-400">কোনো এন্ট্রি নেই</p>';
+    }
+    function drawCats() {
+      $('catRows').innerHTML = Object.entries(GROUPS).map(([g, gn]) => {
+        const cs = cats(true).filter(c => c.group === g); if (!cs.length) return '';
+        return `<div><p class="text-[11px] font-bold text-gray-500 mb-1">${esc(gn)}</p>${cs.map(c => `<div class="flex items-center gap-2 text-xs py-1 border-b ${c.active === false ? 'opacity-50' : ''}">
+          <input data-cname="${c.id}" value="${esc(c.name)}" maxlength="60" class="flex-1 px-2 py-1 border rounded-lg">
+          <button data-csave="${c.id}" class="text-emerald-700 font-bold">সেভ</button>
+          <button data-ctoggle="${c.id}" data-on="${c.active !== false}" class="${c.active === false ? 'text-emerald-700' : 'text-rose-600'} font-bold">${c.active === false ? 'চালু' : 'বন্ধ'}</button></div>`).join('')}</div>`;
+      }).join('');
+    }
+    const redraw = () => { drawSelects(); drawBills(); drawReport(); drawCats(); };
+
+    // ---------- live data
+    let unsubMonth = null, unsubPrev = null;
+    function watchMonth() {
+      const m = $('rMonth').value || thisMonth();
+      if (unsubMonth) unsubMonth(); if (unsubPrev) unsubPrev();
+      unsubMonth = onSnapshot(query(collection(db, 'expenses'), where('month', '==', m)), s => { monthExp = []; s.forEach(d => monthExp.push({ id: d.id, ...d.data() })); drawReport(); }, e => console.error('expenses', e));
+      unsubPrev = onSnapshot(query(collection(db, 'expenses'), where('month', '==', prevMonth(m))), s => { prevExp = []; s.forEach(d => prevExp.push(d.data())); drawReport(); }, e => console.error('prev', e));
+    }
+    function start() {
+      onSnapshot(collection(db, 'expense_categories'), s => { catDocs = {}; s.forEach(d => catDocs[d.id] = d.data()); redraw(); }, e => console.error('cats', e));
+      onSnapshot(collection(db, 'money_accounts'), s => { accs = []; s.forEach(d => { if (d.data().active !== false) accs.push({ id: d.id, ...d.data() }); }); accs.sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1); drawSelects(); }, e => console.error('accounts', e));
+      onSnapshot(collection(db, 'account_balances'), s => { balances = {}; s.forEach(d => balances[d.data().account] = Number(d.data().balance || 0)); drawSelects(); }, e => console.error('balances', e));
+      onSnapshot(collection(db, 'recurring_expenses'), s => { bills = {}; s.forEach(d => bills[d.id] = d.data()); drawBills(); }, e => console.error('bills', e));
+      onSnapshot(query(collection(db, 'expenses'), where('period', '==', thisMonth())), s => { billPaid = []; s.forEach(d => billPaid.push({ id: d.id, ...d.data() })); drawBills(); }, e => console.error('billPaid', e));
+      watchMonth();
+    }
+    $('rMonth').onchange = watchMonth; $('rCat').onchange = drawReport;
+
+    // ---------- form
+    function clearForm() {
+      ['fAmt', 'fPayee', 'fTrx', 'fNote', 'fNoRecWhy'].forEach(i => $(i).value = ''); $('fRec').value = ''; $('fNoRec').checked = false; $('fNoRecWhy').classList.add('hidden');
+      receipt = null; $('recPrev').classList.add('hidden'); $('recLbl').textContent = '📎 ছবি বেছে নিন'; $('fDate').value = today();
+      billCtx = null; $('billTag').classList.add('hidden'); reqId = newId();
+    }
+    $('fClear').onclick = clearForm;
+    ['fCat', 'fAmt', 'fFrom'].forEach(i => $(i).addEventListener('change', () => { reqId = newId(); }));
+    $('fSave').onclick = async () => {
+      const amount = Number($('fAmt').value);
+      if (!$('fCat').value) return alert('ক্যাটাগরি বেছে নিন।');
+      if (!(amount > 0)) return alert('পরিমাণ লিখুন।');
+      const data = { requestId: reqId, categoryId: $('fCat').value, amount, fromAccount: $('fFrom').value, date: $('fDate').value || today(),
+        payee: $('fPayee').value.trim(), trxRef: $('fTrx').value.trim(), note: $('fNote').value.trim() };
+      if (receipt) { data.receipt = receipt.data; data.receiptName = receipt.name; }
+      else if ($('fNoRec').checked && $('fNoRecWhy').value.trim()) data.noReceiptReason = $('fNoRecWhy').value.trim();
+      else return alert('রসিদের ছবি দিন। রসিদ না থাকলে "রসিদ নেই" টিক দিয়ে কারণ লিখুন।');
+      if (billCtx) { data.recurringId = billCtx.id; data.period = billCtx.period; }
+      const from = $('fFrom').selectedOptions[0].text;
+      if (!confirm(`${catName(data.categoryId)}: ${money(amount)}\nকোথা থেকে: ${from}\nতারিখ: ${data.date}${billCtx ? `\nবিল: ${billCtx.name} (${monLbl(billCtx.period)})` : ''}\n\nসংরক্ষণ করবেন?`)) return;
+      $('fSave').disabled = true;
+      try { await call('recordExpense', data); clearForm(); alert('খরচ লেখা হয়েছে।'); }
+      catch (e) { const m = errText(e); if (/আগেই লেখা/.test(m)) reqId = newId(); alert('ব্যর্থ: ' + m); }
+      finally { $('fSave').disabled = false; }
+    };
+
+    // ---------- bill modal
+    function openBill(id) {
+      editBill = id || null; const b = id ? bills[id] : {};
+      $('billMT').textContent = id ? 'নিয়মিত বিল সম্পাদনা' : 'নতুন নিয়মিত বিল';
+      $('bName').value = b.name || ''; $('bAmt').value = b.amount || ''; $('bDay').value = b.dayOfMonth || ''; $('bPayee').value = b.payee || '';
+      $('bCat').innerHTML = catOpts(b.categoryId || 'rent'); $('bFrom').innerHTML = accOpts(b.fromAccount || 'pool');
+      $('bActW').classList.toggle('hidden', !id); $('bActive').checked = b.active !== false;
+      $('billM').classList.remove('hidden');
+    }
+    $('bSave').onclick = async () => {
+      const data = { name: $('bName').value.trim(), categoryId: $('bCat').value, amount: Number($('bAmt').value), dayOfMonth: Number($('bDay').value), fromAccount: $('bFrom').value, payee: $('bPayee').value.trim() };
+      if (!data.name) return alert('নাম লিখুন।');
+      if (!(data.amount > 0)) return alert('পরিমাণ লিখুন।');
+      if (!(data.dayOfMonth >= 1 && data.dayOfMonth <= 28)) return alert('মাসের তারিখ ১ থেকে ২৮ এর মধ্যে দিন।');
+      if (editBill) { data.id = editBill; data.active = $('bActive').checked; }
+      $('bSave').disabled = true;
+      try { await call('saveRecurringExpense', data); $('billM').classList.add('hidden'); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('bSave').disabled = false; }
+    };
+
+    // ---------- clicks
+    document.addEventListener('click', async (e) => {
+      const t = e.target.closest('button'); if (!t) return;
+      if (t.dataset.close) return $(t.dataset.close).classList.add('hidden');
+      if (t.id === 'addBill') return openBill();
+      if (t.dataset.editbill) return openBill(t.dataset.editbill);
+      if (t.dataset.paybill) {
+        const b = bills[t.dataset.paybill]; clearForm();
+        billCtx = { id: t.dataset.paybill, name: b.name, period: thisMonth() };
+        $('fCat').value = b.categoryId; $('fAmt').value = b.amount; $('fFrom').value = b.fromAccount || 'pool'; $('fPayee').value = b.payee || '';
+        $('billTag').textContent = `${b.name} · ${monLbl(billCtx.period)}`; $('billTag').classList.remove('hidden'); catHint();
+        return $('formSec').scrollIntoView({ behavior: 'smooth' });
+      }
+      if (t.dataset.rec) {
+        $('recBody').innerHTML = '<p class="text-xs text-gray-400">লোড হচ্ছে…</p>'; $('recM').classList.remove('hidden');
+        const s = await getDoc(doc(db, 'expense_receipts', t.dataset.rec));
+        $('recBody').innerHTML = s.exists() ? `<img src="${s.data().image}" class="w-full rounded-lg border"><a href="${s.data().image}" download="receipt-${esc(t.dataset.rec)}.jpg" class="block text-center bg-gray-100 rounded-lg py-2 text-xs font-bold mt-2">⬇ ডাউনলোড</a>` : '<p class="text-xs text-rose-600">রসিদ পাওয়া যায়নি</p>';
+        return;
+      }
+      if (t.dataset.rev) {
+        const x = monthExp.find(y => y.id === t.dataset.rev); if (!x) return;
+        const reason = prompt(`${x.categoryName} ${money(x.amount)} বাতিল করবেন?\nটাকা "${x.fromName}" এ ফেরত যাবে। কারণ লিখুন:`);
+        if (!reason || !reason.trim()) return;
+        t.disabled = true;
+        try { await call('reverseExpense', { id: x.id, reason: reason.trim() }); } catch (err) { alert('ব্যর্থ: ' + errText(err)); t.disabled = false; }
+        return;
+      }
+      if (t.id === 'ncAdd') {
+        const name = $('ncName').value.trim(); if (!name) return alert('নাম লিখুন।');
+        try { await call('saveExpenseCategory', { name, group: $('ncGroup').value }); $('ncName').value = ''; } catch (err) { alert('ব্যর্থ: ' + errText(err)); }
+        return;
+      }
+      if (t.dataset.csave || t.dataset.ctoggle) {
+        const id = t.dataset.csave || t.dataset.ctoggle, name = document.querySelector(`input[data-cname="${id}"]`).value.trim();
+        if (!name) return alert('নাম লিখুন।');
+        const data = { id, name }; if (t.dataset.ctoggle) data.active = t.dataset.on !== 'true';
+        try { await call('saveExpenseCategory', data); if (t.dataset.csave) alert('সেভ হয়েছে।'); } catch (err) { alert('ব্যর্থ: ' + errText(err)); }
+      }
+    });
+
+    $('fDate').value = today(); $('fDate').max = today(); $('rMonth').value = thisMonth(); $('rMonth').max = thisMonth();
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      const a = await getDoc(doc(db, 'admins', u.uid));
+      if (!a.exists() || (a.data().role || 'master') !== 'master') { document.querySelector('main').innerHTML = '<p class="text-center text-sm text-rose-600 py-10">এই পাতা শুধু মাস্টারের জন্য।</p>'; return; }
+      redraw(); start();
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

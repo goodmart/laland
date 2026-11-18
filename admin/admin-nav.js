@@ -12,7 +12,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const GROUPS = [
-  { title: 'Dashboard', items: [['index.html', 'Dashboard', 'fa-gauge'], ['finance.html', 'Finance', 'fa-landmark'], ['treasury.html', 'ব্যাংক ও মূলধন', 'fa-building-columns']] },
+  { title: 'Dashboard', items: [['index.html', 'Dashboard', 'fa-gauge'], ['finance.html', 'Finance', 'fa-landmark'], ['treasury.html', 'ব্যাংক ও মূলধন', 'fa-building-columns'], ['expenses.html', 'খরচ', 'fa-receipt']] },
   { title: 'Operations', items: [['orders.html', 'Orders', 'fa-cart-shopping'], ['rider.html', 'Rider Finance', 'fa-wallet'], ['day-close.html', 'Day Close', 'fa-cash-register'], ['my-account.html', 'আমার হিসাব', 'fa-book'], ['my-salary.html', 'বেতন ও ক্যাশ আউট', 'fa-money-bill-wave'], ['cash-handover.html', 'মাস্টারকে ক্যাশ জমা', 'fa-hand-holding-dollar']] },
   { title: 'Products & Suppliers', items: [['products.html', 'Products', 'fa-box'], ['stock-in.html', 'Stock-In', 'fa-truck-ramp-box'], ['suppliers.html', 'Suppliers', 'fa-truck-field'], ['purchase-orders.html', 'Purchase Orders', 'fa-file-invoice'], ['stock-receive.html', 'Stock Receive', 'fa-clipboard-check'], ['supplier-returns.html', 'Return to Supplier', 'fa-rotate-left'], ['stock-value.html', 'Stock Value', 'fa-scale-balanced'], ['stock-logs.html', 'Stock Logs', 'fa-clock-rotate-left'], ['store-handover.html', 'Store Handover', 'fa-handshake']] },
   { title: 'Admin', items: [['customers.html', 'Customers', 'fa-users'], ['delivery-riders.html', 'Delivery Riders', 'fa-motorcycle'], ['locations.html', 'Locations', 'fa-location-dot'], ['data-tools.html', 'Data Tools', 'fa-screwdriver-wrench']] }
@@ -167,6 +167,14 @@ function startBadges(role) {
     onSnapshot(query(collection(db, 'supplier_returns'), where('status', '==', 'pending')), s => setBadge('supplier-returns.html', s.size), fail);
   if (can('purchase-orders.html'))
     onSnapshot(query(collection(db, 'purchase_orders'), where('status', '==', 'Submitted')), s => setBadge('purchase-orders.html', s.size), fail);
+  // monthly bills (rent, internet ...) whose day has come this month and that are not paid yet (master only)
+  if (role === 'master') {
+    const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date()), month = ymd.slice(0, 7), day = Number(ymd.slice(8, 10));
+    let bills = [], paid = new Set();
+    const upd = () => setBadge('expenses.html', bills.filter(b => b.active !== false && Number(b.dayOfMonth) <= day && !paid.has(b.id)).length);
+    onSnapshot(collection(db, 'recurring_expenses'), s => { bills = s.docs.map(d => ({ id: d.id, ...d.data() })); upd(); }, fail);
+    onSnapshot(query(collection(db, 'expenses'), where('period', '==', month)), s => { paid = new Set(s.docs.map(d => d.data()).filter(x => x.status === 'posted').map(x => x.recurringId)); upd(); }, fail);
+  }
 }
 
 onAuthStateChanged(auth, async (u) => {
