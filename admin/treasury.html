@@ -133,7 +133,7 @@
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, doc, getDoc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, getDoc, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
     const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
@@ -167,6 +167,8 @@
       drawing: 'মালিক / অংশীদার ব্যবসা থেকে নিজের জন্য টাকা নিলেন। এটা খরচ নয়, মূলধন থেকে কমে।'
     };
 
+    let adminNames = {};   // uid -> current name (so old rows written without a name still show one)
+    const who = (t) => adminNames[t.by] || (/^[A-Za-z0-9]{20,}$/.test(t.byName || '') ? '' : t.byName) || '';
     let accs = {}, partners = {}, balances = {}, txns = [], kind = 'deposit', proof = null, editAcc = null, editPt = null;
     const accList = (activeOnly = true) => [POOL, ...Object.values(accs).sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1)].filter(a => !activeOnly || a.active !== false);
     const balOf = (a) => r2(balances[a.ledger] || 0);
@@ -289,9 +291,9 @@
         return `<div class="border rounded-xl p-3 text-xs ${rev ? 'bg-gray-50 opacity-70' : ''}">
           <div class="flex flex-wrap justify-between gap-2">
             <div><p><b class="${kc}">${kn}</b> · ${path}${rev ? ' <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">বাতিল</span>' : ''}</p>
-              <p class="text-[11px] text-gray-500">তারিখ ${esc(t.date || '')}${t.byName ? ' · ' + esc(t.byName) : ''}${sys ? ' · অন্য পেজ থেকে' : ''} · লেখা হয়েছে ${new Date(t.createdAt).toLocaleString('en-GB')}</p>
+              <p class="text-[11px] text-gray-500">তারিখ ${esc(t.date || '')}${who(t) ? ' · ' + esc(who(t)) : ''}${sys ? ' · অন্য পেজ থেকে' : ''} · লেখা হয়েছে ${new Date(t.createdAt).toLocaleString('en-GB')}</p>
               ${t.trxRef || t.note ? `<p class="text-[11px]">${t.trxRef ? 'Trx: <b>' + esc(t.trxRef) + '</b> ' : ''}${t.note ? '📝 ' + esc(t.note) : ''}</p>` : ''}
-              ${rev ? `<p class="text-[11px] text-rose-600">বাতিলের কারণ: ${esc(t.reverseReason || '')} (${esc(t.reversedByName || '')})</p>` : ''}</div>
+              ${rev ? `<p class="text-[11px] text-rose-600">বাতিলের কারণ: ${esc(t.reverseReason || '')} (${esc(adminNames[t.reversedBy] || t.reversedByName || '')})</p>` : ''}</div>
             <div class="text-right"><p class="font-extrabold text-sm ${rev ? 'line-through' : ''} ${sign === '−' ? 'text-rose-600' : sign === '+' ? 'text-emerald-700' : ''}">${sign}${money(t.amount)}</p>${t.fee ? `<p class="text-[10px] text-rose-600">চার্জ ${money(t.fee)}</p>` : ''}
               <div class="flex gap-3 justify-end mt-1">${t.hasProof ? `<button data-proof="${t.id}" class="text-blue-700 font-bold">🧾 স্লিপ</button>` : ''}${!rev && !sys && t.kind !== 'opening' ? `<button data-rev="${t.id}" class="text-rose-600 font-bold">বাতিল</button>` : ''}</div></div>
           </div></div>`;
@@ -301,6 +303,7 @@
 
     // ---------- live data
     function start() {
+      getDocs(collection(db, 'admins')).then(s => { s.forEach(d => adminNames[d.id] = d.data().name || d.data().email || ''); drawHistory(); }).catch(() => {});
       onSnapshot(collection(db, 'money_accounts'), (s) => { accs = {}; s.forEach(d => accs[d.id] = { id: d.id, ...d.data() }); redraw(); }, (e) => console.error('accounts', e));
       onSnapshot(collection(db, 'partners'), (s) => { partners = {}; s.forEach(d => partners[d.id] = d.data()); redraw(); }, (e) => console.error('partners', e));
       onSnapshot(collection(db, 'account_balances'), (s) => { balances = {}; s.forEach(d => balances[d.data().account] = Number(d.data().balance || 0)); redraw(); }, (e) => console.error('balances', e));

@@ -269,7 +269,7 @@
               class="px-3 py-1 rounded-lg font-bold ${active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-700'}">${active ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}</button>`;
           return `<tr class="border-t">
             <td class="p-2"><div class="flex items-center gap-2">${a.photoThumb ? `<img src="${esc(a.photoThumb)}" class="w-8 h-8 rounded-full object-cover">` : '<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">👤</span>'}
-              <div>${esc(a.name)}<br><button data-act="prof" data-uid="${esc(a.id)}" class="text-[10px] text-emerald-700 font-bold">প্রোফাইল / NID${a.hasNid ? ' ✓' : ''}</button></div></div></td>
+              <div>${a.name ? esc(a.name) : '<span class="text-rose-600 text-[11px]">নাম দেওয়া নেই</span>'}<br><button data-act="prof" data-uid="${esc(a.id)}" class="text-[10px] text-emerald-700 font-bold">প্রোফাইল / NID${a.hasNid ? ' ✓' : ''}</button></div></div></td>
             <td class="p-2">${esc(a.email)}</td><td class="p-2">${roleCell}</td>
             <td class="p-2">${role === 'master' ? '—' : `<div class="flex items-center gap-1"><input data-sal="${esc(a.id)}" type="number" min="0" step="1" value="${Number(a.fixedSalary || 0)}" class="w-24 px-2 py-1 border rounded-lg">
               <button data-act="sal" data-uid="${esc(a.id)}" class="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold">সেভ</button></div>`}</td>
@@ -323,6 +323,7 @@
     <div class="bg-white rounded-2xl p-5 w-full max-w-lg max-h-[92vh] overflow-auto space-y-3">
       <div class="flex justify-between items-center"><h3 id="pfTitle" class="font-bold text-sm">প্রোফাইল</h3><button id="pfClose" class="text-gray-500 text-lg">✕</button></div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <label class="sm:col-span-2">নাম (ইতিহাস, স্লিপ আর মেনুতে এই নাম দেখাবে)<input id="pf_name" maxlength="60" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
         <label>মোবাইল<input id="pf_phone" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
         <label>NID / জন্মনিবন্ধন নম্বর<input id="pf_nid" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
         <label class="sm:col-span-2">ঠিকানা<input id="pf_address" class="w-full mt-1 px-3 py-2 border rounded-xl"></label>
@@ -365,7 +366,7 @@
       document.querySelectorAll('#profModal input[type=file]').forEach(i => i.value = '');
       const a = (await getDoc(doc(db, 'admins', uid))).data() || {};
       $('pfTitle').textContent = `প্রোফাইল — ${a.name || a.email || uid}`;
-      ['phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => $('pf_' + k).value = a[k] || '');
+      ['name', 'phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => $('pf_' + k).value = a[k] || '');
       $('profModal').classList.remove('hidden');
       const f = await getDoc(doc(db, 'staff_files', uid)).catch(() => null);
       const d = f && f.exists() ? f.data() : {};
@@ -382,12 +383,13 @@
     ['photo', 'nidFront', 'nidBack'].forEach(k => $('pv_' + k).addEventListener('click', () => { const w = window.open(); if (w) w.document.write(`<img src="${$('pv_' + k).src}" style="max-width:100%">`); }));
     $('pfClose').onclick = () => $('profModal').classList.add('hidden');
     $('pfSave').onclick = async () => {
+      if (!$('pf_name').value.trim()) return alert('নাম লিখুন।');
       const btn = $('pfSave'); btn.disabled = true; btn.textContent = 'সেভ হচ্ছে…';
       try {
         const files = {}; ['photo', 'nidFront', 'nidBack'].forEach(k => { if (pend[k]) files[k] = pend[k]; });
         if (Object.keys(files).length) await setDoc(doc(db, 'staff_files', cur), { ...files, updatedAt: new Date().toISOString(), updatedBy: getAuth(app).currentUser.uid }, { merge: true });
         const data = { uid: cur };
-        ['phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => data[k] = $('pf_' + k).value.trim());
+        ['name', 'phone', 'nid', 'address', 'emergency', 'joinDate'].forEach(k => data[k] = $('pf_' + k).value.trim());
         if (pend.thumb) data.photoThumb = pend.thumb;
         if (files.nidFront || files.nidBack) data.hasNid = true;
         await httpsCallable(fns, 'setAdminProfile')(data);
