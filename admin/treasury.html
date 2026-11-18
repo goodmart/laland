@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ব্যাংক ও মূলধন - Laland Express</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 text-gray-800 pb-12">
+  <header class="bg-emerald-700 text-white shadow">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2"><i class="fa-solid fa-building-columns text-xl"></i><h1 class="font-bold text-base">ব্যাংক ও মূলধন (মাস্টার)</h1></div>
+      <nav></nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-5">
+
+    <!-- SUMMARY -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">কোম্পানির মোট টাকা</p><p id="sTotal" class="text-xl font-extrabold text-emerald-700 mt-1">…</p><p class="text-[10px] text-gray-400">সব অ্যাকাউন্ট + হাতের ক্যাশ</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">আপনার হাতে ক্যাশ (জমা হয়নি)</p><p id="sPool" class="text-xl font-extrabold text-amber-600 mt-1">…</p><p id="sLastDep" class="text-[10px] text-gray-400"></p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">মোট মূলধন (নিট)</p><p id="sCap" class="text-xl font-extrabold text-blue-700 mt-1">…</p><p class="text-[10px] text-gray-400">জমা − উত্তোলন</p></div>
+      <div class="bg-white rounded-2xl border p-4"><p class="text-[11px] text-gray-500">ব্যাংক / ট্রান্সফার চার্জ (মোট)</p><p id="sFee" class="text-xl font-extrabold text-rose-600 mt-1">…</p></div>
+    </div>
+
+    <!-- ACCOUNTS -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-sm text-gray-800">১. টাকার অ্যাকাউন্ট</h2>
+        <button id="addAcc" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> নতুন অ্যাকাউন্ট</button>
+      </div>
+      <p class="text-[11px] text-gray-500">ব্যাংক (একাধিক), bKash / Nagad / Rocket মার্চেন্ট, পেমেন্ট গেটওয়ে (SSLCommerz, aamarPay ইত্যাদি) আর আলাদা ক্যাশ বাক্স যোগ করুন। <b>"মাস্টারের হাতে ক্যাশ"</b> সিস্টেমের নিজস্ব অ্যাকাউন্ট: ম্যানেজারের ক্যাশ জমা নিশ্চিত করলে টাকা এখানে আসে, তারপর এখান থেকে ব্যাংকে জমা দিন।</p>
+      <div id="accGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+      <details class="pt-2 border-t"><summary class="cursor-pointer text-xs font-bold text-gray-600">বন্ধ করা অ্যাকাউন্ট</summary><div id="accClosed" class="space-y-1 mt-2 text-xs text-gray-500"></div></details>
+    </section>
+
+    <!-- NEW ENTRY -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <h2 class="font-bold text-sm text-gray-800">২. নতুন লেনদেন</h2>
+      <div id="kindBtns" class="flex flex-wrap gap-2 text-xs">
+        <button data-k="deposit" class="kb px-3 py-1.5 rounded-lg border font-bold"><i class="fa-solid fa-building-columns"></i> হাতের ক্যাশ ব্যাংকে জমা</button>
+        <button data-k="transfer" class="kb px-3 py-1.5 rounded-lg border font-bold"><i class="fa-solid fa-right-left"></i> অ্যাকাউন্ট থেকে অ্যাকাউন্টে</button>
+        <button data-k="capital" class="kb px-3 py-1.5 rounded-lg border font-bold"><i class="fa-solid fa-sack-dollar"></i> মূলধন জমা</button>
+        <button data-k="drawing" class="kb px-3 py-1.5 rounded-lg border font-bold"><i class="fa-solid fa-hand-holding-dollar"></i> মালিকের উত্তোলন</button>
+      </div>
+      <p id="kindHelp" class="text-[11px] text-gray-500"></p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <label id="fPartner" class="space-y-1"><span class="font-bold text-gray-600">অংশীদার</span><select id="eiPartner" class="w-full px-2 py-2 border rounded-lg bg-white"></select></label>
+        <label id="fFrom" class="space-y-1"><span class="font-bold text-gray-600">কোথা থেকে</span><select id="eiFrom" class="w-full px-2 py-2 border rounded-lg bg-white"></select><span id="fromBal" class="text-[10px] text-gray-500"></span></label>
+        <label id="fTo" class="space-y-1"><span class="font-bold text-gray-600">কোথায়</span><select id="eiTo" class="w-full px-2 py-2 border rounded-lg bg-white"></select></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">পরিমাণ (৳)</span><input id="eiAmt" type="number" min="0" step="0.01" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label id="fFee" class="space-y-1"><span class="font-bold text-gray-600">চার্জ (৳, যদি কাটে)</span><input id="eiFee" type="number" min="0" step="0.01" placeholder="0" class="w-full px-2 py-2 border rounded-lg"><span class="text-[10px] text-gray-500">"কোথা থেকে" অ্যাকাউন্ট থেকে আলাদা কাটবে, খরচ হিসেবে উঠবে</span></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">তারিখ</span><input id="eiDate" type="date" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">Trx ID / স্লিপ নং</span><input id="eiTrx" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1"><span class="font-bold text-gray-600">নোট</span><input id="eiNote" maxlength="200" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="space-y-1 sm:col-span-2"><span class="font-bold text-gray-600">স্লিপ / স্ক্রিনশট <span id="pfReq"></span></span>
+          <span class="block px-3 py-2 border border-dashed rounded-lg cursor-pointer bg-gray-50 text-center"><input id="eiProof" type="file" accept="image/*" class="hidden"><span id="pfLbl">📎 ছবি বেছে নিন</span></span>
+          <img id="pfPrev" class="hidden max-h-40 rounded-lg border mx-auto">
+        </label>
+      </div>
+      <div class="flex justify-end"><button id="eiSave" class="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold">সংরক্ষণ করুন</button></div>
+    </section>
+
+    <!-- PARTNERS -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-sm text-gray-800">৩. অংশীদার ও মূলধন</h2>
+        <button id="addPartner" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-plus"></i> নতুন অংশীদার</button>
+      </div>
+      <p class="text-[11px] text-gray-500">মালিকের উত্তোলন খরচ নয়: এটা ব্যবসায় তাঁর মূলধন থেকে কমে। লাভের ভাগ (%) এখন শুধু রেকর্ড; পরে লাভ বণ্টনে কাজে লাগবে।</p>
+      <div id="partnerRows" class="overflow-x-auto"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-bold text-sm text-gray-800">৪. লেনদেনের ইতিহাস</h2>
+        <select id="hFilter" class="px-2 py-1.5 border rounded-lg text-xs bg-white"></select>
+      </div>
+      <p class="text-[11px] text-gray-500">কোনো এন্ট্রি মোছা যায় না। ভুল হলে "বাতিল" চাপুন: কারণসহ একটা উল্টো এন্ট্রি হবে আর দুটোই ইতিহাসে থাকবে।</p>
+      <div id="hRows" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
+    </section>
+  </main>
+
+  <!-- account modal -->
+  <div id="accM" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md max-h-[92vh] overflow-auto space-y-3 text-xs">
+      <div class="flex justify-between items-center"><b id="accMT" class="text-sm">নতুন অ্যাকাউন্ট</b><button data-close="accM" class="text-gray-500 text-lg">✕</button></div>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">ধরন</span>
+        <select id="amKind" class="w-full px-2 py-2 border rounded-lg bg-white">
+          <option value="bank">ব্যাংক</option><option value="mobile">মোবাইল ব্যাংকিং (bKash / Nagad / Rocket)</option>
+          <option value="gateway">পেমেন্ট গেটওয়ে</option><option value="cash">ক্যাশ বাক্স</option>
+        </select></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">নাম (যেমন "DBBL চলতি", "bKash মার্চেন্ট")</span><input id="amName" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">ব্যাংক / প্রতিষ্ঠান</span><input id="amProv" maxlength="60" placeholder="Dutch-Bangla Bank, bKash, SSLCommerz…" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">অ্যাকাউন্ট / মার্চেন্ট নম্বর</span><input id="amNo" maxlength="40" class="w-full px-2 py-2 border rounded-lg"></label>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="block space-y-1"><span class="font-bold text-gray-600">অ্যাকাউন্টধারীর নাম</span><input id="amHolder" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+        <label class="block space-y-1"><span class="font-bold text-gray-600">শাখা</span><input id="amBranch" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+      </div>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">নোট</span><input id="amNote" maxlength="200" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label id="amOpenW" class="block space-y-1"><span class="font-bold text-gray-600">শুরুর ব্যালেন্স (৳)</span><input id="amOpen" type="number" min="0" step="0.01" placeholder="0" class="w-full px-2 py-2 border rounded-lg">
+        <span class="text-[10px] text-gray-500">সিস্টেম চালুর আগে থেকেই অ্যাকাউন্টে যে টাকা আছে। মালিক নতুন টাকা দিলে সেটা "মূলধন জমা" দিয়ে লিখুন।</span></label>
+      <div id="amCloseW" class="hidden border-t pt-2"><button id="amClose" class="text-rose-600 font-bold">এই অ্যাকাউন্ট বন্ধ করুন</button> <span class="text-[10px] text-gray-500">(ব্যালেন্স ০ হলেই বন্ধ করা যায়)</span></div>
+      <div class="flex justify-end"><button id="amSave" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">সংরক্ষণ</button></div>
+    </div>
+  </div>
+
+  <!-- partner modal -->
+  <div id="ptM" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-md space-y-3 text-xs">
+      <div class="flex justify-between items-center"><b id="ptMT" class="text-sm">নতুন অংশীদার</b><button data-close="ptM" class="text-gray-500 text-lg">✕</button></div>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">নাম</span><input id="ptName" maxlength="60" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">মোবাইল</span><input id="ptPhone" maxlength="20" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">লাভের ভাগ (%)</span><input id="ptShare" type="number" min="0" max="100" step="0.01" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label class="block space-y-1"><span class="font-bold text-gray-600">নোট</span><input id="ptNote" maxlength="200" class="w-full px-2 py-2 border rounded-lg"></label>
+      <label id="ptActW" class="hidden flex items-center gap-2"><input id="ptActive" type="checkbox"> সক্রিয়</label>
+      <div class="flex justify-end"><button id="ptSave" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold">সংরক্ষণ</button></div>
+    </div>
+  </div>
+
+  <!-- proof viewer -->
+  <div id="pfM" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-3">
+    <div class="bg-white rounded-2xl p-4 w-full max-w-md max-h-[92vh] overflow-auto space-y-2">
+      <div class="flex justify-between items-center"><b class="text-sm">🧾 স্লিপ / প্রুফ</b><button data-close="pfM" class="text-gray-500 text-lg">✕</button></div>
+      <div id="pfBody"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, doc, getDoc, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+
+    const cfg = { apiKey: "AIzaSyCP0heHxeSJezxkAyvYAkGdFenY4ErhV0U", authDomain: "laland-express.firebaseapp.com", projectId: "laland-express", storageBucket: "laland-express.firebasestorage.app", messagingSenderId: "315462688826", appId: "1:315462688826:web:a6b033e1ce664071201503" };
+    const app = getApps().length ? getApp() : initializeApp(cfg);
+    const db = getFirestore(app), fns = getFunctions(app), auth = getAuth(app);
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
+    const money = (n) => (r2(n) < 0 ? '−৳' : '৳') + Math.abs(r2(n)).toLocaleString('en-IN');
+    const call = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
+    const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const errText = (e) => String((e && e.message) || e).replace(/^FirebaseError:\s*/, '');
+
+    const KIND = { bank: ['ব্যাংক', 'fa-building-columns', 'bg-blue-100 text-blue-700'], mobile: ['মোবাইল ব্যাংকিং', 'fa-mobile-screen', 'bg-pink-100 text-pink-700'], gateway: ['গেটওয়ে', 'fa-credit-card', 'bg-violet-100 text-violet-700'], cash: ['ক্যাশ', 'fa-money-bill', 'bg-amber-100 text-amber-700'] };
+    const POOL = { id: 'pool', name: 'মাস্টারের হাতে ক্যাশ', kind: 'cash', active: true, ledger: 'company:pool', system: true };
+    const TXN = {
+      deposit: ['ব্যাংকে জমা', 'text-blue-700'], transfer: ['ট্রান্সফার', 'text-gray-700'], capital: ['মূলধন জমা', 'text-emerald-700'],
+      drawing: ['মালিকের উত্তোলন', 'text-rose-700'], opening: ['শুরুর ব্যালেন্স', 'text-gray-500']
+    };
+    const HELP = {
+      deposit: 'ম্যানেজারদের কাছ থেকে নেওয়া ক্যাশ ব্যাংক / bKash / গেটওয়ে অ্যাকাউন্টে জমা। জমার স্লিপের ছবি বাধ্যতামূলক।',
+      transfer: 'যেকোনো অ্যাকাউন্ট থেকে আরেক অ্যাকাউন্টে: bKash থেকে ব্যাংকে, ব্যাংক থেকে ক্যাশ তোলা, গেটওয়ের সেটেলমেন্ট ইত্যাদি। এটা আয় বা খরচ নয়।',
+      capital: 'মালিক / অংশীদার ব্যবসায় নতুন টাকা দিলেন।',
+      drawing: 'মালিক / অংশীদার ব্যবসা থেকে নিজের জন্য টাকা নিলেন। এটা খরচ নয়, মূলধন থেকে কমে।'
+    };
+
+    let accs = {}, partners = {}, balances = {}, txns = [], kind = 'deposit', proof = null, editAcc = null, editPt = null;
+    const accList = (activeOnly = true) => [POOL, ...Object.values(accs).sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1)].filter(a => !activeOnly || a.active !== false);
+    const balOf = (a) => r2(balances[a.ledger] || 0);
+    const accName = (id) => id === 'pool' ? POOL.name : (accs[id] ? accs[id].name : id);
+
+    // ---------- image
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !/^image\//.test(file.type)) return reject(new Error('শুধু ছবি (JPG/PNG) দিন।'));
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.width, h = img.height, max = 1400, out = '';
+          for (let i = 0; i < 6; i++) {
+            const k = Math.min(1, max / Math.max(w, h));
+            const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+            out = c.toDataURL('image/jpeg', 0.72);
+            if (out.length < 650000) return resolve(out);
+            max = Math.round(max * 0.75);
+          }
+          reject(new Error('ছবিটা অনেক বড়, অন্য ছবি দিন।'));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('ছবিটা পড়া যায়নি।')); };
+        img.src = url;
+      });
+    }
+    $('eiProof').onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { proof = { data: await compressImage(f), name: f.name }; $('pfPrev').src = proof.data; $('pfPrev').classList.remove('hidden'); $('pfLbl').textContent = '✅ ' + f.name + ' (বদলাতে চাপুন)'; }
+      catch (err) { alert(err.message); }
+    };
+
+    // ---------- drawing
+    function drawSummary() {
+      const list = accList(false);
+      $('sTotal').textContent = money(list.reduce((s, a) => s + balOf(a), 0));
+      $('sPool').textContent = money(balOf(POOL));
+      $('sFee').textContent = money(balances['company:bank_charges'] || 0);
+      let cap = 0;
+      for (const [k, v] of Object.entries(balances)) { if (/^partner:.+:capital$/.test(k)) cap -= v; if (/^partner:.+:drawings$/.test(k)) cap -= v; }
+      $('sCap').textContent = money(cap);
+      const lastDep = txns.find(t => t.kind === 'deposit' && t.status === 'posted');
+      $('sLastDep').textContent = lastDep ? 'শেষ ব্যাংক জমা: ' + lastDep.date : 'এখনো কোনো ব্যাংক জমা নেই';
+    }
+    function drawAccounts() {
+      $('accGrid').innerHTML = accList().map(a => {
+        const [kn, ic, cl] = KIND[a.kind] || KIND.cash, b = balOf(a);
+        return `<div class="border rounded-xl p-3 space-y-1 ${a.system ? 'bg-amber-50 border-amber-200' : ''}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0"><p class="font-bold text-sm truncate"><i class="fa-solid ${ic} text-gray-400"></i> ${esc(a.name)}</p>
+              <p class="text-[11px] text-gray-500 truncate">${esc([a.provider, a.accountNo, a.branch].filter(Boolean).join(' · ') || (a.system ? 'সিস্টেমের অ্যাকাউন্ট' : ''))}</p></div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${cl} shrink-0">${kn}</span>
+          </div>
+          <p class="text-lg font-extrabold ${b < 0 ? 'text-rose-600' : 'text-gray-800'}">${money(b)}</p>
+          <div class="flex gap-3 text-[11px]">
+            ${a.system ? `<button data-dep class="text-blue-700 font-bold">ব্যাংকে জমা দিন</button>` : `<button data-edit="${a.id}" class="text-gray-600 font-bold">সম্পাদনা</button>`}
+            <button data-hist="${a.id}" class="text-gray-600 font-bold">ইতিহাস</button>
+          </div>
+          ${a.system && b < 0 ? `<p class="text-[10px] text-rose-600">ঋণাত্মক: হাতে আসার চেয়ে বেশি টাকা এখান থেকে পরিশোধ হয়েছে। পরিশোধগুলো সঠিক অ্যাকাউন্ট থেকে দেখান অথবা ট্রান্সফার দিয়ে মিলিয়ে নিন।</p>` : ''}
+        </div>`;
+      }).join('');
+      const closed = Object.values(accs).filter(a => a.active === false);
+      $('accClosed').innerHTML = closed.length ? closed.map(a => `<div>${esc(a.name)} · ${esc(a.provider || '')} <button data-edit="${a.id}" class="text-emerald-700 font-bold ml-2">খুলুন / দেখুন</button></div>`).join('') : 'নেই';
+      drawSelects();
+    }
+    function opt(a, sel) { return `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} — ${money(balOf(a))}</option>`; }
+    function drawSelects() {
+      const keepF = $('eiFrom').value, keepT = $('eiTo').value, keepP = $('eiPartner').value;
+      const list = accList();
+      const toList = kind === 'deposit' ? list.filter(a => a.kind !== 'cash') : list;
+      const fromList = kind === 'deposit' ? [POOL] : list;
+      $('eiFrom').innerHTML = fromList.map(a => opt(a, keepF)).join('');
+      $('eiTo').innerHTML = toList.length ? toList.map(a => opt(a, keepT)).join('') : '<option value="">আগে একটা ব্যাংক / bKash অ্যাকাউন্ট যোগ করুন</option>';
+      if (kind === 'transfer' && $('eiFrom').value === $('eiTo').value && toList.length > 1) $('eiTo').selectedIndex = 1;
+      const ps = Object.entries(partners).filter(([, p]) => p.active !== false);
+      $('eiPartner').innerHTML = ps.length ? ps.map(([id, p]) => `<option value="${id}" ${id === keepP ? 'selected' : ''}>${esc(p.name)}</option>`).join('') : '<option value="">আগে অংশীদার যোগ করুন (৩ নং অংশ)</option>';
+      const f = fromList.find(a => a.id === $('eiFrom').value);
+      $('fromBal').textContent = f ? 'সিস্টেম অনুযায়ী আছে: ' + money(balOf(f)) : '';
+      const hv = $('hFilter').value;
+      $('hFilter').innerHTML = `<option value="">সব অ্যাকাউন্ট</option>` + accList(false).map(a => `<option value="${a.id}" ${a.id === hv ? 'selected' : ''}>${esc(a.name)}</option>`).join('');
+    }
+    function setKind(k) {
+      kind = k;
+      document.querySelectorAll('.kb').forEach(b => b.className = 'kb px-3 py-1.5 rounded-lg border font-bold ' + (b.dataset.k === k ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white'));
+      $('kindHelp').textContent = HELP[k];
+      $('fPartner').classList.toggle('hidden', !['capital', 'drawing'].includes(k));
+      $('fFrom').classList.toggle('hidden', k === 'capital');
+      $('fTo').classList.toggle('hidden', k === 'drawing');
+      $('fFee').classList.toggle('hidden', !['deposit', 'transfer'].includes(k));
+      $('pfReq').innerHTML = k === 'deposit' ? '<span class="text-rose-600">(বাধ্যতামূলক)</span>' : '<span class="text-gray-400">(ঐচ্ছিক)</span>';
+      drawSelects();
+    }
+    function drawPartners() {
+      const ids = Object.keys(partners);
+      if (!ids.length) { $('partnerRows').innerHTML = '<p class="text-xs text-gray-400">এখনো কোনো অংশীদার নেই। মূলধন জমার আগে অংশীদার যোগ করুন (এখন শুধু আপনি থাকলে নিজের নাম দিন)।</p>'; return; }
+      $('partnerRows').innerHTML = `<table class="w-full text-xs"><thead><tr class="text-left text-gray-500 border-b"><th class="py-2">নাম</th><th>লাভের ভাগ</th><th class="text-right">মোট মূলধন জমা</th><th class="text-right">মোট উত্তোলন</th><th class="text-right">নিট মূলধন</th><th></th></tr></thead><tbody>` +
+        ids.map(id => {
+          const p = partners[id], cap = -(balances[`partner:${id}:capital`] || 0), dr = balances[`partner:${id}:drawings`] || 0;
+          return `<tr class="border-b ${p.active === false ? 'text-gray-400' : ''}"><td class="py-2 font-bold">${esc(p.name)}${p.active === false ? ' (নিষ্ক্রিয়)' : ''}<div class="font-normal text-[10px] text-gray-500">${esc(p.phone || '')}</div></td>
+            <td>${p.sharePct != null ? p.sharePct + '%' : '—'}</td><td class="text-right">${money(cap)}</td><td class="text-right text-rose-600">${money(dr)}</td>
+            <td class="text-right font-extrabold">${money(cap - dr)}</td><td class="text-right"><button data-pedit="${id}" class="text-gray-600 font-bold">সম্পাদনা</button></td></tr>`;
+        }).join('') + '</tbody></table>';
+      const tot = ids.reduce((s, id) => s + Number(partners[id].active === false ? 0 : (partners[id].sharePct || 0)), 0);
+      if (tot && Math.abs(tot - 100) > 0.01) $('partnerRows').innerHTML += `<p class="text-[11px] text-amber-600 mt-2">সক্রিয় অংশীদারদের লাভের ভাগের যোগফল ${r2(tot)}%, ১০০% নয়।</p>`;
+    }
+    function drawHistory() {
+      const f = $('hFilter').value;
+      const rows = txns.filter(t => !f || (t.accounts || []).includes(f));
+      if (!rows.length) { $('hRows').innerHTML = '<p class="text-xs text-gray-400">কোনো লেনদেন নেই</p>'; return; }
+      $('hRows').innerHTML = rows.map(t => {
+        const [kn, kc] = TXN[t.kind] || [t.kind, ''];
+        const path = t.kind === 'capital' ? `${esc(t.partnerName)} → ${esc(t.toName)}` : t.kind === 'drawing' ? `${esc(t.fromName)} → ${esc(t.partnerName)}` : t.kind === 'opening' ? esc(t.toName) : `${esc(t.fromName)} → ${esc(t.toName)}`;
+        const rev = t.status === 'reversed';
+        return `<div class="border rounded-xl p-3 text-xs ${rev ? 'bg-gray-50 opacity-70' : ''}">
+          <div class="flex flex-wrap justify-between gap-2">
+            <div><p><b class="${kc}">${kn}</b> · ${path}${rev ? ' <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">বাতিল</span>' : ''}</p>
+              <p class="text-[11px] text-gray-500">তারিখ ${esc(t.date || '')} · ${esc(t.byName || '')} · লেখা হয়েছে ${new Date(t.createdAt).toLocaleString('en-GB')}</p>
+              ${t.trxRef || t.note ? `<p class="text-[11px]">${t.trxRef ? 'Trx: <b>' + esc(t.trxRef) + '</b> ' : ''}${t.note ? '📝 ' + esc(t.note) : ''}</p>` : ''}
+              ${rev ? `<p class="text-[11px] text-rose-600">বাতিলের কারণ: ${esc(t.reverseReason || '')} (${esc(t.reversedByName || '')})</p>` : ''}</div>
+            <div class="text-right"><p class="font-extrabold text-sm ${rev ? 'line-through' : ''}">${money(t.amount)}</p>${t.fee ? `<p class="text-[10px] text-rose-600">চার্জ ${money(t.fee)}</p>` : ''}
+              <div class="flex gap-3 justify-end mt-1">${t.hasProof ? `<button data-proof="${t.id}" class="text-blue-700 font-bold">🧾 স্লিপ</button>` : ''}${!rev && t.kind !== 'opening' ? `<button data-rev="${t.id}" class="text-rose-600 font-bold">বাতিল</button>` : ''}</div></div>
+          </div></div>`;
+      }).join('');
+    }
+    const redraw = () => { drawSummary(); drawAccounts(); drawPartners(); drawHistory(); };
+
+    // ---------- live data
+    function start() {
+      onSnapshot(collection(db, 'money_accounts'), (s) => { accs = {}; s.forEach(d => accs[d.id] = { id: d.id, ...d.data() }); redraw(); }, (e) => console.error('accounts', e));
+      onSnapshot(collection(db, 'partners'), (s) => { partners = {}; s.forEach(d => partners[d.id] = d.data()); redraw(); }, (e) => console.error('partners', e));
+      onSnapshot(collection(db, 'account_balances'), (s) => { balances = {}; s.forEach(d => balances[d.data().account] = Number(d.data().balance || 0)); redraw(); }, (e) => console.error('balances', e));
+      onSnapshot(query(collection(db, 'treasury_txns'), orderBy('createdAt', 'desc'), limit(200)), (s) => { txns = []; s.forEach(d => txns.push({ id: d.id, ...d.data() })); drawSummary(); drawHistory(); }, (e) => console.error('txns', e));
+    }
+
+    // ---------- account modal
+    function openAcc(id) {
+      editAcc = id || null;
+      const a = id ? accs[id] : {};
+      $('accMT').textContent = id ? 'অ্যাকাউন্ট সম্পাদনা' : 'নতুন অ্যাকাউন্ট';
+      $('amKind').value = a.kind || 'bank'; $('amKind').disabled = !!id;
+      $('amName').value = a.name || ''; $('amProv').value = a.provider || ''; $('amNo').value = a.accountNo || '';
+      $('amHolder').value = a.holder || ''; $('amBranch').value = a.branch || ''; $('amNote').value = a.note || ''; $('amOpen').value = '';
+      $('amOpenW').classList.toggle('hidden', !!id);
+      $('amCloseW').classList.toggle('hidden', !id);
+      $('amClose').textContent = a.active === false ? 'অ্যাকাউন্টটি আবার চালু করুন' : 'এই অ্যাকাউন্ট বন্ধ করুন';
+      $('accM').classList.remove('hidden');
+    }
+    const accFields = () => ({ name: $('amName').value.trim(), provider: $('amProv').value.trim(), accountNo: $('amNo').value.trim(), holder: $('amHolder').value.trim(), branch: $('amBranch').value.trim(), note: $('amNote').value.trim() });
+    $('amSave').onclick = async () => {
+      const f = accFields();
+      if (!f.name) return alert('নাম লিখুন।');
+      const data = editAcc ? { id: editAcc, ...f } : { ...f, kind: $('amKind').value, openingBalance: $('amOpen').value };
+      if (!editAcc && Number($('amOpen').value) > 0 && !confirm(`শুরুর ব্যালেন্স ${money($('amOpen').value)} হিসেবে লেখা হবে। ঠিক আছে?`)) return;
+      $('amSave').disabled = true;
+      try { await call('saveMoneyAccount', data); $('accM').classList.add('hidden'); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('amSave').disabled = false; }
+    };
+    $('amClose').onclick = async () => {
+      const a = accs[editAcc], act = a.active === false;
+      if (!confirm(act ? 'অ্যাকাউন্টটি আবার চালু করবেন?' : 'অ্যাকাউন্টটি বন্ধ করবেন? বন্ধ অ্যাকাউন্টে কোনো লেনদেন করা যাবে না।')) return;
+      try { await call('saveMoneyAccount', { id: editAcc, ...accFields(), active: act }); $('accM').classList.add('hidden'); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); }
+    };
+
+    // ---------- partner modal
+    function openPt(id) {
+      editPt = id || null; const p = id ? partners[id] : {};
+      $('ptMT').textContent = id ? 'অংশীদার সম্পাদনা' : 'নতুন অংশীদার';
+      $('ptName').value = p.name || ''; $('ptPhone').value = p.phone || ''; $('ptShare').value = p.sharePct ?? ''; $('ptNote').value = p.note || '';
+      $('ptActW').classList.toggle('hidden', !id); $('ptActive').checked = p.active !== false;
+      $('ptM').classList.remove('hidden');
+    }
+    $('ptSave').onclick = async () => {
+      const data = { name: $('ptName').value.trim(), phone: $('ptPhone').value.trim(), sharePct: $('ptShare').value, note: $('ptNote').value.trim() };
+      if (!data.name) return alert('নাম লিখুন।');
+      if (editPt) { data.id = editPt; data.active = $('ptActive').checked; }
+      $('ptSave').disabled = true;
+      try { await call('savePartner', data); $('ptM').classList.add('hidden'); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('ptSave').disabled = false; }
+    };
+
+    // ---------- new entry
+    let pendingId = newId();   // same id on a retry after a network error -> never posted twice
+    $('eiSave').onclick = async () => {
+      const amount = Number($('eiAmt').value), fee = Number($('eiFee').value || 0);
+      if (!(amount > 0)) return alert('পরিমাণ লিখুন।');
+      const data = { requestId: pendingId, kind, amount, date: $('eiDate').value || today(), trxRef: $('eiTrx').value.trim(), note: $('eiNote').value.trim() };
+      if (['deposit', 'transfer'].includes(kind) && fee > 0) data.fee = fee;
+      if (kind === 'transfer' || kind === 'drawing') data.fromId = $('eiFrom').value;
+      if (kind !== 'drawing') data.toId = $('eiTo').value;
+      if (['capital', 'drawing'].includes(kind)) { data.partnerId = $('eiPartner').value; if (!data.partnerId) return alert('অংশীদার বেছে নিন।'); }
+      if (kind !== 'drawing' && !data.toId) return alert('"কোথায়" অ্যাকাউন্ট বেছে নিন।');
+      if (kind === 'deposit' && !proof) return alert('জমার স্লিপ / স্ক্রিনশটের ছবি দিন।');
+      if (proof) { data.proof = proof.data; data.proofName = proof.name; }
+      const what = { deposit: `হাতের ক্যাশ থেকে "${accName(data.toId)}" এ জমা`, transfer: `"${accName(data.fromId)}" থেকে "${accName(data.toId)}" এ ট্রান্সফার`, capital: `${partners[data.partnerId]?.name || ''} এর মূলধন "${accName(data.toId)}" এ`, drawing: `${partners[data.partnerId]?.name || ''} "${accName(data.fromId)}" থেকে তুলছেন` }[kind];
+      if (!confirm(`${what}\nপরিমাণ ${money(amount)}${data.fee ? ` + চার্জ ${money(data.fee)}` : ''}\nতারিখ ${data.date}\n\nসংরক্ষণ করবেন?`)) return;
+      $('eiSave').disabled = true;
+      try {
+        await call('treasuryPost', data);
+        pendingId = newId(); proof = null;
+        ['eiAmt', 'eiFee', 'eiTrx', 'eiNote'].forEach(i => $(i).value = ''); $('eiProof').value = '';
+        $('pfPrev').classList.add('hidden'); $('pfLbl').textContent = '📎 ছবি বেছে নিন'; $('eiDate').value = today();
+        alert('সংরক্ষণ হয়েছে।');
+      } catch (e) {
+        const m = errText(e);
+        if (/আগেই হয়েছে/.test(m)) pendingId = newId();
+        alert('ব্যর্থ: ' + m);
+      } finally { $('eiSave').disabled = false; }
+    };
+    ['eiFrom', 'eiTo', 'eiPartner', 'eiAmt'].forEach(i => $(i).addEventListener('change', () => { pendingId = newId(); drawSelects(); }));
+
+    // ---------- clicks
+    document.addEventListener('click', async (e) => {
+      const t = e.target.closest('button'); if (!t) return;
+      if (t.dataset.close) return $(t.dataset.close).classList.add('hidden');
+      if (t.id === 'addAcc') return openAcc();
+      if (t.id === 'addPartner') return openPt();
+      if (t.classList.contains('kb')) { pendingId = newId(); return setKind(t.dataset.k); }
+      if (t.dataset.edit) return openAcc(t.dataset.edit);
+      if (t.dataset.pedit) return openPt(t.dataset.pedit);
+      if (t.hasAttribute('data-dep')) { setKind('deposit'); return $('kindBtns').scrollIntoView({ behavior: 'smooth' }); }
+      if (t.dataset.hist) { $('hFilter').value = t.dataset.hist; drawHistory(); return $('hRows').scrollIntoView({ behavior: 'smooth' }); }
+      if (t.dataset.proof) {
+        $('pfBody').innerHTML = '<p class="text-xs text-gray-400">লোড হচ্ছে…</p>'; $('pfM').classList.remove('hidden');
+        const s = await getDoc(doc(db, 'treasury_proofs', t.dataset.proof));
+        $('pfBody').innerHTML = s.exists() ? `<img src="${s.data().image}" class="w-full rounded-lg border"><p class="text-[11px] text-gray-500">${esc(s.data().fileName || '')}</p>` : '<p class="text-xs text-rose-600">প্রুফ পাওয়া যায়নি</p>';
+        return;
+      }
+      if (t.dataset.rev) {
+        const x = txns.find(y => y.id === t.dataset.rev); if (!x) return;
+        const reason = prompt(`${(TXN[x.kind] || [x.kind])[0]} ${money(x.amount)} বাতিল করবেন?\nএকটা উল্টো এন্ট্রি হবে। কারণ লিখুন:`);
+        if (!reason || !reason.trim()) return;
+        t.disabled = true;
+        try { await call('reverseTreasuryTxn', { id: x.id, reason: reason.trim() }); }
+        catch (err) { alert('ব্যর্থ: ' + errText(err)); t.disabled = false; }
+      }
+    });
+    $('hFilter').onchange = drawHistory;
+
+    $('eiDate').value = today(); $('eiDate').max = today();
+    setKind('deposit');
+    onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      const a = await getDoc(doc(db, 'admins', u.uid));
+      if (!a.exists() || (a.data().role || 'master') !== 'master') { document.querySelector('main').innerHTML = '<p class="text-center text-sm text-rose-600 py-10">এই পাতা শুধু মাস্টারের জন্য।</p>'; return; }
+      start();
+    });
+  </script>
+  <script type="module" src="admin-nav.js"></script>
+</body>
+</html>

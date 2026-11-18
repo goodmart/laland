@@ -108,6 +108,9 @@
     const money = (n) => '৳' + (Math.round(Number(n || 0) * 100) / 100).toLocaleString('en-IN');
     const call = (name, data) => httpsCallable(fns, name)(data);
     const CHANNELS = ['Cash', 'bKash', 'Nagad', 'Bank'];
+    // which company account pays (treasury.html). "pool" = master's cash in hand.
+    let moneyAccs = [];
+    const accSelect = (id, sel) => `<select id="${id}" title="কোন অ্যাকাউন্ট থেকে" class="px-2 py-1.5 border rounded-lg text-xs bg-white">${[{ id: 'pool', name: 'হাতের ক্যাশ', ledger: 'company:pool' }, ...moneyAccs].map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.name)} (${money(balances[a.ledger] || 0)})</option>`).join('')}</select>`;
     const chanSelect = (id) => `<select id="${id}" class="px-2 py-1.5 border rounded-lg text-xs bg-white">${CHANNELS.map(c => `<option>${c}</option>`).join('')}</select>`;
 
     let names = {}, balances = {};
@@ -161,6 +164,11 @@
 
     function startLive() {
       let pendRows = [];   // declared first: snapshot callbacks below may redraw before the requests arrive
+      onSnapshot(collection(db, 'money_accounts'), (snap) => {
+        moneyAccs = []; snap.forEach(d => { if (d.data().active !== false) moneyAccs.push({ id: d.id, ...d.data() }); });
+        moneyAccs.sort((a, b) => (a.createdAt || '') < (b.createdAt || '') ? -1 : 1);
+        drawPending();
+      }, (e) => console.error('money_accounts', e));
       onSnapshot(collection(db, 'account_balances'), (snap) => {
         balances = {};
         snap.forEach(d => balances[d.data().account] = Number(d.data().balance || 0));
@@ -178,7 +186,7 @@
         const rows = pendRows;
         $('sReq').textContent = money(rows.reduce((s, r) => s + Number(r.amount || 0), 0));
         // keep what the master already typed / picked when the list refreshes
-        const keep = {}; rows.forEach(r => { keep[r.id] = { tx: ($(`tx_${r.id}`) || {}).value, ch: ($(`ch_${r.id}`) || {}).value }; });
+        const keep = {}; rows.forEach(r => { keep[r.id] = { tx: ($(`tx_${r.id}`) || {}).value, ch: ($(`ch_${r.id}`) || {}).value, fa: ($(`fa_${r.id}`) || {}).value }; });
         $('reqRows').innerHTML = rows.map(r => {
           const uid = r.uid || r.riderId, bal = staffBal(r);
           const low = bal != null && Number(r.amount) > bal + 0.001;
@@ -193,7 +201,8 @@
                 <p class="text-[11px] ${low ? 'text-red-600 font-bold' : 'text-gray-500'}">বর্তমান তোলার যোগ্য ব্যালেন্স: ${bal == null ? '…' : money(bal)}${low ? ' — অনুরোধের চেয়ে কম!' : ''}</p></div>
               <span class="font-extrabold text-lg text-emerald-700">${money(r.amount)}</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              ${accSelect('fa_' + r.id, (keep[r.id] || {}).fa || 'pool')}
               ${chanSelect('ch_' + r.id)}
               <input id="tx_${r.id}" placeholder="Trx ID / নোট" class="px-2 py-1.5 border rounded-lg text-xs">
               <label class="px-2 py-1.5 border border-dashed rounded-lg text-xs cursor-pointer bg-gray-50 text-center">
@@ -224,7 +233,7 @@
             <div><b>${esc(r.staffName || r.riderName || names[r.uid || r.riderId] || '')}</b> <span class="text-[10px] text-gray-500">${ROLE_BN[r.staffRole || 'rider'] || ''}</span> · ${money(r.amount)}
               <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}">${r.status === 'paid' ? 'পরিশোধিত' : 'বাতিল'}</span>
               <p class="text-[11px] text-gray-500">${r.status === 'paid'
-                ? `${new Date(r.paidAt).toLocaleString('en-GB')} · ${esc(r.trxRef || '')} · ${esc(r.paidByName || '')}`
+                ? `${new Date(r.paidAt).toLocaleString('en-GB')} · ${esc(r.trxRef || '')} · ${esc(r.paidByName || '')}${r.paidFromName ? ' · থেকে: ' + esc(r.paidFromName) : ''}`
                 : `${new Date(r.rejectedAt).toLocaleString('en-GB')} · কারণ: ${esc(r.rejectReason || '')}`}</p></div>
             ${r.hasProof ? `<button data-proof="${r.id}" class="bg-gray-100 px-3 py-1.5 rounded-lg font-bold">🧾 প্রুফ</button>` : ''}
           </div>`).join('') || '<p class="text-xs text-gray-400">কিছু নেই</p>';
@@ -246,6 +255,7 @@
               <p class="text-[11px] text-gray-500">মাস্টার নিজের টাকা থেকে রাইডারকে দিয়েছেন</p></div>
             <div class="flex items-center gap-2">
               <span class="font-extrabold text-blue-700">${money(c.amount)}</span>
+              ${accSelect('cfa_' + c.id, 'pool')}
               <input id="ctx_${c.id}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
               <button data-claim="${c.id}" data-amt="${Number(c.amount)}" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">কোম্পানি থেকে পেয়েছি</button>
             </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো খোলা দাবি নেই</p>';
@@ -279,6 +289,7 @@
           <div class="flex items-center gap-2">
             <span class="font-extrabold text-emerald-700">${money(r.bal)}</span>
             <input id="sal_${r.uid}" type="number" min="1" step="0.01" value="${r.bal > 0 ? r.bal : ''}" class="px-2 py-1.5 border rounded-lg text-xs w-24">
+            ${accSelect('sfa_' + r.uid, 'pool')}
             <input id="stx_${r.uid}" placeholder="Trx ID" class="px-2 py-1.5 border rounded-lg text-xs w-28">
             <button data-sal="${r.uid}" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">ক্যাশ-আউট</button>
           </div></div>`).join('') || '<p class="text-xs text-gray-400">কোনো বেতন ব্যালেন্স নেই</p>';
@@ -380,13 +391,13 @@
     document.addEventListener('click', async (e) => {
       const pay = e.target.closest('button[data-pay]');
       if (pay) {
-        const id = pay.dataset.pay, trx = ($(`tx_${id}`).value || '').trim(), channel = $(`ch_${id}`).value;
+        const id = pay.dataset.pay, trx = ($(`tx_${id}`).value || '').trim(), channel = $(`ch_${id}`).value, fromAccount = $(`fa_${id}`).value;
         if (!trx) return alert('Trx ID বা নোট লিখুন।');
         if (!proofs[id]) return alert('পেমেন্ট প্রুফের ছবি (স্লিপ / স্ক্রিনশট) যোগ করুন।');
-        if (!confirm(`${money(pay.dataset.amt)} ${channel}-এ পরিশোধ হয়েছে বলে নিশ্চিত করবেন?`)) return;
+        if (!confirm(`${money(pay.dataset.amt)} ${channel}-এ পরিশোধ হয়েছে বলে নিশ্চিত করবেন?\nটাকা গেছে: ${$(`fa_${id}`).selectedOptions[0].text}`)) return;
         pay.disabled = true; pay.textContent = 'সেভ হচ্ছে…';
         try {
-          await call('payoutFromMaster', { staffId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel, proof: proofs[id].data, proofName: proofs[id].name });
+          await call('payoutFromMaster', { staffId: pay.dataset.rider, amount: Number(pay.dataset.amt), requestId: id, trxRef: `${channel}: ${trx}`, channel, fromAccount, proof: proofs[id].data, proofName: proofs[id].name });
           delete proofs[id]; alert('পরিশোধ হয়েছে, প্রুফ সেভ হয়েছে।');
         } catch (err) { alert('ব্যর্থ: ' + (err.message || err)); pay.disabled = false; pay.textContent = '✅ অনুমোদন ও পরিশোধ'; }
         return;
@@ -434,7 +445,7 @@
         if (!trx) return alert('Trx ID লিখুন।');
         if (!confirm(`কোম্পানি থেকে ${money(claim.dataset.amt)} পেয়েছেন নিশ্চিত করবেন?`)) return;
         claim.disabled = true;
-        try { await call('confirmMasterReimbursement', { claimId: id, amount: Number(claim.dataset.amt), trxRef: trx }); alert('নিশ্চিত হয়েছে।'); }
+        try { await call('confirmMasterReimbursement', { claimId: id, amount: Number(claim.dataset.amt), trxRef: trx, fromAccount: $(`cfa_${id}`).value }); alert('নিশ্চিত হয়েছে।'); }
         catch (err) { alert('ব্যর্থ: ' + (err.message || err)); claim.disabled = false; }
         return;
       }
@@ -445,7 +456,7 @@
         if (!trx) return alert('Trx ID লিখুন।');
         if (!confirm(`${names[uid] || uid} কে ${money(amount)} ক্যাশ-আউট করবেন?`)) return;
         sal.disabled = true;
-        try { await call('managerSalaryCashOut', { uid, amount, trxRef: trx }); alert('ক্যাশ-আউট হয়েছে।'); }
+        try { await call('managerSalaryCashOut', { uid, amount, trxRef: trx, fromAccount: $(`sfa_${uid}`).value }); alert('ক্যাশ-আউট হয়েছে।'); }
         catch (err) { alert('ব্যর্থ: ' + (err.message || err)); sal.disabled = false; }
       }
     });
