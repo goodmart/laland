@@ -77,9 +77,10 @@
     <section class="bg-white rounded-2xl border p-5 shadow-sm space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-bold text-sm text-gray-800">৪. লেনদেনের ইতিহাস</h2>
-        <select id="hFilter" class="px-2 py-1.5 border rounded-lg text-xs bg-white"></select>
+        <div class="flex gap-2"><button id="hSync" class="bg-gray-100 px-3 py-1.5 rounded-lg text-xs font-bold" title="আগের পেমেন্ট, ক্যাশ জমা ইত্যাদি ইতিহাসে যোগ করে">পুরনো লেনদেন যোগ করুন</button>
+        <select id="hFilter" class="px-2 py-1.5 border rounded-lg text-xs bg-white"></select></div>
       </div>
-      <p class="text-[11px] text-gray-500">কোনো এন্ট্রি মোছা যায় না। ভুল হলে "বাতিল" চাপুন: কারণসহ একটা উল্টো এন্ট্রি হবে আর দুটোই ইতিহাসে থাকবে।</p>
+      <p class="text-[11px] text-gray-500">কোনো এন্ট্রি মোছা যায় না। ভুল হলে "বাতিল" চাপুন: কারণসহ একটা উল্টো এন্ট্রি হবে আর দুটোই ইতিহাসে থাকবে। Finance পেজের পেমেন্ট আর ম্যানেজারের ক্যাশ জমাও এখানে দেখায় (বেগুনি লেখা); সেগুলো তাদের নিজের পেজ থেকেই সামলাতে হয়।</p>
       <div id="hRows" class="space-y-2"><p class="text-xs text-gray-400">লোড হচ্ছে…</p></div>
     </section>
   </main>
@@ -153,6 +154,11 @@
     const TXN = {
       deposit: ['ব্যাংকে জমা', 'text-blue-700'], transfer: ['ট্রান্সফার', 'text-gray-700'], capital: ['মূলধন জমা', 'text-emerald-700'],
       drawing: ['মালিকের উত্তোলন', 'text-rose-700'], opening: ['শুরুর ব্যালেন্স', 'text-gray-500']
+    };
+    // rows the system writes for money moved by other pages (ledger mirror)
+    const SYS = {
+      rider_payout_master: 'রাইডার ক্যাশ আউট', manager_salary_cashout: 'ম্যানেজারের বেতন ক্যাশ আউট', master_reimbursement: 'মাস্টারের দাবি পরিশোধ',
+      cash_handover: 'ম্যানেজারের ক্যাশ জমা (মাস্টারকে)', menu_refund_cash: 'কাস্টমারকে রিফান্ড', menu_refund_cash_reversed: 'রিফান্ড ফেরত', wallet_transfer: 'ওয়ালেট ট্রান্সফার'
     };
     const HELP = {
       deposit: 'ম্যানেজারদের কাছ থেকে নেওয়া ক্যাশ ব্যাংক / bKash / গেটওয়ে অ্যাকাউন্টে জমা। জমার স্লিপের ছবি বাধ্যতামূলক।',
@@ -272,17 +278,22 @@
       const rows = txns.filter(t => !f || (t.accounts || []).includes(f));
       if (!rows.length) { $('hRows').innerHTML = '<p class="text-xs text-gray-400">কোনো লেনদেন নেই</p>'; return; }
       $('hRows').innerHTML = rows.map(t => {
-        const [kn, kc] = TXN[t.kind] || [t.kind, ''];
-        const path = t.kind === 'capital' ? `${esc(t.partnerName)} → ${esc(t.toName)}` : t.kind === 'drawing' ? `${esc(t.fromName)} → ${esc(t.partnerName)}` : t.kind === 'opening' ? esc(t.toName) : `${esc(t.fromName)} → ${esc(t.toName)}`;
+        const sys = t.kind === 'system';
+        const [kn, kc] = sys ? [SYS[t.type] || t.type, 'text-violet-700'] : (TXN[t.kind] || [t.kind, '']);
+        const fN = t.fromName || (t.fromId ? accName(t.fromId) : ''), tN = t.toName || (t.toId ? accName(t.toId) : '');
+        const path = sys ? [t.fromId ? esc(fN) + ' থেকে' : '', t.toId ? esc(tN) + ' এ' : '', t.staffName ? '· ' + esc(t.staffName) : ''].filter(Boolean).join(' ')
+          : t.kind === 'capital' ? `${esc(t.partnerName)} → ${esc(t.toName)}` : t.kind === 'drawing' ? `${esc(t.fromName)} → ${esc(t.partnerName)}` : t.kind === 'opening' ? esc(t.toName) : `${esc(t.fromName)} → ${esc(t.toName)}`;
         const rev = t.status === 'reversed';
+        // money out of the filtered account shows as minus
+        const sign = f ? (t.fromId === f && t.toId !== f ? '−' : t.toId === f && t.fromId !== f ? '+' : '') : '';
         return `<div class="border rounded-xl p-3 text-xs ${rev ? 'bg-gray-50 opacity-70' : ''}">
           <div class="flex flex-wrap justify-between gap-2">
             <div><p><b class="${kc}">${kn}</b> · ${path}${rev ? ' <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">বাতিল</span>' : ''}</p>
-              <p class="text-[11px] text-gray-500">তারিখ ${esc(t.date || '')} · ${esc(t.byName || '')} · লেখা হয়েছে ${new Date(t.createdAt).toLocaleString('en-GB')}</p>
+              <p class="text-[11px] text-gray-500">তারিখ ${esc(t.date || '')}${t.byName ? ' · ' + esc(t.byName) : ''}${sys ? ' · অন্য পেজ থেকে' : ''} · লেখা হয়েছে ${new Date(t.createdAt).toLocaleString('en-GB')}</p>
               ${t.trxRef || t.note ? `<p class="text-[11px]">${t.trxRef ? 'Trx: <b>' + esc(t.trxRef) + '</b> ' : ''}${t.note ? '📝 ' + esc(t.note) : ''}</p>` : ''}
               ${rev ? `<p class="text-[11px] text-rose-600">বাতিলের কারণ: ${esc(t.reverseReason || '')} (${esc(t.reversedByName || '')})</p>` : ''}</div>
-            <div class="text-right"><p class="font-extrabold text-sm ${rev ? 'line-through' : ''}">${money(t.amount)}</p>${t.fee ? `<p class="text-[10px] text-rose-600">চার্জ ${money(t.fee)}</p>` : ''}
-              <div class="flex gap-3 justify-end mt-1">${t.hasProof ? `<button data-proof="${t.id}" class="text-blue-700 font-bold">🧾 স্লিপ</button>` : ''}${!rev && t.kind !== 'opening' ? `<button data-rev="${t.id}" class="text-rose-600 font-bold">বাতিল</button>` : ''}</div></div>
+            <div class="text-right"><p class="font-extrabold text-sm ${rev ? 'line-through' : ''} ${sign === '−' ? 'text-rose-600' : sign === '+' ? 'text-emerald-700' : ''}">${sign}${money(t.amount)}</p>${t.fee ? `<p class="text-[10px] text-rose-600">চার্জ ${money(t.fee)}</p>` : ''}
+              <div class="flex gap-3 justify-end mt-1">${t.hasProof ? `<button data-proof="${t.id}" class="text-blue-700 font-bold">🧾 স্লিপ</button>` : ''}${!rev && !sys && t.kind !== 'opening' ? `<button data-rev="${t.id}" class="text-rose-600 font-bold">বাতিল</button>` : ''}</div></div>
           </div></div>`;
       }).join('');
     }
@@ -400,6 +411,12 @@
       }
     });
     $('hFilter').onchange = drawHistory;
+    $('hSync').onclick = async () => {
+      if (!confirm('আগের রাইডার/ম্যানেজার পেমেন্ট, ক্যাশ জমা আর রিফান্ড ইতিহাসে যোগ করবেন? (একবার চালালেই হয়, আবার চালালে কিছু দুবার যোগ হয় না)')) return;
+      $('hSync').disabled = true;
+      try { const r = await call('syncTreasuryHistory', {}); alert(`${r.added}টা পুরনো লেনদেন ইতিহাসে যোগ হয়েছে।`); }
+      catch (e) { alert('ব্যর্থ: ' + errText(e)); } finally { $('hSync').disabled = false; }
+    };
 
     $('eiDate').value = today(); $('eiDate').max = today();
     setKind('deposit');
